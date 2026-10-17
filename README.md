@@ -46,4 +46,6 @@ cd client && npm install && npm run dev
 cd agent && GEMINI_API_KEY=... TYPESAFE_API_KEY=... uv run python scripts/simulate.py
 ```
 
-Tests: `uv run pytest` in `agent/` and `server/`.
+Tests: `uv run pytest` in `agent/` and `server/`. DB integration tests (`server/tests/integration/`) are skipped
+unless `DATABASE_URL_TEST` points at a throwaway Postgres loaded with `db/schema.sql`; they delete only the
+universes they create.

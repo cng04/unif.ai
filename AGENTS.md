@@ -108,3 +108,9 @@ reverse) explains a block. Availability slots are stored in `agent_profiles.avai
 - The schema needs only the `vector` and `pgcrypto` extensions. No TimescaleDB-specific features are used.
 - `client/` runs a new Next.js version. Read `client/AGENTS.md` before writing frontend code.
 - Browser Use scraping is optional (`uv sync --extra scrape` in `server/`).
+- Failure handling in the pipeline: `extract_keywords` returns `[]` on error (the run then resets the universe to
+  `onboarding`), `score_person` falls back to all-0.5 scores, and `review_groups` keeps a group with a neutral
+  verdict if the group judge errors. `POST /universes/{id}/matching` claims the universe atomically
+  (`repo.claim_matching`) and returns 409 if a run is already in progress.
+- Photon is a stub: it only logs, even when `PHOTON_API_KEY` is set.
+- `GET /pairs/{id}/messages` returns only `kind = 'message'` rows; agents' private `note` rows are never exposed.

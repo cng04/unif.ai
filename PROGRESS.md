@@ -1,6 +1,6 @@
 # unif.ai: progress and TODOs
 
-Last updated: 2026-10-17 (as of commit `63b21e2`). Keep this file current: when you pick up a task, put
+Last updated: 2026-10-17 (as of commit `b856488`). Keep this file current: when you pick up a task, put
 your name in **Owner**. When you finish it, check it off and add a line under [Changelog](#changelog).
 
 See `README.md` for setup and `AGENTS.md` for architecture and conventions.
@@ -15,7 +15,7 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
 | Area                       | Status          | Notes                                                                           |
 | -------------------------- | --------------- | ------------------------------------------------------------------------------- |
 | DB schema + local Docker   | Done            | Seed has only **1 user**, which is too few to test matching (needs 4 or more).  |
-| Server skeleton + routers  | Done            | No auth on any route. `server/.env.example` is referenced but missing.          |
+| Server skeleton + routers  | Done            | No auth on any route. `server/.env.example` added.               |
 | Onboarding API             | Done, untested  | Join, self-report, interview chat, profile build.                               |
 | Scraping (Browser Use)     | Done, optional  | Behind the `scrape` extra. Never run end to end.                                |
 | Interviewer agent          | Done, untested  | No tests.                                                                       |
@@ -25,12 +25,12 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
 | Grouping (CP-SAT)          | Done            | Rewritten in `2cd6a5f` (OR-Tools). 4 unit tests. `review_groups` is untested. Far from optimal at 100+ people (see `AGENTS.md`). |
 | 3D projection + graph API  | Done            | 1 shape test.                                                                   |
 | Ticketmaster events        | Done            | Doesn't filter by city.                                                         |
-| Photon notifications       | **Stub**        | Raises `NotImplementedError` when an API key is set.                            |
+| Photon notifications       | **Stub**        | Logs only, even when a key is set (#9).                                        |
 | Client (Next.js)           | **Skeleton**    | Default create-next-app scaffold (`ff06aff`). No pages or API calls yet.        |
 | Auth                       | **Not started** | Every endpoint is public, including private profiles and agent notes.           |
 | CI / lint                  | **Not started** | No CI workflow, linter, or formatter config.                                    |
 
-**Test status (2026-10-17):** `uv run pytest` passes in `agent/` (4 tests) and `server/` (11 tests).
+**Test status (2026-10-17):** `uv run pytest` passes in `agent/` (6 tests) and `server/` (15 tests). DB integration tests are skipped unless `DATABASE_URL_TEST` is set.
 
 ---
 
@@ -205,3 +205,8 @@ Add a line here for each change merged to `main`.
 - 2026-10-17: Reranked the TODOs for the hackathon MVP; added #43-48.
 - 2026-10-17: Client skeleton added (`ff06aff`).
 - 2026-10-17: Wrote this file after reviewing the code at `68cb046`.
+- 2026-10-17: Hardening (`temp_store` merged into `main`): config bounds checks and a group-size check,
+  stage logging in the pipeline, `review_groups` falls back to an unreviewed neutral verdict on judge errors
+  (#10), Photon logs instead of raising (#9), matching start is an atomic claim so a double click gets a 409
+  (#21), pair messages no longer expose private agent notes (#2, partly). Test setup fixed: tests no longer
+  wipe tables, and DB tests are skipped without `DATABASE_URL_TEST`. Added `server/.env.example`.
