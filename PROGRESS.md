@@ -44,8 +44,8 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
   users paste in.
 - **`prompts.py`**: the self-report prompt users run in their own AI, the persona system prompt,
   the pair and group judge prompts, the interviewer prompt, and the profile-builder prompt.
-- **`tools.py`**: the persona agent's tools: `send_message`, `take_note`, `end_conversation`,
-  `check_availability`, `lookup_profile`, `ask_my_human` (stub).
+- **`tools.py`**: the persona agent's tools: `send_message` (with an optional private `note` for the
+  judge), `end_conversation`, `check_availability`, `lookup_profile`, `ask_my_human` (stub).
 - **`persona.py`**: `PersonaAgent.respond()` loops over tool calls, up to `max_steps` (4), until the
   agent sends a message or ends the conversation.
 - **`conversation.py`**: `run_conversation(a, b, max_turns=12)` alternates speakers and returns a

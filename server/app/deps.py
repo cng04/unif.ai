@@ -9,7 +9,7 @@ from app.config import get_settings
 def get_llm() -> LLM:
     settings = get_settings()
     if settings.openrouter_api_key:
-        return OpenRouterLLM(settings.openrouter_model, settings.openrouter_api_key)
+        return OpenRouterLLM(settings.openrouter_model, settings.openrouter_api_key, rpm=settings.openrouter_rpm)
     return GeminiLLM(model=settings.gemini_model, api_key=settings.gemini_api_key or None)
 
 
@@ -17,7 +17,7 @@ def get_llm() -> LLM:
 def get_chat_llm() -> LLM:
     settings = get_settings()
     if settings.openrouter_api_key:
-        return OpenRouterLLM(settings.openrouter_chat_model, settings.openrouter_api_key)
+        return OpenRouterLLM(settings.openrouter_chat_model, settings.openrouter_api_key, rpm=settings.openrouter_rpm)
     return get_llm()
 
 
@@ -25,7 +25,12 @@ def get_chat_llm() -> LLM:
 def get_jev() -> Jev:
     settings = get_settings()
     if settings.openrouter_api_key:
-        return OpenRouterJev(settings.openrouter_api_key, settings.openrouter_model)
+        return OpenRouterJev(
+            settings.openrouter_api_key,
+            settings.openrouter_model,
+            rpm=settings.openrouter_rpm,
+            reasoning_effort=settings.openrouter_jev_reasoning,
+        )
     return jev_client(settings.typesafe_api_key, settings.jev_model)
 
 

@@ -46,8 +46,8 @@ class PersonaAgent:
                 match call.name:
                     case "send_message":
                         message = call.args.get("text", "")
-                    case "take_note":
-                        self.notes.append(call.args.get("observation", ""))
+                        if note := call.args.get("note"):
+                            self.notes.append(note)
                     case "end_conversation":
                         return TurnResult(message, ended=True, end_reason=call.args.get("reason"))
                     case "check_availability":

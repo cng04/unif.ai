@@ -52,8 +52,9 @@ evaluate, and only hint at them if asked.
 
 Anti-agreeableness: it's fine and useful to discover you're not a match. Don't fake enthusiasm.
 
-You can only speak by calling send_message. Use take_note for private observations about \
-compatibility. Call end_conversation when you have enough signal.
+You can only speak by calling send_message. Keep each message to 1-3 sentences, like texting. \
+Put private observations about compatibility in its note field. Call end_conversation when you have \
+enough signal.
 
 PUBLIC:
 {profile.public.model_dump_json(indent=2)}

@@ -5,7 +5,7 @@ from typing import Any, Protocol
 
 from pydantic import BaseModel
 
-from unifai_agent.openrouter import make_client, post_chat
+from unifai_agent.openrouter import limiter_for, make_client, post_chat
 
 Message = dict[str, str]
 
@@ -114,14 +114,16 @@ class OpenRouterLLM:
         model: str = "google/gemini-3.8-flash",
         api_key: str | None = None,
         max_tokens: int = 4096,
-        attempts: int = 6,
+        attempts: int = 8,
         timeout: float = 180.0,
+        rpm: int = 0,
     ):
         self.client = make_client(api_key, timeout)
         self.model = model
         # OpenRouter reserves credit for max_tokens on every in-flight request, so keep it bounded.
         self.max_tokens = max_tokens
         self.attempts = attempts
+        self.limiter = limiter_for(model, rpm)
 
     def generate(
         self,
@@ -157,7 +159,7 @@ class OpenRouterLLM:
                 "json_schema": {"name": response_model.__name__, "schema": response_model.model_json_schema()},
             }
 
-        message = post_chat(self.client, body, self.attempts)["choices"][0]["message"]
+        message = post_chat(self.client, body, self.attempts, self.limiter)["choices"][0]["message"]
         calls = [
             ToolCall(c["function"]["name"], json.loads(c["function"].get("arguments") or "{}"))
             for c in message.get("tool_calls") or []

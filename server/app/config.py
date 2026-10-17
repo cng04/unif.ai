@@ -14,8 +14,11 @@ class Settings(BaseSettings):
     jev_model: str = "jev-latest"
     openrouter_api_key: str = ""  # when set, OpenRouter replaces both Gemini and TypeSafe's Jev
     openrouter_model: str = "google/gemini-3.8-flash"
-    # Persona chats only, the bulk of the tokens. Flash-Lite cuts about half the chats short by looping on take_note.
+    # Persona chats only, the bulk of the tokens. OpenRouter rate limits are per model, so a different model here
+    # also gets its own requests-per-minute budget.
     openrouter_chat_model: str = "google/gemini-3.8-flash"
+    openrouter_rpm: int = 0  # per-model requests per minute; 0 = unlimited (new OpenRouter accounts get 20)
+    openrouter_jev_reasoning: str = "low"  # reasoning effort for the Jev stand-in (scoring and pair judge)
     ticketmaster_api_key: str = ""
     # Links are always stored; they're only scraped when this is on (costs Browser Use credit).
     scrape_enabled: bool = False

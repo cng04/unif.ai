@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from unifai_agent.openrouter import make_client, post_chat
+from unifai_agent.openrouter import limiter_for, make_client, post_chat
 from unifai_agent.prompts import TYPED_QUESTIONS_SYSTEM_PROMPT
 
 YES = 0.5  # a Noul above this is "more likely true than not"
@@ -113,11 +113,19 @@ def _parse(raw: Mapping[str, Any], questions: Mapping[str, Any]) -> Answers:
 
 class OpenRouterJev:
     def __init__(
-        self, api_key: str | None = None, model: str = "google/gemini-3.8-flash", attempts: int = 6, timeout=180.0
+        self,
+        api_key: str | None = None,
+        model: str = "google/gemini-3.8-flash",
+        attempts: int = 8,
+        timeout=180.0,
+        rpm: int = 0,
+        reasoning_effort: str = "low",
     ):
         self.client = make_client(api_key, timeout)
         self.model = model
         self.attempts = attempts
+        self.limiter = limiter_for(model, rpm)
+        self.reasoning_effort = reasoning_effort
 
     def system_one(self, state: Any, questions: Mapping[str, Any]) -> Answers:
         body = {
@@ -125,7 +133,7 @@ class OpenRouterJev:
             "temperature": 0,
             # Without a cap OpenRouter reserves credit for the model's full output window.
             "max_tokens": 1024 + 50 * len(questions),
-            "reasoning": {"effort": "low", "exclude": True},
+            "reasoning": {"effort": self.reasoning_effort, "exclude": True},
             "messages": [
                 {"role": "system", "content": TYPED_QUESTIONS_SYSTEM_PROMPT},
                 {"role": "user", "content": _render(state, questions)},
@@ -135,5 +143,5 @@ class OpenRouterJev:
                 "json_schema": {"name": "answers", "strict": True, "schema": _schema(questions)},
             },
         }
-        data = post_chat(self.client, body, self.attempts)
+        data = post_chat(self.client, body, self.attempts, self.limiter)
         return _parse(json.loads(data["choices"][0]["message"]["content"]), questions)
