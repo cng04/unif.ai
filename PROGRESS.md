@@ -5,8 +5,8 @@ your name in **Owner**. When you finish it, check it off and add a line under [C
 
 See `README.md` for setup and `AGENTS.md` for architecture and conventions.
 
-**Priorities:** **P0** blocks a demo or launch, or is a privacy issue. **P1** is needed for a reliable
-run with real users. **P2** is polish or nice-to-have.
+**Priorities (hackathon MVP):** **Must** means the demo breaks without it. **Should** means the demo is
+noticeably better or safer. **After the hackathon** means it's cut for now. See [TODOs](#todos).
 
 ---
 
@@ -87,77 +87,78 @@ please record the result here.
 
 ## TODOs
 
-### P0: privacy and security
+These are ranked for a **hackathon MVP due in about 24 hours**. The test is simple: does the demo run
+end to end, live, without embarrassing failures? Task numbers are permanent IDs (that's why they aren't
+in order), so feel free to reference them in chat and PRs. New tasks start at #43.
+
+### Timeline
+
+| Hours  | Goal |
+| ------ | ---- |
+| 0-3    | **Unblock everyone:** env example, fixture data, fake model, deploy a hello-world. Agree on the demo script. |
+| 3-16   | **Build:** client pages, pipeline fixes, one real Gemini run. |
+| 16-20  | **Integrate and rehearse:** full demo on the deployed app at least twice, fixing what breaks. |
+| 20-24  | **Feature freeze.** Only bug fixes, the demo fallback, slides, and a recording. |
+
+### Must: the demo breaks without these
 
 | #  | Task | Where | Owner |
 | -- | ---- | ----- | ----- |
-| 1  | [ ] **Add auth.** Every route is public right now. Minimum: an admin token per universe (for starting matching and viewing pairs, transcripts, and groups) and a per-user token issued on join (for that user's onboarding and profile routes). | `server/app/routers/*`, `deps.py` | |
-| 2  | [ ] **Stop exposing agent notes and private profiles.** `GET /pairs/{id}/messages` returns `note` rows, which are built from PRIVATE profiles. `GET /users/{id}/profile` returns the full `private` section to anyone. Filter out notes, or make them admin-only, and only return `private` to its owner. | `routers/matching.py` (`get_pair_messages`), `routers/onboarding.py` (`get_profile`) | |
-| 3  | [ ] **Enforce the private-data rule in conversations.** Agents keep private data private only because the prompt asks them to. Add a check on outgoing `send_message` text (for example, fuzzy-match it against PRIVATE fields and ask the agent to rephrase or drop the message), plus a test with a scripted fake model that tries to leak. | `agent/persona.py`, `agent/tests/` | |
-| 4  | [ ] **Reduce prompt injection from profile text.** Self-report and scraped text goes straight into the other agent's prompt and the judge's prompt. Wrap profiles in clear delimiters and tell the model to treat them as data. | `agent/prompts.py`, `judge.py`, `interviewer.py` | |
-| 5  | [ ] Confirm `.env` and other secrets are never committed (`.env` is already in `.gitignore`). Add `server/.env.example` listing `DATABASE_URL`, `GEMINI_API_KEY`, `TICKETMASTER_API_KEY`, `PHOTON_API_KEY`, `CLIENT_URL`. | `server/` | |
+| 5  | [ ] Add `server/.env.example` (`DATABASE_URL`, `GEMINI_API_KEY`, `TICKETMASTER_API_KEY`, `PHOTON_API_KEY`, `CLIENT_URL`). Share the real keys in the team chat, never in the repo. | `server/` | |
+| 7  | [ ] **Seed about 20 varied profiles** (some clear mismatches and dealbreaker conflicts) so matching makes 3-4 groups. | `db/seed.sql` | |
+| 43 | [ ] **Fixture data for a finished matching run:** precomputed features, scores, pairs + transcripts, groups, events for the seed universe. Frontend can build every page without running the pipeline, and it's the **demo fallback** if Gemini fails live. | `db/seed.sql` or `db/fixture_matched.sql` | |
+| 6  | [ ] **Build the client.** In demo order: create universe + invite QR, `/join/[code]` onboarding (name, paste self-report, interviewer chat), admin "start matching" + status, groups + events, then the 3D playground and pair transcripts. Read `client/AGENTS.md` first. | `client/` | |
+| 8  | [ ] **Run the full pipeline on real Gemini** with the seed data. Record how long it takes, which pairs failed, and group sizes. If it takes longer than about 2 minutes, lower `max_conversation_turns` or `candidate_neighbors` for the demo. | — | |
+| 9  | [ ] **Photon:** make `send_message` log and return instead of raising `NotImplementedError` (or implement it, if iMessage is part of the demo). Right now, setting the key fails the whole run after groups are saved. | `server/app/services/photon.py` | |
+| 10 | [ ] Wrap each `evaluate_group` call in error handling. One bad judge response currently fails the whole run. | `server/app/matching/groups.py` (`review_groups`) | |
+| 19 | [ ] **Clear the old results before re-running matching** (`groups`, `group_members`, `events`, `pairs` for the universe). You'll re-run many times while rehearsing, and the duplicates break the groups page and the graph. | `pipeline.py` | |
+| 21 | [ ] Set the status to `matching` inside the start request (`UPDATE ... WHERE status <> 'matching' RETURNING`) so a double click doesn't start two runs. Allow re-running a `matched` universe. | `routers/matching.py` | |
+| 27 | [ ] Add a retry with backoff to Gemini calls. 8 conversations at once will hit rate limits. | `agent/llm.py` | |
+| 11 | [ ] Prepend `CONVERSATION_KICKOFF` to the opening agent's history so it never starts with an `assistant` message. Check in #8 whether Gemini actually complains; skip this if it doesn't. | `agent/persona.py` | |
+| 44 | [ ] **Deploy early** (server, client, shared DB) and redeploy as features land, so "works on my machine" problems show up early. | — | |
+| 45 | [ ] **`DEMO.md`:** exact click path, which universe and invite code, time per step, who presents, and what to do if a live call fails (switch to the #43 fixture). | repo root | |
 
-### P0: needed for a working demo
-
-| #  | Task | Where | Owner |
-| -- | ---- | ----- | ----- |
-| 6  | [ ] **Build the client.** Pages: admin creates a universe and gets an invite link + QR, `/join/[code]` onboarding (name/socials, paste self-report, interviewer chat, review profile), admin dashboard (start matching, status), 3D playground (`/graph`), pair transcripts, groups + events. Read `client/AGENTS.md` first. | `client/` | |
-| 7  | [ ] **Seed data for matching.** Seed has 1 user. Add about 16-24 varied profiles (including clear mismatches and dealbreaker conflicts) so the pipeline makes several groups. | `db/seed.sql` | |
-| 8  | [ ] **Run the full pipeline once against real Gemini** on the seed data and write down the results: duration, pairs that failed, group sizes, whether the judge's scores look sensible. | — | |
-| 9  | [ ] **Photon.** Either implement `send_message`, or make it log and return instead of raising. Right now, setting `PHOTON_API_KEY` makes notification raise an error after groups are saved, which fails the whole run. | `server/app/services/photon.py` | |
-| 10 | [ ] **One failed group-judge call fails the whole run.** Wrap each `evaluate_group` call in `review_groups` with error handling. On failure, keep the group with no review (or a default verdict) and log it. | `server/app/matching/groups.py` (`review_groups`) | |
-
-### P1: conversation and judge correctness
+### Should: the demo is noticeably better or safer
 
 | #  | Task | Where | Owner |
 | -- | ---- | ----- | ----- |
-| 11 | [ ] The opening agent's history starts with an `assistant` message after its first turn, because the kickoff prompt is only added when history is empty. Gemini may reject this or lose context. Prepend `CONVERSATION_KICKOFF` to that agent's real history. | `agent/persona.py` (`respond`) | |
-| 12 | [ ] If one response contains `end_conversation` before `send_message`, the message is dropped. Collect the message first, then handle the end. | `agent/persona.py` | |
-| 13 | [ ] `Verdict` / `GroupVerdict` parsing: `resp.text or "{}"` gives a confusing validation error when the response is empty. Retry once, then raise a clear error. The same pattern appears in `features.py`, `scoring.py`, and `interviewer.py`. | `agent/judge.py` and others | |
-| 14 | [ ] If two users have the same name, their private notes collide in the judge prompt (keyed by name), and the transcript is ambiguous. Key by user_id, or add a suffix to repeated names. | `agent/judge.py` (`evaluate`) | |
-| 15 | [ ] **A removed group member is left with no group.** When the group judge removes someone, that person is dropped. Put them in the best group with room (as `_absorb_small` does), or report them to the admin as unmatched. | `server/app/matching/groups.py` | |
-| 16 | [ ] If a group still has `works=False` after removing one member, it's kept silently. Decide what to do: flag it to the admin, try removing another member, or merge it. | `groups.py` | |
-| 17 | [ ] Any dealbreaker the judge lists sets the edge weight to 0. Check during the real run (#8) whether the judge lists too many, and add calibration to the prompt if so. | `agent/judge.py`, `prompts.py` | |
-| 18 | [ ] `ask_my_human` is a stub that always says the human isn't available. Either implement it (queue a question for the user) or remove it so agents don't waste steps on it. | `agent/tools.py`, `persona.py` | |
+| 25 | [ ] Score profiles in parallel instead of one after another. This directly cuts live-demo wait time. | `scoring.py`, `pipeline.py` | |
+| 29 | [ ] Matching progress (pairs done out of total) plus a progress bar, so the live wait looks intentional. | pipeline, new endpoint, client | |
+| 2  | [ ] Drop `note` rows from `GET /pairs/{id}/messages` and strip `private` from `GET /users/{id}/profile`. Five minutes of work, and judges may ask about privacy. | `routers/matching.py`, `routers/onboarding.py` | |
+| 15 | [ ] A member the group judge removes is left with no group. Put them in the best group with room. | `groups.py` | |
+| 22 | [ ] Skip users with no built profile (half-finished onboarding during a live demo) and show the admin who isn't ready. | `repo.load_profiles`, pipeline | |
+| 13 | [ ] Retry once when the model returns empty or invalid JSON (judge, features, scoring, interviewer). | `agent/judge.py` and others | |
+| 24 | [ ] Match feature scores by index rather than name, so a slightly renamed feature doesn't silently score 0.5. | `scoring.py` | |
+| 46 | [ ] Fake model mode (`FAKE_LLM=1`) that returns canned answers, so teammates can run the whole flow without a key or spending quota. It also works as a smoke test. | `agent/llm.py`, `server/app/deps.py` | |
+| 47 | [ ] `Makefile`: `db`, `db-reset`, `server`, `client`, `simulate`, `test`. | repo root | |
+| 48 | [ ] Generate TypeScript types from the API (`openapi-typescript http://localhost:8000/openapi.json`) so backend changes break the client build instead of breaking at demo time. | `client/` | |
+| 12 | [ ] Don't drop the message when `end_conversation` comes before `send_message` in the same response. | `agent/persona.py` | |
+| 28 | [ ] Ticketmaster: pass the group's most common city so events are local. | `ticketmaster.py`, `pipeline.py` | |
+| 17 | [ ] After #8, check whether the judge lists too many dealbreakers (which zeroes out edges). Tune the prompt if so. | `prompts.py` | |
 
-### P1: pipeline and server reliability
+### After the hackathon: cut for now
 
-| #  | Task | Where | Owner |
-| -- | ---- | ----- | ----- |
-| 19 | [ ] **Re-running matching duplicates data.** `groups`, `group_members`, and `events` are never cleared, and old `pairs` remain. Clear them at the start of a run, or version runs with a `matching_runs` table. The `/graph` query also returns a user twice if they're in two groups. | `pipeline.py`, `routers/matching.py` (`get_graph`) | |
-| 20 | [ ] **A failed run leaves partial results.** Features, pairs, and groups are committed as the run goes, then status resets to `onboarding`. Clean up on failure, or keep the partial data and add a `failed` status with an error message. | `pipeline.py`, `db/schema.sql` | |
-| 21 | [ ] **Race on start.** `start_matching` checks `status != 'matching'`, but the status is only set later, inside the background task, so two quick clicks start two runs. Set the status right away with `UPDATE ... WHERE status <> 'matching' RETURNING`. Also decide whether a `matched` universe can be re-run. | `routers/matching.py` | |
-| 22 | [ ] Users who never built a profile (only a name) are still matched. Skip them, or require `POST /profile` before matching, and show the admin who isn't ready. | `repo.load_profiles`, pipeline | |
-| 23 | [ ] Block new joins while a universe is `matching` or `matched`. | `routers/onboarding.py` (`join_universe`) | |
-| 24 | [ ] Feature scores are matched to features by name. If the LLM changes a name slightly, that score silently becomes 0.5. Match by index, or constrain the names with an enum in the schema. | `matching/scoring.py` | |
-| 25 | [ ] `score_profiles` runs one LLM call per user, one after another. Run them in parallel with the same semaphore. | `scoring.py`, `pipeline.py` | |
-| 26 | [ ] The pipeline holds one DB connection for the whole run, which can be minutes. That's fine for now, but it should get short-lived connections per write if the pool is small. | `pipeline.py` | |
-| 27 | [ ] Add a per-call timeout and retry/backoff to the Gemini calls (rate limits will show up with about 8 conversations at once). | `agent/llm.py` | |
-| 28 | [ ] Ticketmaster: pass a city (from the most common `logistics.area` among the group) and handle errors other than 200 by logging them. | `services/ticketmaster.py`, `pipeline.py` | |
-| 29 | [ ] Report matching progress (for example, pairs done out of total) so the client can show a progress bar. | pipeline, new endpoint | |
+Not worth the time in 24 hours. Keep these for if the project continues. In the pitch, say the
+private-data rule is enforced by the prompt for now, with a server-side check planned.
 
-### P1: tests
-
-| #  | Task | Where | Owner |
-| -- | ---- | ----- | ----- |
-| 30 | [ ] Judge tests with a fake model: parsing a `Verdict`, `edge_weight` cases (dealbreaker, incompatible, workable, strong), invalid or empty JSON. | `agent/tests/test_judge.py` | |
-| 31 | [ ] `review_groups` tests: a member is removed, the min-size guard holds, a failed judge call is handled (after #10), the removed member is placed somewhere (after #15). | `server/tests/` | |
-| 32 | [ ] Conversation edge cases: hitting `max_steps`, a text-only response (the nudge path), `end_conversation` with a message, hitting max turns. | `agent/tests/test_conversation.py` | |
-| 33 | [ ] Interviewer and `build_profile` with a fake model. | `agent/tests/` | |
-| 34 | [ ] Pipeline integration test: fake model + local DB, run `run_matching` end to end, check the rows written and the final status. | `server/tests/` | |
-| 35 | [ ] API tests with FastAPI `TestClient` for the onboarding and matching routes, including the auth checks after #1 and #2. | `server/tests/` | |
-
-### P2: infra, docs, polish
-
-| #  | Task | Where | Owner |
-| -- | ---- | ----- | ----- |
-| 36 | [ ] CI (GitHub Actions): `uv run pytest` in `agent/` and `server/`, plus `npm run lint` / `build` in `client/` once it exists. | `.github/workflows/` | |
-| 37 | [ ] Add `ruff` (lint + format) to both Python packages, and eslint/prettier to the client. | `pyproject.toml` | |
-| 38 | [ ] Either use the `agent_profiles.embedding` column (for example, for candidate pairs or dedup) or remove it. `LLM.embed` is never called. | `db/schema.sql`, `agent/llm.py` | |
-| 39 | [ ] Fix the README: `.env.example` is missing, and it mentions "Tiger Data" while AGENTS.md says no Timescale features are used. | `README.md` | |
-| 40 | [ ] Log costs and latency per matching run (number of LLM calls, tokens), so we can estimate cost per universe. | `agent/llm.py`, pipeline | |
-| 41 | [ ] Let users review and edit their generated profile before matching (especially the PRIVATE section). | client + `PUT /users/{id}/profile` | |
-| 42 | [ ] Run a real Browser Use scrape against LinkedIn, Instagram, and X, and record what actually works. LinkedIn will likely block it. | `services/scraper.py` | |
+| #  | Task | Note |
+| -- | ---- | ---- |
+| 1  | [ ] Real auth (admin + per-user tokens) | For the demo, an `ADMIN_TOKEN` env var checked on `POST .../matching` is enough, if anything. |
+| 3  | [ ] Server-side check for private data in outgoing messages | Pitch talking point. |
+| 4  | [ ] Prompt injection hardening | |
+| 14 | [ ] Notes collide when two users share a name | Avoid duplicate names in the seed. |
+| 16 | [ ] Groups still failing after removing a member | |
+| 18 | [ ] Implement or remove `ask_my_human` | Removing it is a one-line change if agents waste steps on it. |
+| 20 | [ ] Clean up partial results after a failed run | #19 covers the rehearsal case. |
+| 23 | [ ] Block joins during matching | |
+| 26 | [ ] Short-lived DB connections in the pipeline | |
+| 30-35 | [ ] Judge, group, conversation, interviewer, pipeline, API tests | #46 gives a cheap smoke test instead. |
+| 36-37 | [ ] CI, ruff, eslint | |
+| 38 | [ ] Use or remove the `embedding` column | |
+| 39 | [ ] README cleanup | Do it at hour 22 if there's time; judges may read it. |
+| 40 | [ ] Cost and latency logging | |
+| 41 | [ ] Let users edit their generated profile | |
+| 42 | [ ] Real Browser Use scrape | Only if scraping is part of the demo. LinkedIn will likely block it. |
 
 ---
 
@@ -165,32 +166,32 @@ please record the result here.
 
 This is a proposal. Rename or reshuffle as needed.
 
-| Workstream                       | Tasks                         | Notes |
-| -------------------------------- | ----------------------------- | ----- |
-| **A. Frontend**                  | 6, 29 (UI side), 41           | The biggest chunk; only the scaffold exists. Start with onboarding and the admin dashboard; the 3D playground can come later. |
-| **B. Agent + judge quality**     | 3, 4, 11-14, 17, 18, 30, 32, 33 | Owns `agent/`. Run `scripts/simulate.py` often. |
-| **C. Matching pipeline**         | 7, 8, 10, 15, 16, 19-27, 31, 34 | Owns `server/app/matching/`. #7 and #8 come first, since everyone needs seed data. |
-| **D. Platform + integrations**   | 1, 2, 5, 9, 28, 35-40, 42     | Auth, API, Photon, Ticketmaster, CI. #1 and #2 affect A's API calls, so agree on the token scheme early. |
+| Workstream                      | Must                     | Should              | Notes |
+| ------------------------------- | ------------------------ | ------------------- | ----- |
+| **A. Frontend**                 | 6                        | 29 (UI), 48         | The biggest chunk. Build against the #43 fixture from hour 3; don't wait for the pipeline. |
+| **B. Agent + judge**            | 11, 27                   | 12, 13, 17, 46      | Owns `agent/`. Run `scripts/simulate.py` often. Can help A once the Must items are done. |
+| **C. Matching pipeline**        | 7, 8, 10, 19, 21, 43     | 15, 22, 24, 25, 29  | #7 and #43 go first, since everyone needs that data. |
+| **D. Platform + demo**          | 5, 9, 44, 45             | 2, 28, 47           | Owns deploys, integrations, and the demo script. Runs the rehearsals at hours 16-20. |
 
 **Dependencies between workstreams:**
-- A needs the auth scheme from D (#1) before building its API client. Until then, A can build against
-  the current open API.
-- B's private-data test (#3) and C's real run (#8) both need the seed data from #7.
-- C's #31 depends on #10 and #15.
+- Everyone needs #5 (env) right away. A needs #43 (fixture) to build pages with real-looking data.
+- #8 (real run) needs #7 (seed). Its results decide whether #11 and #17 are needed and whether the demo
+  config needs smaller numbers.
+- Rehearsals (hours 16-20) need #44 (deploy) and #45 (demo script).
 
 ---
 
 ## Open questions for the team
 
-1. **Auth model.** Magic links, admin password per universe, or tokens in the invite link? This
-   affects #1 and the client.
-2. **Re-running matching.** Can an admin re-run on a `matched` universe? If so, do earlier groups get
-   replaced or kept as history? (#19, #21)
-3. **Unmatched people.** What happens to someone who ends up in no group: a smaller group, the admin
-   places them, or they wait for the next round? (#15, #16)
-4. **Who sees transcripts?** Admin only, the two users involved, or nobody? (#2)
-5. **Deployment target.** Where do the server and client run for the demo, and is the DB the shared
-   Tiger Data instance or something else?
+Decide these in the first hour.
+
+1. **What exactly is the demo?** Live onboarding of a judge or audience member, or the pre-seeded
+   universe only? This decides how much of the onboarding UI is a Must.
+2. **Live or recorded matching?** If the real run (#8) takes more than about 2 minutes, plan to start
+   it before presenting, or show the #43 fixture.
+3. **Is iMessage (Photon) or scraping (Browser Use) in the demo?** If not, stub them and move on (#9, #42).
+4. **Deployment target:** where do the server and client run, and which DB do we use? (#44)
+5. **Who presents, and who runs the laptop?**
 
 ---
 
@@ -198,5 +199,6 @@ This is a proposal. Rename or reshuffle as needed.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Reranked the TODOs for the hackathon MVP; added #43-48.
 - 2026-10-17: Client skeleton added (`ff06aff`).
 - 2026-10-17: Wrote this file after reviewing the code at `68cb046`.
