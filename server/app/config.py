@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     jev_model: str = "jev-latest"
     ticketmaster_api_key: str = ""
     photon_api_key: str = ""
-    client_url: str = "http://localhost:3000"
+    client_url: str = "http://localhost:3001"
 
     keyword_count: int = 20
     top_m: int = 5

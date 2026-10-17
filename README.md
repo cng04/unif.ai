@@ -39,7 +39,7 @@ psql "$DATABASE_URL" -f db/schema.sql -f db/seed.sql
 cd server && cp .env.example .env   # fill in DATABASE_URL, GEMINI_API_KEY, TYPESAFE_API_KEY, ...
 uv run uvicorn app.main:app --reload
 
-# client (http://localhost:3000)
+# client (http://localhost:3001)
 cd client && npm install && npm run dev
 
 # agent: try one simulated conversation
