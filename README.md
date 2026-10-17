@@ -16,12 +16,13 @@ db/       Postgres schema + seed (Tiger Data in prod, optional local Docker)
    the self-report prompt from their own AI, and chats with the interviewer agent. The server builds an
    agent profile with `public` (shareable) and `private` (dealbreakers, values, logistics) sections.
 3. **Matching** (admin-triggered):
-   - Gemini finds k recurring features across all profiles, then scores each person 0-1 per feature.
-   - The k-dim scores are flattened to 3D for the playground view.
-   - Nearest-neighbor pairs get an agent-to-agent conversation; the judge scores vibe (1-10),
+   - Gemini reads all onboarding transcripts and picks ~20 keywords, then scores each person 0-1 on
+     every keyword (one call per person). The k-dim scores are flattened to 3D for the playground view.
+   - Pairs with a dealbreaker or availability conflict are dropped. Each person's top 5 remaining
+     matches by cosine similarity get an agent-to-agent conversation; the judge scores vibe (1-10),
      dealbreaker conflicts, and logistics fit.
-   - Verdicts become a weighted graph -> Louvain community detection capped at 4-8 people -> each
-     group is re-judged as a whole.
+   - Only judged pairs become edges. CP-SAT forms groups of 4-8 with no conflicting pairs, maximizing
+     edge weight, and each group is re-judged as a whole.
    - Ticketmaster events are found for each group's shared interests; members are notified via Photon.
 
 ## Setup
