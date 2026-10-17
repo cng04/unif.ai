@@ -156,7 +156,7 @@ private-data rule is enforced by the prompt for now, with a server-side check pl
 | 30-35 | [ ] Judge, group, conversation, interviewer, pipeline, API tests | #46 gives a cheap smoke test instead. |
 | 36-37 | [ ] CI, ruff, eslint | |
 | 38 | [ ] Use or remove the `embedding` column | |
-| 39 | [ ] README cleanup | Do it at hour 22 if there's time; judges may read it. |
+| 39 | [x] README cleanup | Do it at hour 22 if there's time; judges may read it. |
 | 40 | [ ] Cost and latency logging | |
 | 41 | [ ] Let users edit their generated profile | |
 | 42 | [ ] Real Browser Use scrape | Only if scraping is part of the demo. LinkedIn will likely block it. |
@@ -213,3 +213,6 @@ Add a line here for each change merged to `main`.
   (#10), Photon logs instead of raising (#9), matching start is an atomic claim so a double click gets a 409
   (#21), pair messages no longer expose private agent notes (#2, partly). Test setup fixed: tests no longer
   wipe tables, and DB tests are skipped without `DATABASE_URL_TEST`. Added `server/.env.example`.
+- 2026-10-17: Docs audit: README is now the canonical overview (status table, architecture, env vars, API, DB,
+  testing, deployment gaps, roadmap); AGENTS.md is the agent operating guide (commands, ownership, rules);
+  `.env.example` lists every setting. Closes #39.

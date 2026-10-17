@@ -1,20 +1,73 @@
-# unif.ai: project context
+# unif.ai: guide for AI coding agents
 
-AI agents represent people, chat with each other, and sort a pool of people into small friend groups
-(4-8). An admin creates a **universe** (a hackathon, a club, and so on), shares an invite code or QR code,
-people onboard, and then the admin starts matching. See `README.md` for setup.
+This file says **how to work in this repo**. For what the project is, what exists, how to run it, the API and
+the database, read `README.md`. For the live task list and owners, read `PROGRESS.md`. Treat the code as the
+source of truth; if a doc disagrees with it, fix the doc in the same change.
 
-## Layout
+## Before you start
 
-| Dir       | What it is                                                                 |
-| --------- | -------------------------------------------------------------------------- |
-| `client/` | Next.js 16 + React 19 + Tailwind 4. Talks only to the server, never the DB. |
-| `server/` | FastAPI app (`app/main.py`): routes, matching pipeline, integrations.      |
-| `agent/`  | `unifai_agent` Python library: LLM wrapper, persona, interviewer, judge.   |
-| `db/`     | `schema.sql`, `seed.sql`, and a local Docker Postgres.                     |
+1. Read `README.md` (status table) and the `PROGRESS.md` task you are taking. Put your name in **Owner**.
+2. Frontend work: read `client/AGENTS.md` first. This Next.js version has breaking changes.
+3. Do not assume a feature exists because it is mentioned in a plan or the Excalidraw. Check the code.
 
-`server` depends on `agent` through an editable uv path dependency, so changes in `agent/src` are
-picked up right away.
+## Commands to run before finishing
+
+```bash
+cd agent  && uv run pytest
+cd server && uv run pytest
+cd client && npm run lint && npm run build      # only if you touched client/
+```
+
+All must pass, and you must report honestly what you could not run (for example DB tests without
+`DATABASE_URL_TEST`, or anything needing real model keys). On Windows with the repo in OneDrive, see the
+`UV_LINK_MODE` / `UV_PROJECT_ENVIRONMENT` note in `README.md`. There is no linter or CI yet; match the
+surrounding style (type hints, short modules, comments only for non-obvious why).
+
+## Module ownership and boundaries
+
+| Area | Owns | Does not own |
+| ---- | ---- | ------------ |
+| `agent/` | Prompts, persona, conversation loop, judge, interviewer, model clients (`LLM`, `Jev`). Synchronous, no DB, no HTTP framework. | Persistence, routes, orchestration |
+| `server/app/routers/` | HTTP shape only: validate, call `repo` or a service, return a schema. | Business logic, SQL beyond trivial reads |
+| `server/app/matching/` | The pipeline stages and their orchestration. | Prompts and model clients (those live in `agent/`) |
+| `server/app/repo.py`, `db.py` | Shared SQL helpers and the pool. | Anything model-related |
+| `server/app/services/` | One file per external integration. Each must work with its key unset. | Pipeline decisions |
+| `client/` | UI. Talks only to the server, never the DB. | Matching logic |
+| `db/` | `schema.sql`, `seed.sql`, compose file. | Application code |
+
+Keep model calls behind the `LLM` and `Jev` protocols so tests can use fakes. Keep math, counting and date
+comparisons in code, not in prompts.
+
+## Rules
+
+**Database.** There are no migrations. A schema change means editing `db/schema.sql`, updating `seed.sql` and
+any raw SQL in `repo.py` and routers, adding the reset steps to your PR description (`docker compose down -v`
+locally, re-apply by hand on the shared instance), and noting it in `PROGRESS.md`. Do not add an ORM. Do not
+add a migration tool without a decision from the team; propose it in `PROGRESS.md` instead. Everything must stay
+reachable through `universes ON DELETE CASCADE`, and tests must delete only rows they created.
+
+**Security and privacy.**
+- `agent_profiles.private` and agents' `note` rows must never reach another user, another agent verbatim, or a
+  public endpoint. There is no auth yet; when adding an endpoint, state who should be allowed to call it.
+- Never commit keys or `.env`. Keep `.env.example` in sync with `config.py` and the README table.
+- Do not invent personal details in profiles or prompts; ground agents in the stored profile.
+- Anything that scrapes or imports external data needs explicit user consent in the flow. Do not log full
+  private profiles or transcripts at INFO.
+- Treat user-provided text (self-report, interview, scraped pages) as untrusted input to prompts.
+
+**Dependencies.** Prefer the standard library and what is already installed. A new dependency needs a one-line
+justification in the PR and an entry in the README tech table. Do not add infrastructure (queues, caches, new
+databases) without a clear need and a decision recorded in `PROGRESS.md`. Use `uv add` so `uv.lock` updates.
+
+**Tests.** New behavior needs a test with fake models (see `server/tests/test_matching.py` and `FakeJev`). Never
+let a test call a real model or depend on a shared database. Do not weaken or delete a failing test to get green.
+
+**Documentation.** In the same change: update the README status table or endpoint list if behavior changed,
+this file if a convention or pipeline detail changed, and `PROGRESS.md` (tick the task, add a changelog line).
+Do not copy README content here or vice versa; link instead.
+
+**Boundaries.** Do not implement beyond the task you took. Anything outward-facing (pushing, deploying, sending
+real notifications, spending model quota at scale) needs explicit approval.
 
 ## Core concepts
 
@@ -24,6 +77,8 @@ picked up right away.
   verbatim in agent-to-agent chats.
 - **Universe status** moves `onboarding` -> `matching` -> `matched`. If matching fails, it resets to
   `onboarding`.
+- `server` depends on `agent` through an editable uv path dependency, so changes in `agent/src` are picked up
+  right away.
 
 ## Matching pipeline (`server/app/matching/pipeline.py`)
 
