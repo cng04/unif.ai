@@ -29,6 +29,8 @@ CREATE TABLE agent_profiles (
     private        JSONB NOT NULL DEFAULT '{}'::jsonb,
     raw_sources    JSONB NOT NULL DEFAULT '{}'::jsonb,
     temperature    REAL NOT NULL DEFAULT 0.7,
+    -- Normalized free-time slots set during matching; empty means unknown or flexible.
+    availability   TEXT[] NOT NULL DEFAULT '{}',
     embedding      vector(768),
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -41,8 +43,9 @@ CREATE TABLE onboarding_messages (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- k recurring features discovered across a universe, and each user's 0-1 score per feature.
-CREATE TABLE features (
+-- k keywords discovered across a universe's onboarding transcripts, and each user's 0-1 score per keyword.
+-- 0.5 means "no signal". dealbreaker = this user can't be grouped with someone who scores above 0.5 on it.
+CREATE TABLE keywords (
     id           SERIAL PRIMARY KEY,
     universe_id  UUID NOT NULL REFERENCES universes(id) ON DELETE CASCADE,
     name         TEXT NOT NULL,
@@ -50,11 +53,12 @@ CREATE TABLE features (
     UNIQUE (universe_id, name)
 );
 
-CREATE TABLE user_feature_scores (
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    feature_id  INT  NOT NULL REFERENCES features(id) ON DELETE CASCADE,
-    score       REAL NOT NULL CHECK (score BETWEEN 0 AND 1),
-    PRIMARY KEY (user_id, feature_id)
+CREATE TABLE keyword_scores (
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    keyword_id   INT  NOT NULL REFERENCES keywords(id) ON DELETE CASCADE,
+    score        REAL NOT NULL CHECK (score BETWEEN 0 AND 1),
+    dealbreaker  BOOLEAN NOT NULL DEFAULT false,
+    PRIMARY KEY (user_id, keyword_id)
 );
 
 -- Agent-to-agent conversations between two users, plus the judge's verdict.

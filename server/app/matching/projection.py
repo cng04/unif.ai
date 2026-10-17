@@ -2,7 +2,7 @@ import numpy as np
 
 
 def project_3d(matrix: np.ndarray) -> np.ndarray:
-    """PCA from k feature dimensions down to 3 for the playground view."""
+    """PCA from k keyword dimensions down to 3 for the playground view."""
     n = matrix.shape[0]
     centered = matrix - matrix.mean(axis=0)
     if n < 2 or not centered.any():

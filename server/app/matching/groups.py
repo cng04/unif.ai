@@ -1,49 +1,85 @@
-"""Step 4: turn pairwise verdicts into a weighted graph, run community detection, then judge each group as a whole."""
+"""Step 4: CP-SAT partitions people into groups using only judged edges, then the judge reviews each group whole."""
 
-import networkx as nx
+from ortools.sat.python import cp_model
 from unifai_agent import AgentProfile, GroupVerdict, Judge, Verdict
 
 PairKey = tuple[str, str]
 
+WEIGHT_SCALE = 1000  # CP-SAT needs integer objective coefficients
+
 
 def build_groups(
-    user_ids: list[str], weights: dict[PairKey, float], min_size: int, max_size: int
+    user_ids: list[str],
+    weights: dict[PairKey, float],
+    forbidden: set[PairKey],
+    min_size: int,
+    max_size: int,
+    time_limit_s: float = 10.0,
 ) -> list[list[str]]:
-    graph = nx.Graph()
-    graph.add_nodes_from(user_ids)
-    graph.add_weighted_edges_from((a, b, w) for (a, b), w in weights.items() if w > 0)
+    """Place as many people as possible into groups of min-max size with no forbidden pair sharing a group,
+    then, holding that count fixed, maximize the total judge weight of pairs inside the same group.
+    Pairs that were never judged contribute nothing."""
+    n = len(user_ids)
+    if n < min_size:
+        return []
+    index = {u: i for i, u in enumerate(user_ids)}
+    slots = range(n // min_size)
 
-    groups: list[list[str]] = []
-    for community in nx.community.louvain_communities(graph, weight="weight", seed=0):
-        groups.extend(_split(graph, set(community), max_size))
-    return _absorb_small(graph, groups, min_size, max_size)
+    model = cp_model.CpModel()
+    x = {(i, g): model.new_bool_var(f"x{i}_{g}") for i in range(n) for g in slots}
+    used = [model.new_bool_var(f"used{g}") for g in slots]
 
+    for i in range(n):
+        model.add_at_most_one(x[i, g] for g in slots)
+    for g in slots:
+        size = sum(x[i, g] for i in range(n))
+        model.add(size >= min_size * used[g])
+        model.add(size <= max_size * used[g])
 
-def _split(graph: nx.Graph, nodes: set[str], max_size: int, resolution: float = 1.0) -> list[list[str]]:
-    if len(nodes) <= max_size:
-        return [sorted(nodes)]
-    resolution *= 1.5
-    parts = nx.community.louvain_communities(graph.subgraph(nodes), weight="weight", resolution=resolution, seed=0)
-    if len(parts) == 1:
-        ordered = sorted(nodes)
-        return [ordered[i : i + max_size] for i in range(0, len(ordered), max_size)]
-    return [g for part in parts for g in _split(graph, set(part), max_size, resolution)]
+    # Groups are interchangeable, so order them by their lowest-index member: person i can only open
+    # group g if someone before them is already in group g-1. This cuts the search space by ~G!.
+    for g in slots:
+        for i in range(n):
+            if i < g:
+                model.add(x[i, g] == 0)
+            elif g:
+                model.add(x[i, g] <= sum(x[j, g - 1] for j in range(i)))
 
+    for a, b in forbidden:
+        if a in index and b in index:
+            for g in slots:
+                model.add_bool_or([x[index[a], g].Not(), x[index[b], g].Not()])
 
-def _absorb_small(graph: nx.Graph, groups: list[list[str]], min_size: int, max_size: int) -> list[list[str]]:
-    full = [g for g in groups if len(g) >= min_size]
-    stragglers = [u for g in groups if len(g) < min_size for u in g]
-    leftover: list[str] = []
-    for user in stragglers:
-        best = max(
-            (g for g in full if len(g) < max_size),
-            key=lambda g: sum(graph.get_edge_data(user, v, {}).get("weight", 0) for v in g),
-            default=None,
-        )
-        (best if best is not None else leftover).append(user)
-    if leftover:
-        full.append(leftover)
-    return full
+    together = []
+    for (a, b), w in weights.items():
+        coeff = round(w * WEIGHT_SCALE)
+        if coeff <= 0 or a not in index or b not in index or (a, b) in forbidden:
+            continue
+        for g in slots:
+            both = model.new_bool_var(f"e{a}_{b}_{g}")
+            model.add_implication(both, x[index[a], g])
+            model.add_implication(both, x[index[b], g])
+            together.append((coeff, both))
+
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = time_limit_s / 2
+    solver.parameters.num_workers = 8
+
+    placed = sum(x.values())
+    model.maximize(placed)
+    if solver.solve(model) not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return []
+    model.add(placed >= round(solver.objective_value))
+    for var in [*x.values(), *used]:
+        model.add_hint(var, solver.boolean_value(var))
+
+    model.clear_objective()
+    model.maximize(sum(c * v for c, v in together))
+    if solver.solve(model) not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return []
+
+    groups = [[u for u in user_ids if solver.value(x[index[u], g])] for g in slots]
+    return [g for g in groups if g]
 
 
 def review_groups(

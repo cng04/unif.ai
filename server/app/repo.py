@@ -50,3 +50,21 @@ async def load_profiles(conn: AsyncConnection, universe_id: UUID) -> list[AgentP
         )
         for r in rows
     ]
+
+
+async def load_onboarding_documents(conn: AsyncConnection, profiles: list[AgentProfile]) -> list[str]:
+    """One text per profile (same order): the built profile plus the raw interview transcript."""
+    rows = await (
+        await conn.execute(
+            "SELECT user_id, role, content FROM onboarding_messages WHERE user_id = ANY(%s::uuid[]) ORDER BY id",
+            ([p.user_id for p in profiles],),
+        )
+    ).fetchall()
+    transcripts: dict[str, list[str]] = {}
+    for r in rows:
+        transcripts.setdefault(str(r["user_id"]), []).append(f"{r['role']}: {r['content']}")
+    return [
+        f"PROFILE:\n{p.model_dump_json(exclude={'user_id', 'temperature'})}\n\n"
+        f"INTERVIEW:\n" + ("\n".join(transcripts.get(p.user_id, [])) or "(none)")
+        for p in profiles
+    ]

@@ -12,12 +12,13 @@ class Settings(BaseSettings):
     photon_api_key: str = ""
     client_url: str = "http://localhost:3000"
 
-    feature_count: int = 12
-    candidate_neighbors: int = 6
+    keyword_count: int = 20
+    top_m: int = 5
     max_conversation_turns: int = 12
     max_concurrent_conversations: int = 8
     min_group_size: int = 4
     max_group_size: int = 8
+    group_solver_seconds: float = 10.0
 
 
 @lru_cache

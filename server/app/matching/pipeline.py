@@ -1,10 +1,13 @@
-"""Admin-triggered matching: features -> scores -> agent conversations -> groups -> events -> notifications."""
+"""Admin-triggered matching:
+keywords -> scores -> hard filter -> top-M ranking -> agent chats + judge -> CP-SAT groups -> group judge
+-> events -> notifications."""
 
 import asyncio
 import logging
 from collections import Counter
 from uuid import UUID
 
+import numpy as np
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 from unifai_agent import AgentProfile, GroupVerdict, Transcript, Verdict
@@ -13,55 +16,90 @@ from app import repo
 from app.config import get_settings
 from app.db import pool
 from app.deps import get_judge, get_llm
-from app.matching.features import Feature, extract_features
 from app.matching.groups import build_groups, review_groups
+from app.matching.keywords import Keyword, extract_keywords
 from app.matching.pairing import simulate_pair
-from app.matching.scoring import candidate_pairs, score_profiles
+from app.matching.scoring import (
+    PersonSignals,
+    Signals,
+    candidate_pairs,
+    hard_conflicts,
+    score_person,
+    to_signals,
+)
 from app.services import photon, ticketmaster
 
 log = logging.getLogger(__name__)
+
+PairKey = tuple[str, str]
+
+
+def pair_key(a: str, b: str) -> PairKey:
+    return (a, b) if a < b else (b, a)
 
 
 async def run_matching(universe_id: UUID) -> None:
     settings = get_settings()
     llm, judge = get_llm(), get_judge()
+    semaphore = asyncio.Semaphore(settings.max_concurrent_conversations)
+
+    async def limited(fn, *args):
+        async with semaphore:
+            return await asyncio.to_thread(fn, *args)
 
     async with pool.connection() as conn:
         await repo.set_universe_status(conn, universe_id, "matching")
         try:
+            await clear_results(conn, universe_id)
             profiles = await repo.load_profiles(conn, universe_id)
-            features = await asyncio.to_thread(extract_features, llm, profiles, settings.feature_count)
-            scores = await asyncio.to_thread(score_profiles, llm, profiles, features)
-            await save_feature_scores(conn, universe_id, features, profiles, scores.tolist())
+            ids = [p.user_id for p in profiles]
+            documents = await repo.load_onboarding_documents(conn, profiles)
 
-            semaphore = asyncio.Semaphore(settings.max_concurrent_conversations)
+            keywords = await asyncio.to_thread(extract_keywords, llm, documents, settings.keyword_count)
+            scored = await asyncio.gather(
+                *(limited(score_person, llm, d, keywords) for d in documents), return_exceptions=True
+            )
+            people = []
+            for user_id, result in zip(ids, scored):
+                if isinstance(result, BaseException):
+                    log.exception("scoring %s failed", user_id, exc_info=result)
+                    result = PersonSignals(scores=[])
+                people.append(result)
+            signals = to_signals(people, keywords)
+            await save_signals(conn, universe_id, ids, keywords, signals)
 
-            async def run_pair(i: int, j: int):
-                async with semaphore:
-                    return await asyncio.to_thread(
-                        simulate_pair, llm, judge, profiles[i], profiles[j], settings.max_conversation_turns
-                    )
+            blocked = hard_conflicts(signals)
+            candidates = candidate_pairs(signals.scores, blocked, settings.top_m)
+            results = await asyncio.gather(
+                *(
+                    limited(simulate_pair, llm, judge, profiles[i], profiles[j], settings.max_conversation_turns)
+                    for i, j in candidates
+                ),
+                return_exceptions=True,
+            )
 
-            candidates = candidate_pairs(scores, settings.candidate_neighbors)
-            results = await asyncio.gather(*(run_pair(i, j) for i, j in candidates), return_exceptions=True)
-
-            verdicts: dict[tuple[str, str], Verdict] = {}
+            verdicts: dict[PairKey, Verdict] = {}
             for (i, j), result in zip(candidates, results):
                 if isinstance(result, BaseException):
-                    log.exception("pair %s/%s failed", profiles[i].user_id, profiles[j].user_id, exc_info=result)
+                    log.exception("pair %s/%s failed", ids[i], ids[j], exc_info=result)
                     continue
                 transcript, verdict = result
-                key = tuple(sorted((profiles[i].user_id, profiles[j].user_id)))
+                key = pair_key(ids[i], ids[j])
                 await save_pair(conn, universe_id, key, transcript, verdict)
                 verdicts[key] = verdict
 
-            by_id = {p.user_id: p for p in profiles}
-            groups = build_groups(
-                list(by_id),
+            forbidden = {pair_key(ids[i], ids[j]) for i, j in zip(*np.nonzero(np.triu(blocked)))}
+            forbidden |= {k for k, v in verdicts.items() if v.has_conflict}
+            groups = await asyncio.to_thread(
+                build_groups,
+                ids,
                 {k: v.edge_weight for k, v in verdicts.items()},
+                forbidden,
                 settings.min_group_size,
                 settings.max_group_size,
+                settings.group_solver_seconds,
             )
+            by_id = {p.user_id: p for p in profiles}
             reviewed = await asyncio.to_thread(review_groups, judge, groups, by_id, verdicts, settings.min_group_size)
 
             for members, group_verdict in reviewed:
@@ -86,33 +124,43 @@ def shared_interests(profiles: list[AgentProfile], top: int = 3) -> list[str]:
     return [interest for interest, _ in counts.most_common(top)]
 
 
-async def save_feature_scores(
-    conn: AsyncConnection,
-    universe_id: UUID,
-    features: list[Feature],
-    profiles: list[AgentProfile],
-    scores: list[list[float]],
+async def clear_results(conn: AsyncConnection, universe_id: UUID) -> None:
+    await conn.execute("DELETE FROM pairs WHERE universe_id = %s", (universe_id,))
+    await conn.execute("DELETE FROM groups WHERE universe_id = %s", (universe_id,))
+    await conn.commit()
+
+
+async def save_signals(
+    conn: AsyncConnection, universe_id: UUID, ids: list[str], keywords: list[Keyword], signals: Signals
 ) -> None:
-    await conn.execute("DELETE FROM features WHERE universe_id = %s", (universe_id,))
-    feature_ids = []
-    for f in features:
+    await conn.execute("DELETE FROM keywords WHERE universe_id = %s", (universe_id,))
+    keyword_ids = []
+    for kw in keywords:
         row = await (
             await conn.execute(
-                "INSERT INTO features (universe_id, name, description) VALUES (%s, %s, %s) RETURNING id",
-                (universe_id, f.name, f.description),
+                "INSERT INTO keywords (universe_id, name, description) VALUES (%s, %s, %s) RETURNING id",
+                (universe_id, kw.name, kw.description),
             )
         ).fetchone()
-        feature_ids.append(row["id"])
+        keyword_ids.append(row["id"])
     async with conn.cursor() as cur:
         await cur.executemany(
-            "INSERT INTO user_feature_scores (user_id, feature_id, score) VALUES (%s, %s, %s)",
-            [(p.user_id, fid, s) for p, row in zip(profiles, scores) for fid, s in zip(feature_ids, row)],
+            "INSERT INTO keyword_scores (user_id, keyword_id, score, dealbreaker) VALUES (%s, %s, %s, %s)",
+            [
+                (user_id, kid, float(signals.scores[i, k]), bool(signals.dealbreakers[i, k]))
+                for i, user_id in enumerate(ids)
+                for k, kid in enumerate(keyword_ids)
+            ],
+        )
+        await cur.executemany(
+            "UPDATE agent_profiles SET availability = %s WHERE user_id = %s",
+            [(sorted(slots), user_id) for user_id, slots in zip(ids, signals.availability)],
         )
     await conn.commit()
 
 
 async def save_pair(
-    conn: AsyncConnection, universe_id: UUID, key: tuple[str, str], transcript: Transcript, verdict: Verdict
+    conn: AsyncConnection, universe_id: UUID, key: PairKey, transcript: Transcript, verdict: Verdict
 ) -> None:
     row = await (
         await conn.execute(

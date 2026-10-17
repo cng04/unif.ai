@@ -16,9 +16,13 @@ class Verdict(BaseModel):
     rationale: str
 
     @property
+    def has_conflict(self) -> bool:
+        return bool(self.dealbreaker_conflicts) or self.logistics_fit == "incompatible"
+
+    @property
     def edge_weight(self) -> float:
         """Weight for the group-building graph; 0 means never group these two."""
-        if self.dealbreaker_conflicts or self.logistics_fit == "incompatible":
+        if self.has_conflict:
             return 0.0
         penalty = 1.0 if self.logistics_fit == "strong" else 0.7
         return self.vibe_score / 10 * penalty

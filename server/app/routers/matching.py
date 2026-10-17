@@ -24,14 +24,14 @@ async def start_matching(universe_id: UUID, background: BackgroundTasks, conn: A
 
 @router.get("/universes/{universe_id}/graph", response_model=list[GraphPoint])
 async def get_graph(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)):
-    """User positions for the 3D playground: the k-dimensional feature scores flattened to 3D."""
+    """User positions for the 3D playground: the k-dimensional keyword scores flattened to 3D."""
     rows = await (
         await conn.execute(
             """
             SELECT u.id AS user_id, u.full_name AS name, gm.group_id,
-                   array_agg(s.score ORDER BY s.feature_id) AS scores
+                   array_agg(s.score ORDER BY s.keyword_id) AS scores
             FROM users u
-            JOIN user_feature_scores s ON s.user_id = u.id
+            JOIN keyword_scores s ON s.user_id = u.id
             LEFT JOIN group_members gm ON gm.user_id = u.id
             WHERE u.universe_id = %s
             GROUP BY u.id, gm.group_id
