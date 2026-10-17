@@ -1,13 +1,15 @@
 from functools import lru_cache
 
-from unifai_agent import GeminiLLM, Interviewer, Jev, Judge, OpenRouterJev, jev_client
+from unifai_agent import LLM, GeminiLLM, Interviewer, Jev, Judge, OpenRouterJev, OpenRouterLLM, jev_client
 
 from app.config import get_settings
 
 
 @lru_cache
-def get_llm() -> GeminiLLM:
+def get_llm() -> LLM:
     settings = get_settings()
+    if settings.openrouter_api_key:
+        return OpenRouterLLM(settings.openrouter_model, settings.openrouter_api_key)
     return GeminiLLM(model=settings.gemini_model, api_key=settings.gemini_api_key or None)
 
 

@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -6,6 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.db import pool
 from app.routers import matching, onboarding, universes
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%H:%M:%S")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 @asynccontextmanager

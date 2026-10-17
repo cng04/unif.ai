@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.8-flash"
     typesafe_api_key: str = ""
     jev_model: str = "jev-latest"
-    openrouter_api_key: str = ""  # when set, OpenRouter answers Jev's questions instead of TypeSafe
+    openrouter_api_key: str = ""  # when set, OpenRouter replaces both Gemini and TypeSafe's Jev
     openrouter_model: str = "google/gemini-3.8-flash"
     ticketmaster_api_key: str = ""
     photon_api_key: str = ""
