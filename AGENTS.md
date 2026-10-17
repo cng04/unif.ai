@@ -93,6 +93,9 @@ reverse) explains a block. Availability slots are stored in `agent_profiles.avai
 - All generative calls go through the `LLM` protocol in `agent/llm.py` (`GeminiLLM`: `gemini_model`, default `gemini-3.8-flash`,
   plus 768-dim embeddings). All Jev calls go through the `Jev` protocol in `agent/jev.py` (the
   `typesafe-sdk` client, model `jev_model`, default `jev-latest`). Tests use fakes of both.
+  **OpenRouter mode:** if `OPENROUTER_API_KEY` is set, `server/app/deps.py` uses `OpenRouterLLM` for text and
+  `OpenRouterJev` for the typed questions (model `openrouter_model`), replacing both Gemini and TypeSafe. One key
+  is enough to run the whole pipeline.
 - Jev works best with literal, single-judgment questions and a state that holds only what the question
   needs. Keep math, counting, and date comparisons in code. See the TypeSafe "jaggedness" docs.
 - Tuning knobs (`keyword_count`, `top_m`, turns, group sizes, `group_solver_seconds`) live in

@@ -30,7 +30,7 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
 | Auth                       | **Not started** | Every endpoint is public, including private profiles and agent notes.           |
 | CI / lint                  | **Not started** | No CI workflow, linter, or formatter config.                                    |
 
-**Test status (2026-10-17):** `uv run pytest` passes in `agent/` (6 tests) and `server/` (15 tests). DB integration tests are skipped unless `DATABASE_URL_TEST` is set.
+**Test status (2026-10-17):** `uv run pytest` passes in `agent/` (8 tests) and `server/` (15 tests). DB integration tests are skipped unless `DATABASE_URL_TEST` is set.
 
 ---
 
@@ -200,6 +200,7 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: OpenRouter can now stand in for both Gemini and Jev (one key runs the pipeline); conversations and `main.py` log at INFO.
 - 2026-10-17: Added #49 (3D keyword playground with user-picked axes and clickable chat transcripts).
 - 2026-10-17: Jev (TypeSafe) now scores keywords, dealbreakers, and availability, and judges pair
   chemistry. Gemini still does keywords, chats, and the group judge. Needs `TYPESAFE_API_KEY`. Closes #24.
