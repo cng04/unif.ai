@@ -1,0 +1,63 @@
+# Whole stack: Postgres, server (public: join pages + admin), onboarding bot, ASI:One relay agent.
+# Secrets come from each folder's .env; the URLs below override them for the private Docker network.
+# Use ./run.sh rather than calling this directly.
+name: unifai
+
+services:
+  db:
+    image: timescale/timescaledb-ha:pg17  # Postgres + pgvector, same as db/docker-compose.yml
+    environment:
+      POSTGRES_USER: unifai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-unifai}
+      POSTGRES_DB: unifai
+    volumes:
+      - pgdata:/home/postgres/pgdata/data
+      # Schema only. Fake profiles (db/seed.sql, ./run.sh seed) are for local testing, not deployments.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unifai -d unifai"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  server:
+    build: { context: ., dockerfile: deploy/server.Dockerfile }
+    env_file: server/.env
+    environment:
+      DATABASE_URL: postgresql://unifai:${POSTGRES_PASSWORD:-unifai}@db:5432/unifai
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    depends_on: { db: { condition: service_healthy } }
+    restart: unless-stopped
+
+  bot:
+    build: { context: ., dockerfile: deploy/bot.Dockerfile }
+    env_file: onboarding/.env
+    environment:
+      DATABASE_URL: postgresql://unifai:${POSTGRES_PASSWORD:-unifai}@db:5432/unifai
+      SERVER_URL: http://server:8000
+      CHANNELS: photon,http
+      BOT_HTTP_HOST: 0.0.0.0
+    volumes:
+      - botdata:/app/data  # chat sessions + Photon event cursor
+    depends_on: { db: { condition: service_healthy } }
+    restart: unless-stopped
+
+  asi-agent:
+    build: { context: ., dockerfile: deploy/asi-agent.Dockerfile }
+    env_file: asi-agent/.env
+    environment:
+      BOT_URL: http://bot:8787/message
+    depends_on: [bot]
+    restart: unless-stopped
+
+  # Optional free public URL for the server (join pages), no domain needed: ./run.sh tunnel
+  tunnel:
+    image: cloudflare/cloudflared:2024.12.2
+    command: tunnel --no-autoupdate --url http://server:8000
+    depends_on: [server]
+    profiles: [tunnel]
+
+volumes:
+  pgdata:
+  botdata:
