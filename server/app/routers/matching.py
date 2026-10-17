@@ -61,7 +61,7 @@ async def list_pairs(universe_id: UUID, conn: AsyncConnection = Depends(get_conn
 @router.get("/pairs/{pair_id}/messages")
 async def get_pair_messages(pair_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> list[dict]:
     cur = await conn.execute(
-        "SELECT speaker_id, kind, content, created_at FROM pair_messages WHERE pair_id = %s ORDER BY id", (pair_id,)
+        "SELECT speaker_id, kind, content, created_at FROM pair_messages WHERE pair_id = %s AND kind = 'message' ORDER BY id", (pair_id,)
     )
     return await cur.fetchall()
 

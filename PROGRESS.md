@@ -124,7 +124,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #4
 | -- | ---- | ----- | ----- |
 | 25 | [x] ~~Score profiles in parallel.~~ Done in `2cd6a5f`. | `pipeline.py` | Caleb |
 | 29 | [ ] Matching progress (pairs done out of total) plus a progress bar, so the live wait looks intentional. | pipeline, new endpoint, client | |
-| 2  | [ ] Drop `note` rows from `GET /pairs/{id}/messages` and strip `private` from `GET /users/{id}/profile`. Five minutes of work, and judges may ask about privacy. | `routers/matching.py`, `routers/onboarding.py` | |
+| 2  | [~] Done for `note` rows in `GET /pairs/{id}/messages`. `private` stays on `GET /users/{id}/profile` because users review it, and that needs auth (#1). Five minutes of work, and judges may ask about privacy. | `routers/matching.py`, `routers/onboarding.py` | |
 | 15 | [ ] **Show unplaced people.** CP-SAT leaves out anyone it can't fit, and the group judge can drop one more per group. Neither is shown anywhere. At minimum, list them on the admin page. Better: put each in the best group with room that has no forbidden pair. | `groups.py`, `pipeline.py`, client | |
 | 22 | [ ] Skip users with no built profile (half-finished onboarding during a live demo) and show the admin who isn't ready. | `repo.load_profiles`, pipeline | |
 | 13 | [ ] Retry once when Gemini returns empty or invalid JSON (group judge, keywords, interviewer). The pair judge and scoring use Jev, which returns typed answers. Failed scoring already falls back to all 0.5. | `agent/judge.py` and others | |
