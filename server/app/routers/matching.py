@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.db import get_conn
 from app.matching.pipeline import run_matching
 from app.matching.projection import project_3d
-from app.schemas import EventOut, GraphPoint, Group, GroupMember, Pair
+from app.schemas import GraphPoint, Group, Pair
 
 router = APIRouter(tags=["matching"])
 
@@ -71,27 +71,4 @@ async def list_groups(universe_id: UUID, conn: AsyncConnection = Depends(get_con
     groups = await (
         await conn.execute("SELECT * FROM groups WHERE universe_id = %s ORDER BY created_at", (universe_id,))
     ).fetchall()
-    result = []
-    for g in groups:
-        members = await (
-            await conn.execute(
-                """
-                SELECT u.id AS user_id, u.full_name FROM group_members gm
-                JOIN users u ON u.id = gm.user_id WHERE gm.group_id = %s
-                """,
-                (g["id"],),
-            )
-        ).fetchall()
-        events = await (
-            await conn.execute("SELECT name, url, venue, starts_at FROM events WHERE group_id = %s", (g["id"],))
-        ).fetchall()
-        result.append(
-            Group(
-                id=g["id"],
-                group_score=g["group_score"],
-                rationale=g["rationale"],
-                members=[GroupMember(**m) for m in members],
-                events=[EventOut(**e) for e in events],
-            )
-        )
-    return result
+    return [Group(**await repo.load_group(conn, g)) for g in groups]
