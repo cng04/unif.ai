@@ -144,3 +144,60 @@ def test_to_signals_matches_keywords_case_insensitively_and_defaults_to_no_signa
 
 def test_project_3d_shape():
     assert project_3d(np.random.default_rng(0).random((5, 12))).shape == (5, 3)
+
+
+class FakeGroupJudge:
+    def __init__(self, verdicts):
+        self.verdicts = list(verdicts)
+        self.calls = 0
+
+    def evaluate_group(self, profiles, pair_verdicts):
+        self.calls += 1
+        v = self.verdicts.pop(0)
+        if isinstance(v, Exception):
+            raise v
+        return v
+
+
+def _group_verdict(**kw):
+    from unifai_agent import GroupVerdict
+
+    return GroupVerdict(**{"works": True, "group_score": 8, "rationale": "ok", **kw})
+
+
+def test_review_groups_survives_judge_failure():
+    from app.matching.groups import review_groups
+
+    judge = FakeGroupJudge([RuntimeError("bad json")])
+    profiles = {m: object() for m in "abcd"}
+    out = review_groups(judge, [list("abcd")], profiles, {}, min_size=4)
+    assert out[0][0] == list("abcd")
+    assert out[0][1].works
+
+
+def test_review_groups_drops_named_misfit_and_rejudges():
+    from app.matching.groups import review_groups
+
+    judge = FakeGroupJudge([_group_verdict(works=False, remove_user_id="e"), _group_verdict()])
+    profiles = {m: object() for m in "abcde"}
+    out = review_groups(judge, [list("abcde")], profiles, {}, min_size=4)
+    assert out[0][0] == list("abcd")
+    assert judge.calls == 2
+
+
+def test_review_groups_keeps_group_at_min_size():
+    from app.matching.groups import review_groups
+
+    judge = FakeGroupJudge([_group_verdict(works=False, remove_user_id="d")])
+    profiles = {m: object() for m in "abcd"}
+    out = review_groups(judge, [list("abcd")], profiles, {}, min_size=4)
+    assert out[0][0] == list("abcd")
+    assert judge.calls == 1
+
+
+async def test_photon_logs_instead_of_raising(monkeypatch):
+    from app.config import Settings
+    from app.services import photon
+
+    monkeypatch.setattr(photon, "get_settings", lambda: Settings(photon_api_key="key"))
+    await photon.send_message("+15550001111", "hi")

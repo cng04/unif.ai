@@ -12,7 +12,8 @@ async def send_message(phone: str, text: str) -> None:
     if not get_settings().photon_api_key:
         log.info("[photon disabled] to %s: %s", phone, text)
         return
-    raise NotImplementedError("wire up the Photon SDK/API here")
+    # TODO: wire up the Photon SDK/API. Until then log instead of failing the matching run.
+    log.warning("[photon not implemented] to %s: %s", phone, text)
 
 
 async def notify_group(members: list[dict], events: list[Event]) -> None:

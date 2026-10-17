@@ -162,7 +162,10 @@ async def run_matching(universe_id: UUID) -> None:
                 users = await (
                     await conn.execute("SELECT full_name, phone FROM users WHERE id = ANY(%s::uuid[])", (members,))
                 ).fetchall()
-                await photon.notify_group(users, events)
+                try:
+                    await photon.notify_group(users, events)
+                except Exception:
+                    log.exception("notifying group %s failed", group_id)
             log.info("Reviewed groups and found events (took %.2fs)", time.time() - stage_start)
 
             await repo.set_universe_status(conn, universe_id, "matched")

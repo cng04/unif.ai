@@ -102,12 +102,23 @@ def review_groups(
     """Re-judge each candidate group as a whole and drop one misfit if the judge names one."""
     reviewed = []
     for members in groups:
-        verdict = _judge_group(judge, members, profiles, verdicts)
+        verdict = _safe_judge_group(judge, members, profiles, verdicts)
         if not verdict.works and verdict.remove_user_id in members and len(members) > min_size:
             members = [m for m in members if m != verdict.remove_user_id]
-            verdict = _judge_group(judge, members, profiles, verdicts)
+            verdict = _safe_judge_group(judge, members, profiles, verdicts)
         reviewed.append((members, verdict))
     return reviewed
+
+
+def _safe_judge_group(
+    judge: Judge, members: list[str], profiles: dict[str, AgentProfile], verdicts: dict[PairKey, Verdict]
+) -> GroupVerdict:
+    """One bad judge response must not fail the run: keep the solver's group with a neutral verdict."""
+    try:
+        return _judge_group(judge, members, profiles, verdicts)
+    except Exception:
+        log.exception("group review failed for %s; keeping the group unreviewed", members)
+        return GroupVerdict(works=True, group_score=5, rationale="Group review unavailable; kept as formed.")
 
 
 def _judge_group(

@@ -16,12 +16,12 @@ router = APIRouter(tags=["matching"])
 
 @router.post("/universes/{universe_id}/matching", status_code=202)
 async def start_matching(universe_id: UUID, background: BackgroundTasks, conn: AsyncConnection = Depends(get_conn)):
-    universe = await repo.get_universe(conn, universe_id)
-    if universe["status"] == "matching":
-        raise HTTPException(409, "matching already in progress")
+    await repo.get_universe(conn, universe_id)  # 404 if missing
     settings = get_settings()
     if not (settings.openrouter_api_key or settings.typesafe_api_key):
         raise HTTPException(503, "Set OPENROUTER_API_KEY or TYPESAFE_API_KEY; matching needs Jev")
+    if not await repo.claim_matching(conn, universe_id):
+        raise HTTPException(409, "matching already in progress")
     background.add_task(run_matching, universe_id)
     return {"status": "matching"}
 

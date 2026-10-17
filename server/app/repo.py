@@ -25,6 +25,16 @@ async def set_universe_status(conn: AsyncConnection, universe_id: UUID, status: 
     await conn.commit()
 
 
+async def claim_matching(conn: AsyncConnection, universe_id: UUID) -> bool:
+    """Atomically move a universe to 'matching'. False if a run is already in progress."""
+    cur = await conn.execute(
+        "UPDATE universes SET status = 'matching' WHERE id = %s AND status <> 'matching' RETURNING id", (universe_id,)
+    )
+    claimed = await cur.fetchone() is not None
+    await conn.commit()
+    return claimed
+
+
 async def merge_raw_sources(conn: AsyncConnection, user_id: UUID, patch: dict) -> None:
     await conn.execute(
         "UPDATE agent_profiles SET raw_sources = raw_sources || %s, updated_at = now() WHERE user_id = %s",
