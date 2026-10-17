@@ -2,15 +2,31 @@ import json
 from typing import Literal
 
 from pydantic import BaseModel, Field
+from typesafe_sdk import Choice, Noul, Score
 
 from unifai_agent.conversation import Transcript
+from unifai_agent.jev import YES, Jev
 from unifai_agent.llm import LLM
 from unifai_agent.profile import AgentProfile
-from unifai_agent.prompts import GROUP_JUDGE_SYSTEM_PROMPT, JUDGE_SYSTEM_PROMPT
+from unifai_agent.prompts import GROUP_JUDGE_SYSTEM_PROMPT
+
+CHEMISTRY_LEVELS = [
+    "No rapport: stilted, one-sided, or awkward",
+    "Polite but flat: answers questions, little back-and-forth",
+    "Friendly: some shared ground and an easy conversation",
+    "Strong: they build on each other's ideas and humor",
+    "Exceptional: obvious mutual enthusiasm, they make plans to meet",
+]
+
+LOGISTICS_OPTIONS = {
+    "strong": "Same area, similar budget, and overlapping free time",
+    "workable": "Some mismatch in area, budget, or free time, but meeting up is realistic",
+    "incompatible": "Meeting up regularly is unrealistic because of area, budget, or free time",
+}
 
 
 class Verdict(BaseModel):
-    vibe_score: int = Field(ge=1, le=10)
+    vibe_score: float = Field(ge=1, le=10)
     dealbreaker_conflicts: list[str] = Field(default_factory=list)
     logistics_fit: Literal["strong", "workable", "incompatible"]
     rationale: str
@@ -36,23 +52,54 @@ class GroupVerdict(BaseModel):
 
 
 class Judge:
-    def __init__(self, llm: LLM):
+    """Pair verdicts come from Jev (calibrated typed answers); group verdicts come from the generative LLM."""
+
+    def __init__(self, llm: LLM, jev: Jev):
         self.llm = llm
+        self.jev = jev
 
     def evaluate(self, a: AgentProfile, b: AgentProfile, transcript: Transcript) -> Verdict:
         names = {a.user_id: a.public.name, b.user_id: b.public.name}
-        prompt = "\n\n".join(
-            [
-                f"PROFILE A:\n{a.model_dump_json(indent=2)}",
-                f"PROFILE B:\n{b.model_dump_json(indent=2)}",
-                f"TRANSCRIPT:\n{transcript.render(names)}",
-                f"PRIVATE NOTES:\n{json.dumps({names[k]: v for k, v in transcript.notes.items()}, indent=2)}",
-            ]
+        state = {
+            "person_a": a.model_dump(exclude={"user_id", "temperature"}),
+            "person_b": b.model_dump(exclude={"user_id", "temperature"}),
+            "transcript": transcript.render(names),
+            "private_notes": {names[k]: v for k, v in transcript.notes.items()},
+        }
+        questions = {
+            "chemistry": Score(
+                instructions="In `transcript`, how much natural chemistry do person_a and person_b show?",
+                criteria=CHEMISTRY_LEVELS,
+            ),
+            "logistics": Choice(
+                instructions="Using `person_a.private.logistics` and `person_b.private.logistics`, "
+                "how realistic is it for them to meet up in person?",
+                criteria=LOGISTICS_OPTIONS,
+            ),
+        }
+        dealbreakers = [("a", "person_b", d) for d in a.private.dealbreakers]
+        dealbreakers += [("b", "person_a", d) for d in b.private.dealbreakers]
+        for i, (_, other, d) in enumerate(dealbreakers):
+            questions[f"dealbreaker_{i}"] = Noul(
+                instructions=f"Based on `{other}` and `transcript`, does {other} clearly have this trait "
+                f"or habit: {d}?"
+            )
+
+        result = self.jev.system_one(state, questions)
+        chemistry = result.scores["chemistry"]
+        vibe = 1 + 9 * chemistry.score / (len(CHEMISTRY_LEVELS) - 1)
+        fit = result.choices["logistics"].choice
+        owner = {"a": a.public.name, "b": b.public.name}
+        conflicts = [
+            f"{owner[who]}: {d}"
+            for i, (who, _, d) in enumerate(dealbreakers)
+            if result.nouls[f"dealbreaker_{i}"].noul > YES
+        ]
+        rationale = (
+            f"Chemistry {vibe:.1f}/10 (confidence {chemistry.confidence:.2f}); logistics {fit}; "
+            f"dealbreakers: {', '.join(conflicts) or 'none'}."
         )
-        resp = self.llm.generate(
-            JUDGE_SYSTEM_PROMPT, [{"role": "user", "content": prompt}], temperature=0.2, response_model=Verdict
-        )
-        return Verdict.model_validate_json(resp.text or "{}")
+        return Verdict(vibe_score=vibe, dealbreaker_conflicts=conflicts, logistics_fit=fit, rationale=rationale)
 
     def evaluate_group(
         self, profiles: list[AgentProfile], pair_verdicts: dict[tuple[str, str], Verdict]

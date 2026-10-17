@@ -1,9 +1,51 @@
+from types import SimpleNamespace
+
 import numpy as np
 
 from app.matching.groups import build_groups
 from app.matching.keywords import Keyword
 from app.matching.projection import project_3d
-from app.matching.scoring import KeywordScore, PersonSignals, Signals, candidate_pairs, hard_conflicts, to_signals
+from app.matching.scoring import (
+    KeywordScore,
+    PersonSignals,
+    Signals,
+    candidate_pairs,
+    hard_conflicts,
+    score_person,
+    to_signals,
+)
+
+
+class FakeJev:
+    """Answers each question by name: Score -> level index, Noul -> probability."""
+
+    def __init__(self, answers: dict):
+        self.answers = answers
+
+    def system_one(self, state, questions):
+        return SimpleNamespace(
+            scores={n: SimpleNamespace(score=self.answers.get(n, 2)) for n, q in questions.items() if q.type == "score"},
+            nouls={n: SimpleNamespace(noul=self.answers.get(n, 0.1)) for n, q in questions.items() if q.type == "noul"},
+        )
+
+
+KEYWORDS = [Keyword(name="climbing", description="rock climbing"), Keyword(name="heavy drinking", description="")]
+
+
+def test_score_person_normalizes_scores_and_reads_nouls():
+    jev = FakeJev({"score_0": 4, "dealbreaker_1": 0.9, "availability_stated": 0.9, "free_weekend_daytime": 0.8})
+
+    signals = score_person(jev, "doc", KEYWORDS)
+
+    assert [s.score for s in signals.scores] == [1.0, 0.5]
+    assert signals.dealbreakers == ["heavy drinking"]
+    assert signals.availability == ["weekend_daytime"]
+
+
+def test_score_person_ignores_free_slots_when_availability_was_never_stated():
+    jev = FakeJev({"availability_stated": 0.2, "free_weekend_daytime": 0.9})
+
+    assert score_person(jev, "doc", KEYWORDS).availability == []
 
 
 def clique(users: list[str], weight: float) -> dict[tuple[str, str], float]:

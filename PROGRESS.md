@@ -19,10 +19,10 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
 | Onboarding API             | Done, untested  | Join, self-report, interview chat, profile build.                               |
 | Scraping (Browser Use)     | Done, optional  | Behind the `scrape` extra. Never run end to end.                                |
 | Interviewer agent          | Done, untested  | No tests.                                                                       |
-| Keywords, scoring, filter  | Done            | Rewritten in `2cd6a5f`. Scoring runs in parallel. Unit tests for filter/ranking. |
+| Keywords, scoring, filter  | Done            | Rewritten in `2cd6a5f`. Gemini keywords; Jev scores each user in parallel. Unit tests with a fake Jev. Never run on real Jev. |
 | Agent-to-agent conversation| Done            | 2 unit tests. Never run against real Gemini at scale.                           |
-| Judge (pair + group)       | Done, untested  | No tests. Error handling gaps (see below).                                      |
-| Grouping (CP-SAT)          | Done            | Rewritten in `2cd6a5f` (OR-Tools). 4 unit tests. `review_groups` is untested.    |
+| Judge (pair + group)       | Done            | Pair judge is Jev (2 tests with a fake). Group judge is Gemini, untested. Error handling gaps (see below). |
+| Grouping (CP-SAT)          | Done            | Rewritten in `2cd6a5f` (OR-Tools). 4 unit tests. `review_groups` is untested. Far from optimal at 100+ people (see `AGENTS.md`). |
 | 3D projection + graph API  | Done            | 1 shape test.                                                                   |
 | Ticketmaster events        | Done            | Doesn't filter by city.                                                         |
 | Photon notifications       | **Stub**        | Raises `NotImplementedError` when an API key is set.                            |
@@ -30,9 +30,7 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
 | Auth                       | **Not started** | Every endpoint is public, including private profiles and agent notes.           |
 | CI / lint                  | **Not started** | No CI workflow, linter, or formatter config.                                    |
 
-**Test status:** the test suites weren't run while writing this. `uv` wasn't installed on the machine
-that wrote this, and there's no `.venv`. Whoever runs `uv run pytest` in `agent/` and `server/` first,
-please record the result here.
+**Test status (2026-10-17):** `uv run pytest` passes in `agent/` (4 tests) and `server/` (11 tests).
 
 ---
 
@@ -129,8 +127,8 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #4
 | 2  | [ ] Drop `note` rows from `GET /pairs/{id}/messages` and strip `private` from `GET /users/{id}/profile`. Five minutes of work, and judges may ask about privacy. | `routers/matching.py`, `routers/onboarding.py` | |
 | 15 | [ ] **Show unplaced people.** CP-SAT leaves out anyone it can't fit, and the group judge can drop one more per group. Neither is shown anywhere. At minimum, list them on the admin page. Better: put each in the best group with room that has no forbidden pair. | `groups.py`, `pipeline.py`, client | |
 | 22 | [ ] Skip users with no built profile (half-finished onboarding during a live demo) and show the admin who isn't ready. | `repo.load_profiles`, pipeline | |
-| 13 | [ ] Retry once when the model returns empty or invalid JSON (judge, keywords, interviewer). Failed scoring already falls back to all 0.5. | `agent/judge.py` and others | |
-| 24 | [ ] Keyword scores are still matched by name (now case- and whitespace-insensitive). A reworded keyword still silently scores 0.5. Lower priority than before. | `scoring.py` | |
+| 13 | [ ] Retry once when Gemini returns empty or invalid JSON (group judge, keywords, interviewer). The pair judge and scoring use Jev, which returns typed answers. Failed scoring already falls back to all 0.5. | `agent/judge.py` and others | |
+| 24 | [x] ~~Match keyword scores by index.~~ Done with the Jev switch: answers come back keyed by question index (`score_{i}`), so names can't drift. | `scoring.py` | Caleb |
 | 46 | [ ] Fake model mode (`FAKE_LLM=1`) that returns canned answers, so teammates can run the whole flow without a key or spending quota. It also works as a smoke test. | `agent/llm.py`, `server/app/deps.py` | |
 | 47 | [ ] `Makefile`: `db`, `db-reset`, `server`, `client`, `simulate`, `test`. | repo root | |
 | 48 | [ ] Generate TypeScript types from the API (`openapi-typescript http://localhost:8000/openapi.json`) so backend changes break the client build instead of breaking at demo time. | `client/` | |
@@ -201,6 +199,8 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Jev (TypeSafe) now scores keywords, dealbreakers, and availability, and judges pair
+  chemistry. Gemini still does keywords, chats, and the group judge. Needs `TYPESAFE_API_KEY`. Closes #24.
 - 2026-10-17: Pipeline rewritten (`2cd6a5f`): keywords + hard filter + CP-SAT groups. Closes #19 and #25.
 - 2026-10-17: Reranked the TODOs for the hackathon MVP; added #43-48.
 - 2026-10-17: Client skeleton added (`ff06aff`).

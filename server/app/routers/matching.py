@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from psycopg import AsyncConnection
 
 from app import repo
+from app.config import get_settings
 from app.db import get_conn
 from app.matching.pipeline import run_matching
 from app.matching.projection import project_3d
@@ -18,6 +19,8 @@ async def start_matching(universe_id: UUID, background: BackgroundTasks, conn: A
     universe = await repo.get_universe(conn, universe_id)
     if universe["status"] == "matching":
         raise HTTPException(409, "matching already in progress")
+    if not get_settings().typesafe_api_key:
+        raise HTTPException(503, "TYPESAFE_API_KEY is not set; matching needs Jev")
     background.add_task(run_matching, universe_id)
     return {"status": "matching"}
 

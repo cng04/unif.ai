@@ -8,6 +8,8 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://unifai:unifai@localhost:5432/unifai"
     gemini_api_key: str = ""
+    typesafe_api_key: str = ""
+    jev_model: str = "jev-latest"
     ticketmaster_api_key: str = ""
     photon_api_key: str = ""
     client_url: str = "http://localhost:3000"

@@ -65,17 +65,6 @@ PRIVATE:
 
 CONVERSATION_KICKOFF = "(You've just been introduced to another agent. Open the conversation.)"
 
-JUDGE_SYSTEM_PROMPT = """\
-You are judging whether two people would genuinely get along as friends, based on a conversation \
-between AI agents representing them, the agents' private notes, and both profiles.
-
-Score:
-- vibe_score: overall vibe fit from 1 to 10. Be calibrated; most pairs are 4-7.
-- dealbreaker_conflicts: does B conflict with any of A's dealbreakers, and the reverse? List each conflict.
-- logistics_fit: "strong", "workable", or "incompatible" based on location, budget, and availability.
-- rationale: two or three sentences citing specific moments from the transcript.
-"""
-
 GROUP_JUDGE_SYSTEM_PROMPT = """\
 You are checking whether a candidate friend group of 4-8 people works as a whole. Pairwise fit \
 doesn't guarantee group fit: A likes B and B likes C doesn't mean A and C click. Look at the \
