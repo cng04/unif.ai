@@ -8,8 +8,11 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://unifai:unifai@localhost:5432/unifai"
     gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.8-flash"
     typesafe_api_key: str = ""
     jev_model: str = "jev-latest"
+    openrouter_api_key: str = ""  # when set, OpenRouter answers Jev's questions instead of TypeSafe
+    openrouter_model: str = "google/gemini-3.8-flash"
     ticketmaster_api_key: str = ""
     photon_api_key: str = ""
     client_url: str = "http://localhost:3001"

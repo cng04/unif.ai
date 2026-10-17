@@ -37,7 +37,7 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
 ## What's built
 
 ### `agent/` (unifai_agent library)
-- **`llm.py`**: `LLM` protocol plus `GeminiLLM` (`gemini-2.5-flash`, `gemini-embedding-001` at 768 dims).
+- **`llm.py`**: `LLM` protocol plus `GeminiLLM` (`gemini-3.8-flash`, `gemini-embedding-001` at 768 dims).
   Supports tool calls and structured output through `response_model`.
 - **`profile.py`**: `AgentProfile` with `PublicProfile` (name, interests, vibe, looking_for) and
   `PrivateProfile` (dealbreakers, values, energy, logistics). Also `SelfReport`, the shape of the JSON

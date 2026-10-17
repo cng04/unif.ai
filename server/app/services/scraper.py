@@ -2,6 +2,8 @@
 
 import logging
 
+from app.config import get_settings
+
 log = logging.getLogger(__name__)
 
 TASK = """\
@@ -20,7 +22,7 @@ async def scrape_profiles(full_name: str, links: dict[str, str]) -> dict[str, st
     results: dict[str, str] = {}
     for platform, url in links.items():
         try:
-            agent = Agent(task=TASK.format(url=url, name=full_name), llm=ChatGoogle(model="gemini-2.5-flash"))
+            agent = Agent(task=TASK.format(url=url, name=full_name), llm=ChatGoogle(model=get_settings().gemini_model))
             history = await agent.run(max_steps=15)
             results[platform] = history.final_result() or ""
         except Exception:

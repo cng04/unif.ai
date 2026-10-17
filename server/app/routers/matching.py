@@ -19,8 +19,9 @@ async def start_matching(universe_id: UUID, background: BackgroundTasks, conn: A
     universe = await repo.get_universe(conn, universe_id)
     if universe["status"] == "matching":
         raise HTTPException(409, "matching already in progress")
-    if not get_settings().typesafe_api_key:
-        raise HTTPException(503, "TYPESAFE_API_KEY is not set; matching needs Jev")
+    settings = get_settings()
+    if not (settings.openrouter_api_key or settings.typesafe_api_key):
+        raise HTTPException(503, "Set OPENROUTER_API_KEY or TYPESAFE_API_KEY; matching needs Jev")
     background.add_task(run_matching, universe_id)
     return {"status": "matching"}
 
