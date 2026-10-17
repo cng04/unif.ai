@@ -36,13 +36,21 @@ class LLM(Protocol):
 class GeminiLLM:
     def __init__(
         self,
-        model: str = "gemini-2.5-flash",
+        model: str = "gemini-3.8-flash",
         embedding_model: str = "gemini-embedding-001",
         api_key: str | None = None,
     ):
         from google import genai
+        from google.genai import types
 
-        self.client = genai.Client(api_key=api_key or os.environ.get("GEMINI_API_KEY"))
+        # Free-tier quotas are per minute, so back off up to 60s between attempts.
+        retry = types.HttpRetryOptions(
+            attempts=8, initial_delay=2, max_delay=60, exp_base=2, http_status_codes=[429, 500, 502, 503, 504]
+        )
+        self.client = genai.Client(
+            api_key=api_key or os.environ.get("GEMINI_API_KEY"),
+            http_options=types.HttpOptions(retry_options=retry),
+        )
         self.model = model
         self.embedding_model = embedding_model
 

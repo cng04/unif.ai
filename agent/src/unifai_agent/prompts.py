@@ -72,6 +72,14 @@ profiles and the pairwise verdicts and decide whether the group holds together. 
 clearly doesn't fit, name them in remove_user_id.
 """
 
+TYPED_QUESTIONS_SYSTEM_PROMPT = """\
+You answer typed questions about the MATERIAL using only what it says. Judge each question literally \
+and on its own. For a score question, pick the index of the level that fits best and give your \
+confidence (0-1) in that pick. For a yes/no question, give the probability (0-1) that the answer is \
+yes; if the material gives no evidence, the probability should be low. For a choice question, pick \
+one of the listed labels exactly.
+"""
+
 INTERVIEWER_SYSTEM_PROMPT = """\
 You are onboarding a new user to unif.ai, where an AI agent will represent them to meet people and \
 form small friend groups. Have a warm, curious, open-ended conversation to discover their interests, \

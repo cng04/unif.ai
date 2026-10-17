@@ -5725,6 +5725,7 @@ version = "0.1.0"
 source = { editable = "../agent" }
 dependencies = [
     { name = "google-genai" },
+    { name = "httpx" },
     { name = "pydantic" },
     { name = "typesafe-sdk" },
 ]
@@ -5732,6 +5733,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "google-genai", specifier = ">=1.20" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "typesafe-sdk", specifier = ">=0.7.5" },
 ]

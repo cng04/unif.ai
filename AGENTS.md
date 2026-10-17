@@ -90,7 +90,7 @@ reverse) explains a block. Availability slots are stored in `agent_profiles.avai
 - Raw SQL through async psycopg 3 (`app/db.py` pool, `app/repo.py`). There is no ORM.
 - The `agent` library is synchronous. The server calls it with `asyncio.to_thread`, and the number of
   concurrent conversations is capped by a semaphore.
-- All generative calls go through the `LLM` protocol in `agent/llm.py` (`GeminiLLM`: `gemini-2.5-flash`,
+- All generative calls go through the `LLM` protocol in `agent/llm.py` (`GeminiLLM`: `gemini_model`, default `gemini-3.8-flash`,
   plus 768-dim embeddings). All Jev calls go through the `Jev` protocol in `agent/jev.py` (the
   `typesafe-sdk` client, model `jev_model`, default `jev-latest`). Tests use fakes of both.
 - Jev works best with literal, single-judgment questions and a state that holds only what the question

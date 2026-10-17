@@ -1,9 +1,12 @@
 """Run one agent-to-agent conversation between two sample personas and print the judge's verdict.
 
 Usage: GEMINI_API_KEY=... TYPESAFE_API_KEY=... uv run python scripts/simulate.py
+   or: GEMINI_API_KEY=... OPENROUTER_API_KEY=... uv run python scripts/simulate.py
 """
 
-from unifai_agent import AgentProfile, GeminiLLM, Judge, PersonaAgent, jev_client, run_conversation
+import os
+
+from unifai_agent import AgentProfile, GeminiLLM, Judge, OpenRouterJev, PersonaAgent, jev_client, run_conversation
 
 CYNTHIA = AgentProfile.model_validate({
     "user_id": "cynthia",
@@ -43,7 +46,7 @@ def main() -> None:
     transcript = run_conversation(PersonaAgent(CYNTHIA, llm), PersonaAgent(MARCO, llm))
     print(transcript.render({"cynthia": "Cynthia", "marco": "Marco"}))
     print("\nnotes:", transcript.notes)
-    print("\nverdict:", Judge(llm, jev_client()).evaluate(CYNTHIA, MARCO, transcript).model_dump_json(indent=2))
+    print("\nverdict:", Judge(llm, OpenRouterJev() if os.environ.get("OPENROUTER_API_KEY") else jev_client()).evaluate(CYNTHIA, MARCO, transcript).model_dump_json(indent=2))
 
 
 if __name__ == "__main__":
