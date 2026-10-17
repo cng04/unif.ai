@@ -1,0 +1,29 @@
+{
+  "name": "unif-onboarding",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "dev": "tsx --env-file-if-exists=.env src/index.ts --terminal",
+    "start": "tsx --env-file-if-exists=.env src/index.ts",
+    "typecheck": "tsc",
+    "test": "tsx --test test/*.test.ts",
+    "assign": "tsx --env-file-if-exists=.env scripts/assign.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@photon-ai/api": "^0.5.0",
+    "pg": "^8.23.1",
+    "socket.io-client": "^4.8.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
+  },
+  "type": "module"
+}

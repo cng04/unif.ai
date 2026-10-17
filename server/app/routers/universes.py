@@ -13,7 +13,7 @@ router = APIRouter(prefix="/universes", tags=["universes"])
 
 
 def with_invite_url(row: dict) -> Universe:
-    return Universe(**row, invite_url=f"{get_settings().client_url}/join/{row['invite_code']}")
+    return Universe(**row, invite_url=f"{get_settings().public_url}/join/{row['invite_code']}")
 
 
 @router.post("", response_model=Universe)

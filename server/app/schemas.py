@@ -27,6 +27,10 @@ class UserCreate(BaseModel):
     social_links: dict[str, str] = Field(default_factory=dict)
 
 
+class SocialLinksIn(BaseModel):
+    links: dict[str, str]
+
+
 class User(BaseModel):
     id: UUID
     universe_id: UUID
