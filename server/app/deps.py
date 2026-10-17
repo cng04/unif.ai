@@ -14,6 +14,14 @@ def get_llm() -> LLM:
 
 
 @lru_cache
+def get_chat_llm() -> LLM:
+    settings = get_settings()
+    if settings.openrouter_api_key:
+        return OpenRouterLLM(settings.openrouter_chat_model, settings.openrouter_api_key)
+    return get_llm()
+
+
+@lru_cache
 def get_jev() -> Jev:
     settings = get_settings()
     if settings.openrouter_api_key:
