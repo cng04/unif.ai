@@ -1,5 +1,6 @@
 """Step 2: score each person on every keyword with Jev, drop conflicting pairs, and pick who is worth a chat."""
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
@@ -9,6 +10,8 @@ from typesafe_sdk import Noul, Score
 from unifai_agent import YES, Jev
 
 from app.matching.keywords import Keyword
+
+log = logging.getLogger(__name__)
 
 NO_SIGNAL = 0.5
 
@@ -50,31 +53,40 @@ class Signals:
 
 def score_person(jev: Jev, document: str, keywords: list[Keyword]) -> PersonSignals:
     """One Jev request per person: a Score per keyword, a dealbreaker Noul per keyword, and availability Nouls."""
-    questions = {}
-    for i, kw in enumerate(keywords):
-        questions[f"score_{i}"] = Score(
-            instructions=f'How well does "{kw.name}" ({kw.description}) describe this person?',
-            criteria=KEYWORD_LEVELS,
-        )
-        questions[f"dealbreaker_{i}"] = Noul(
-            instructions=f'Did this person say they could not stand a friend described by "{kw.name}" '
-            f"({kw.description})?"
-        )
-    questions["availability_stated"] = Noul(instructions="Does the material say when this person is usually free?")
-    for slot, label in SLOTS.items():
-        questions[f"free_{slot}"] = Noul(instructions=f"Is this person usually free on {label}?")
+    try:
+        questions = {}
+        for i, kw in enumerate(keywords):
+            questions[f"score_{i}"] = Score(
+                instructions=f'How well does "{kw.name}" ({kw.description}) describe this person?',
+                criteria=KEYWORD_LEVELS,
+            )
+            questions[f"dealbreaker_{i}"] = Noul(
+                instructions=f'Did this person say they could not stand a friend described by "{kw.name}" '
+                f"({kw.description})?"
+            )
+        questions["availability_stated"] = Noul(instructions="Does the material say when this person is usually free?")
+        for slot, label in SLOTS.items():
+            questions[f"free_{slot}"] = Noul(instructions=f"Is this person usually free on {label}?")
 
-    result = jev.system_one(document, questions)
-    top = len(KEYWORD_LEVELS) - 1
-    stated = result.nouls["availability_stated"].noul > YES
-    return PersonSignals(
-        scores=[
-            KeywordScore(keyword=kw.name, score=result.scores[f"score_{i}"].score / top)
-            for i, kw in enumerate(keywords)
-        ],
-        dealbreakers=[kw.name for i, kw in enumerate(keywords) if result.nouls[f"dealbreaker_{i}"].noul > YES],
-        availability=[s for s in SLOTS if stated and result.nouls[f"free_{s}"].noul > YES],
-    )
+        result = jev.system_one(document, questions)
+        top = len(KEYWORD_LEVELS) - 1
+        stated = result.nouls["availability_stated"].noul > YES
+        return PersonSignals(
+            scores=[
+                KeywordScore(keyword=kw.name, score=result.scores[f"score_{i}"].score / top)
+                for i, kw in enumerate(keywords)
+            ],
+            dealbreakers=[kw.name for i, kw in enumerate(keywords) if result.nouls[f"dealbreaker_{i}"].noul > YES],
+            availability=[s for s in SLOTS if stated and result.nouls[f"free_{s}"].noul > YES],
+        )
+    except Exception:
+        log.exception("Failed to score person with Jev")
+        # Return default signals (no signal on any keyword)
+        return PersonSignals(
+            scores=[KeywordScore(keyword=kw.name, score=NO_SIGNAL) for kw in keywords],
+            dealbreakers=[],
+            availability=[],
+        )
 
 
 def to_signals(people: list[PersonSignals], keywords: list[Keyword]) -> Signals:

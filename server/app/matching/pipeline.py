@@ -4,6 +4,7 @@ keywords -> scores -> hard filter -> top-M ranking -> agent chats + judge -> CP-
 
 import asyncio
 import logging
+import time
 from collections import Counter
 from uuid import UUID
 
@@ -47,29 +48,65 @@ async def run_matching(universe_id: UUID) -> None:
         async with semaphore:
             return await asyncio.to_thread(fn, *args)
 
+    log.info("Starting matching for universe %s", universe_id)
+    pipeline_start = time.time()
+
     async with pool.connection() as conn:
         await repo.set_universe_status(conn, universe_id, "matching")
         try:
+            # Stage 1: Clear previous results
+            stage_start = time.time()
             await clear_results(conn, universe_id)
+            log.info("Cleared previous results for universe %s (took %.2fs)", universe_id, time.time() - stage_start)
+
+            # Stage 2: Load profiles
+            stage_start = time.time()
             profiles = await repo.load_profiles(conn, universe_id)
             ids = [p.user_id for p in profiles]
             documents = await repo.load_onboarding_documents(conn, profiles)
+            log.info("Loaded %d profiles for universe %s (took %.2fs)", len(profiles), universe_id, time.time() - stage_start)
 
+            # Stage 3: Extract keywords
+            stage_start = time.time()
             keywords = await asyncio.to_thread(extract_keywords, llm, documents, settings.keyword_count)
+            if not keywords:
+                log.error("No keywords extracted, cannot continue matching")
+                await repo.set_universe_status(conn, universe_id, "onboarding")
+                return
+            log.info("Extracted %d keywords for universe %s (took %.2fs)", len(keywords), universe_id, time.time() - stage_start)
+
+            # Stage 4: Score each person
+            stage_start = time.time()
             scored = await asyncio.gather(
                 *(limited(score_person, jev, d, keywords) for d in documents), return_exceptions=True
             )
             people = []
+            failed_scoring = []
             for user_id, result in zip(ids, scored):
                 if isinstance(result, BaseException):
                     log.exception("scoring %s failed", user_id, exc_info=result)
+                    failed_scoring.append(user_id)
                     result = PersonSignals(scores=[])
                 people.append(result)
+            if failed_scoring:
+                log.warning("Scoring failed for %d users: %s", len(failed_scoring), failed_scoring)
             signals = to_signals(people, keywords)
             await save_signals(conn, universe_id, ids, keywords, signals)
+            log.info("Scored %d users for universe %s (took %.2fs)", len(profiles), universe_id, time.time() - stage_start)
 
+            # Stage 5: Hard filter and candidate ranking
+            stage_start = time.time()
             blocked = hard_conflicts(signals)
             candidates = candidate_pairs(signals.scores, blocked, settings.top_m)
+            log.info(
+                "Filtered to %d candidate pairs from %d possible pairs (took %.2fs)",
+                len(candidates),
+                len(ids) * (len(ids) - 1) // 2,
+                time.time() - stage_start,
+            )
+
+            # Stage 6: Agent conversations and judge
+            stage_start = time.time()
             results = await asyncio.gather(
                 *(
                     limited(simulate_pair, llm, judge, profiles[i], profiles[j], settings.max_conversation_turns)
@@ -79,15 +116,22 @@ async def run_matching(universe_id: UUID) -> None:
             )
 
             verdicts: dict[PairKey, Verdict] = {}
+            failed_conversations = []
             for (i, j), result in zip(candidates, results):
-                if isinstance(result, BaseException):
+                if isinstance(result, Exception):
                     log.exception("pair %s/%s failed", ids[i], ids[j], exc_info=result)
+                    failed_conversations.append((ids[i], ids[j]))
                     continue
                 transcript, verdict = result
                 key = pair_key(ids[i], ids[j])
                 await save_pair(conn, universe_id, key, transcript, verdict)
                 verdicts[key] = verdict
+            if failed_conversations:
+                log.warning("Conversations failed for %d pairs", len(failed_conversations))
+            log.info("Completed %d agent conversations (took %.2fs)", len(verdicts), time.time() - stage_start)
 
+            # Stage 7: Group formation
+            stage_start = time.time()
             forbidden = {pair_key(ids[i], ids[j]) for i, j in zip(*np.nonzero(np.triu(blocked)))}
             forbidden |= {k for k, v in verdicts.items() if v.has_conflict}
             groups = await asyncio.to_thread(
@@ -99,6 +143,14 @@ async def run_matching(universe_id: UUID) -> None:
                 settings.max_group_size,
                 settings.group_solver_seconds,
             )
+            if not groups:
+                log.warning("No groups formed, cannot continue to event discovery")
+                await repo.set_universe_status(conn, universe_id, "onboarding")
+                return
+            log.info("Formed %d groups (took %.2fs)", len(groups), time.time() - stage_start)
+
+            # Stage 8: Group review and events
+            stage_start = time.time()
             by_id = {p.user_id: p for p in profiles}
             reviewed = await asyncio.to_thread(review_groups, judge, groups, by_id, verdicts, settings.min_group_size)
 
@@ -111,8 +163,11 @@ async def run_matching(universe_id: UUID) -> None:
                     await conn.execute("SELECT full_name, phone FROM users WHERE id = ANY(%s::uuid[])", (members,))
                 ).fetchall()
                 await photon.notify_group(users, events)
+            log.info("Reviewed groups and found events (took %.2fs)", time.time() - stage_start)
 
             await repo.set_universe_status(conn, universe_id, "matched")
+            total_time = time.time() - pipeline_start
+            log.info("Matching completed for universe %s in %.2fs", universe_id, total_time)
         except Exception:
             log.exception("matching failed for universe %s", universe_id)
             await conn.rollback()

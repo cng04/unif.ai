@@ -19,10 +19,11 @@ dependencies = [
 scrape = ["browser-use>=0.5"]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pytest-asyncio>=0.24"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+asyncio_mode = "auto"
 
 [tool.uv]
 package = false

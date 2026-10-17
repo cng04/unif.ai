@@ -1,7 +1,11 @@
 """Step 4: CP-SAT partitions people into groups using only judged edges, then the judge reviews each group whole."""
 
+import logging
+
 from ortools.sat.python import cp_model
 from unifai_agent import AgentProfile, GroupVerdict, Judge, Verdict
+
+log = logging.getLogger(__name__)
 
 PairKey = tuple[str, str]
 
@@ -19,8 +23,10 @@ def build_groups(
     """Place as many people as possible into groups of min-max size with no forbidden pair sharing a group,
     then, holding that count fixed, maximize the total judge weight of pairs inside the same group.
     Pairs that were never judged contribute nothing."""
+    log.info("Building groups for %d users with %d weighted edges", len(user_ids), len(weights))
     n = len(user_ids)
     if n < min_size:
+        log.warning("Not enough users (%d) to form groups (min size %d)", n, min_size)
         return []
     index = {u: i for i, u in enumerate(user_ids)}
     slots = range(n // min_size)
@@ -68,6 +74,7 @@ def build_groups(
     placed = sum(x.values())
     model.maximize(placed)
     if solver.solve(model) not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        log.warning("CP-SAT solver failed to place users in groups")
         return []
     model.add(placed >= round(solver.objective_value))
     for var in [*x.values(), *used]:
@@ -76,10 +83,13 @@ def build_groups(
     model.clear_objective()
     model.maximize(sum(c * v for c, v in together))
     if solver.solve(model) not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        log.warning("CP-SAT solver failed to optimize group weights")
         return []
 
     groups = [[u for u in user_ids if solver.value(x[index[u], g])] for g in slots]
-    return [g for g in groups if g]
+    result = [g for g in groups if g]
+    log.info("Built %d groups (sizes: %s)", len(result), [len(g) for g in result])
+    return result
 
 
 def review_groups(
