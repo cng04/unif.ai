@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import pool
-from app.routers import matching, onboarding, universes
+from app.routers import matching, onboarding, universes, web
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%H:%M:%S")
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -31,6 +31,8 @@ app.add_middleware(
 app.include_router(universes.router)
 app.include_router(onboarding.router)
 app.include_router(matching.router)
+app.include_router(web.admin)
+app.include_router(web.public)
 
 
 @app.get("/health")
