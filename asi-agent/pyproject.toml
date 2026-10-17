@@ -1,0 +1,9 @@
+[project]
+name = "unifai-asi-agent"
+version = "0.1.0"
+description = "ASI:One relay agent for unif.ai onboarding"
+requires-python = ">=3.11"
+dependencies = ["uagents>=0.26", "uagents-core>=0.4", "httpx>=0.27"]
+
+[tool.uv]
+package = false
