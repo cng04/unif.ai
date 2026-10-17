@@ -164,3 +164,26 @@ async def create_user(
         "INSERT INTO agent_profiles (user_id, public) VALUES (%s, %s)", (user["id"], Jsonb({"name": full_name}))
     )
     return user
+
+
+async def load_group(conn: AsyncConnection, group: dict) -> dict:
+    """A `groups` row plus its members and events, shaped like `schemas.Group`."""
+    members = await (
+        await conn.execute(
+            """
+            SELECT u.id AS user_id, u.full_name FROM group_members gm
+            JOIN users u ON u.id = gm.user_id WHERE gm.group_id = %s
+            """,
+            (group["id"],),
+        )
+    ).fetchall()
+    events = await (
+        await conn.execute("SELECT name, url, venue, starts_at FROM events WHERE group_id = %s", (group["id"],))
+    ).fetchall()
+    return {
+        "id": group["id"],
+        "group_score": group["group_score"],
+        "rationale": group["rationale"],
+        "members": members,
+        "events": events,
+    }
