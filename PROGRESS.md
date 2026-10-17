@@ -1,6 +1,6 @@
 # unif.ai: progress and TODOs
 
-Last updated: 2026-10-17 (as of commit `68cb046`). Keep this file current: when you pick up a task, put
+Last updated: 2026-10-17 (as of commit `ff06aff`). Keep this file current: when you pick up a task, put
 your name in **Owner**. When you finish it, check it off and add a line under [Changelog](#changelog).
 
 See `README.md` for setup and `AGENTS.md` for architecture and conventions.
@@ -26,7 +26,7 @@ run with real users. **P2** is polish or nice-to-have.
 | 3D projection + graph API  | Done            | 1 shape test.                                                                   |
 | Ticketmaster events        | Done            | Doesn't filter by city.                                                         |
 | Photon notifications       | **Stub**        | Raises `NotImplementedError` when an API key is set.                            |
-| Client (Next.js)           | **Not started** | `client/` doesn't exist yet, though the README and AGENTS.md describe it.       |
+| Client (Next.js)           | **Skeleton**    | Default create-next-app scaffold (`ff06aff`). No pages or API calls yet.        |
 | Auth                       | **Not started** | Every endpoint is public, including private profiles and agent notes.           |
 | CI / lint                  | **Not started** | No CI workflow, linter, or formatter config.                                    |
 
@@ -101,7 +101,7 @@ please record the result here.
 
 | #  | Task | Where | Owner |
 | -- | ---- | ----- | ----- |
-| 6  | [ ] **Build the client.** Pages: admin creates a universe and gets an invite link + QR, `/join/[code]` onboarding (name/socials, paste self-report, interviewer chat, review profile), admin dashboard (start matching, status), 3D playground (`/graph`), pair transcripts, groups + events. Read `client/AGENTS.md` first. That file doesn't exist yet either, so whoever starts `client/` should write it. | `client/` | |
+| 6  | [ ] **Build the client.** Pages: admin creates a universe and gets an invite link + QR, `/join/[code]` onboarding (name/socials, paste self-report, interviewer chat, review profile), admin dashboard (start matching, status), 3D playground (`/graph`), pair transcripts, groups + events. Read `client/AGENTS.md` first. | `client/` | |
 | 7  | [ ] **Seed data for matching.** Seed has 1 user. Add about 16-24 varied profiles (including clear mismatches and dealbreaker conflicts) so the pipeline makes several groups. | `db/seed.sql` | |
 | 8  | [ ] **Run the full pipeline once against real Gemini** on the seed data and write down the results: duration, pairs that failed, group sizes, whether the judge's scores look sensible. | — | |
 | 9  | [ ] **Photon.** Either implement `send_message`, or make it log and return instead of raising. Right now, setting `PHOTON_API_KEY` makes notification raise an error after groups are saved, which fails the whole run. | `server/app/services/photon.py` | |
@@ -154,7 +154,7 @@ please record the result here.
 | 36 | [ ] CI (GitHub Actions): `uv run pytest` in `agent/` and `server/`, plus `npm run lint` / `build` in `client/` once it exists. | `.github/workflows/` | |
 | 37 | [ ] Add `ruff` (lint + format) to both Python packages, and eslint/prettier to the client. | `pyproject.toml` | |
 | 38 | [ ] Either use the `agent_profiles.embedding` column (for example, for candidate pairs or dedup) or remove it. `LLM.embed` is never called. | `db/schema.sql`, `agent/llm.py` | |
-| 39 | [ ] Fix the README: `client/` doesn't exist yet, `.env.example` is missing, and it mentions "Tiger Data" while AGENTS.md says no Timescale features are used. | `README.md` | |
+| 39 | [ ] Fix the README: `.env.example` is missing, and it mentions "Tiger Data" while AGENTS.md says no Timescale features are used. | `README.md` | |
 | 40 | [ ] Log costs and latency per matching run (number of LLM calls, tokens), so we can estimate cost per universe. | `agent/llm.py`, pipeline | |
 | 41 | [ ] Let users review and edit their generated profile before matching (especially the PRIVATE section). | client + `PUT /users/{id}/profile` | |
 | 42 | [ ] Run a real Browser Use scrape against LinkedIn, Instagram, and X, and record what actually works. LinkedIn will likely block it. | `services/scraper.py` | |
@@ -167,7 +167,7 @@ This is a proposal. Rename or reshuffle as needed.
 
 | Workstream                       | Tasks                         | Notes |
 | -------------------------------- | ----------------------------- | ----- |
-| **A. Frontend**                  | 6, 29 (UI side), 41           | The biggest chunk and currently 0% done. Start with onboarding and the admin dashboard; the 3D playground can come later. |
+| **A. Frontend**                  | 6, 29 (UI side), 41           | The biggest chunk; only the scaffold exists. Start with onboarding and the admin dashboard; the 3D playground can come later. |
 | **B. Agent + judge quality**     | 3, 4, 11-14, 17, 18, 30, 32, 33 | Owns `agent/`. Run `scripts/simulate.py` often. |
 | **C. Matching pipeline**         | 7, 8, 10, 15, 16, 19-27, 31, 34 | Owns `server/app/matching/`. #7 and #8 come first, since everyone needs seed data. |
 | **D. Platform + integrations**   | 1, 2, 5, 9, 28, 35-40, 42     | Auth, API, Photon, Ticketmaster, CI. #1 and #2 affect A's API calls, so agree on the token scheme early. |
@@ -198,4 +198,5 @@ This is a proposal. Rename or reshuffle as needed.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Client skeleton added (`ff06aff`).
 - 2026-10-17: Wrote this file after reviewing the code at `68cb046`.
