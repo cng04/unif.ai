@@ -1,0 +1,18 @@
+# Local stand-in for Tiger Data (Timescale Postgres + pgvector).
+services:
+  postgres:
+    image: timescale/timescaledb-ha:pg17
+    container_name: unifai-db
+    environment:
+      POSTGRES_USER: unifai
+      POSTGRES_PASSWORD: unifai
+      POSTGRES_DB: unifai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/home/postgres/pgdata/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ./seed.sql:/docker-entrypoint-initdb.d/002_seed.sql:ro
+
+volumes:
+  pgdata:
