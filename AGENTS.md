@@ -85,6 +85,19 @@ ORDER BY a.score * b.score DESC;
 Shared high scores explain the similarity. A `true` in `a_avoids` next to a `score_b` above 0.5 (or the
 reverse) explains a block. Availability slots are stored in `agent_profiles.availability`.
 
+## Web app (`client/`)
+
+Mobile-first. People reach it through a personal link from their agent: `/u/{user_id}` redirects to
+`/u/{user_id}/connections`. Tabs are `connections` (ego graph), `agent` (the interview chat, continued),
+and `you` (own profile plus group). `/u/{user_id}/pairs/{pair_id}` shows one agent-to-agent conversation.
+Pages are server components that call the API through `src/lib/api.ts` (`API_URL`, default
+`http://localhost:8000`), so the browser never talks to FastAPI directly. Design tokens mirror the Paper
+file and live in `src/app/globals.css`. There is no auth yet: the user id in the URL is the only identity.
+
+The app reads `GET /users/{id}/connections` and `GET /users/{id}/pairs/{pair_id}` (`server/app/routers/me.py`).
+They name only the user's own pairs and group members, return everyone else as anonymous ids, and never
+return judge rationales, dealbreaker flags, or private profile fields.
+
 ## Conventions
 
 - Raw SQL through async psycopg 3 (`app/db.py` pool, `app/repo.py`). There is no ORM.

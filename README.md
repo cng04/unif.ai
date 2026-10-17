@@ -44,6 +44,9 @@ cd server && cp .env.example .env   # fill in DATABASE_URL and either OPENROUTER
                                        # or GEMINI_API_KEY + TYPESAFE_API_KEY
 uv run uvicorn app.main:app --reload
 
+# optional: a fake "UI Demo" universe that looks post-matching; prints a login link for the web app
+cd server && uv run python -m scripts.seed_demo
+
 # client (http://localhost:3001)
 cd client && npm install && npm run dev
 
