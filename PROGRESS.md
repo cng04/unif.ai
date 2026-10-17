@@ -89,7 +89,7 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
 
 These are ranked for a **hackathon MVP due in about 24 hours**. The test is simple: does the demo run
 end to end, live, without embarrassing failures? Task numbers are permanent IDs (that's why they aren't
-in order), so feel free to reference them in chat and PRs. New tasks start at #43.
+in order), so feel free to reference them in chat and PRs. New tasks start at #50.
 
 ### Timeline
 
@@ -107,7 +107,8 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #4
 | 5  | [x] Add `server/.env.example` (`DATABASE_URL`, `GEMINI_API_KEY`, `TICKETMASTER_API_KEY`, `PHOTON_API_KEY`, `CLIENT_URL`). Share the real keys in the team chat, never in the repo. | `server/` | |
 | 7  | [ ] **Seed about 20 varied profiles** (some clear mismatches and dealbreaker conflicts) so matching makes 3-4 groups. Include `onboarding_messages` for each user, since keywords and scoring now read the interview transcript too. | `db/seed.sql` | |
 | 43 | [ ] **Fixture data for a finished matching run:** precomputed keywords, keyword scores, pairs + transcripts, groups, events for the seed universe. Frontend can build every page without running the pipeline, and it's the **demo fallback** if Gemini fails live. | `db/seed.sql` or `db/fixture_matched.sql` | |
-| 6  | [ ] **Build the client.** In demo order: create universe + invite QR, `/join/[code]` onboarding (name, paste self-report, interviewer chat), admin "start matching" + status, groups + events, then the 3D playground and pair transcripts. Read `client/AGENTS.md` first. | `client/` | |
+| 6  | [ ] **Build the client.** In demo order: create universe + invite QR, `/join/[code]` onboarding (name, paste self-report, interviewer chat), admin "start matching" + status, groups + events, then the 3D playground (#49) and pair transcripts. Read `client/AGENTS.md` first. | `client/` | |
+| 49 | [ ] **Keyword playground (3D).** A three.js scatter plot where the user picks 3 keywords as the X/Y/Z axes. Each point is one person in the universe, placed by their Jev keyword scores (0-1) on those 3 keywords. The viewer's own point is highlighted. People the viewer had a simulated chat with (a row in `pairs`) are colored; everyone else is grey. Clicking a colored point opens that agent-to-agent transcript (`GET /pairs/{id}/messages`, with `note` rows dropped per #2). Needs a new endpoint that returns the universe's keywords plus each user's raw per-keyword scores (`GET /universes/{id}/graph` only returns the 3D projection), and a way to know who the viewer is (user id from onboarding). | `client/`, `routers/matching.py` | |
 | 8  | [ ] **Run the full pipeline on real Gemini** with the seed data. Record how long it takes, which pairs failed, and group sizes. If it takes longer than about 2 minutes, lower `max_conversation_turns` or `top_m` for the demo. Also count how many people the hard filter and CP-SAT leave out (see #17). | — | |
 | 9 | [x] **Photon:** make `send_message` log and return instead of raising `NotImplementedError` (or implement it, if iMessage is part of the demo). Right now, setting the key fails the whole run after groups are saved. | `server/app/services/photon.py` | |
 | 10 | [x] Wrap each `evaluate_group` call in error handling. One bad judge response currently fails the whole run. | `server/app/matching/groups.py` (`review_groups`) | |
@@ -168,7 +169,7 @@ This is a proposal. Rename or reshuffle as needed.
 
 | Workstream                      | Must                     | Should              | Notes |
 | ------------------------------- | ------------------------ | ------------------- | ----- |
-| **A. Frontend**                 | 6                        | 29 (UI), 48         | The biggest chunk. Build against the #43 fixture from hour 3; don't wait for the pipeline. |
+| **A. Frontend**                 | 6, 49                    | 29 (UI), 48         | The biggest chunk. Build against the #43 fixture from hour 3; don't wait for the pipeline. |
 | **B. Agent + judge**            | 11, 27                   | 12, 13, 17, 46      | Owns `agent/`. Run `scripts/simulate.py` often. Can help A once the Must items are done. |
 | **C. Matching pipeline**        | 7, 8, 10, 21, 43         | 15, 22, 24, 29      | #7 and #43 go first, since everyone needs that data. |
 | **D. Platform + demo**          | 5, 9, 44, 45             | 2, 28, 47           | Owns deploys, integrations, and the demo script. Runs the rehearsals at hours 16-20. |
@@ -199,6 +200,7 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Added #49 (3D keyword playground with user-picked axes and clickable chat transcripts).
 - 2026-10-17: Jev (TypeSafe) now scores keywords, dealbreakers, and availability, and judges pair
   chemistry. Gemini still does keywords, chats, and the group judge. Needs `TYPESAFE_API_KEY`. Closes #24.
 - 2026-10-17: Pipeline rewritten (`2cd6a5f`): keywords + hard filter + CP-SAT groups. Closes #19 and #25.
