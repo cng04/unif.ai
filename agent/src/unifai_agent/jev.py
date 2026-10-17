@@ -5,12 +5,11 @@ probabilities. It can't generate text, so chats, keywords, and the group judge s
 Its probabilities are the model's own estimates, so they are not calibrated like Jev's."""
 
 import json
-import os
-import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from unifai_agent.openrouter import make_client, post_chat
 from unifai_agent.prompts import TYPED_QUESTIONS_SYSTEM_PROMPT
 
 YES = 0.5  # a Noul above this is "more likely true than not"
@@ -113,18 +112,10 @@ def _parse(raw: Mapping[str, Any], questions: Mapping[str, Any]) -> Answers:
 
 
 class OpenRouterJev:
-    URL = "https://openrouter.ai/api/v1/chat/completions"
-    RETRY_STATUS = {408, 429, 500, 502, 503, 504}
-
     def __init__(
         self, api_key: str | None = None, model: str = "google/gemini-3.8-flash", attempts: int = 6, timeout=180.0
     ):
-        import httpx
-
-        key = api_key or os.environ.get("OPENROUTER_API_KEY")
-        if not key:
-            raise ValueError("No OpenRouter API key: pass api_key or set OPENROUTER_API_KEY")
-        self.client = httpx.Client(headers={"Authorization": f"Bearer {key}"}, timeout=timeout)
+        self.client = make_client(api_key, timeout)
         self.model = model
         self.attempts = attempts
 
@@ -144,24 +135,5 @@ class OpenRouterJev:
                 "json_schema": {"name": "answers", "strict": True, "schema": _schema(questions)},
             },
         }
-        data = self._post(body)
+        data = post_chat(self.client, body, self.attempts)
         return _parse(json.loads(data["choices"][0]["message"]["content"]), questions)
-
-    def _post(self, body: dict) -> dict:
-        import httpx
-
-        for attempt in range(self.attempts):
-            last = attempt == self.attempts - 1
-            try:
-                resp = self.client.post(self.URL, json=body)
-            except httpx.TransportError:
-                if last:
-                    raise
-            else:
-                if resp.status_code not in self.RETRY_STATUS or last:
-                    data = resp.json() if resp.content else {}
-                    if resp.is_error or "error" in data:
-                        raise RuntimeError(f"OpenRouter {resp.status_code}: {data.get('error') or resp.text[:500]}")
-                    return data
-            time.sleep(min(2 * 2**attempt, 60))
-        raise AssertionError("unreachable")

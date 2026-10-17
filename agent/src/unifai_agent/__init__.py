@@ -2,7 +2,7 @@ from unifai_agent.conversation import Transcript, run_conversation
 from unifai_agent.interviewer import Interviewer
 from unifai_agent.jev import YES, Jev, OpenRouterJev, jev_client
 from unifai_agent.judge import GroupVerdict, Judge, Verdict
-from unifai_agent.llm import LLM, GeminiLLM
+from unifai_agent.llm import LLM, GeminiLLM, OpenRouterLLM
 from unifai_agent.persona import PersonaAgent
 from unifai_agent.profile import AgentProfile, PrivateProfile, PublicProfile, SelfReport
 
@@ -16,6 +16,7 @@ __all__ = [
     "Jev",
     "Judge",
     "OpenRouterJev",
+    "OpenRouterLLM",
     "PersonaAgent",
     "PrivateProfile",
     "PublicProfile",

@@ -1,8 +1,11 @@
+import json
 import os
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from pydantic import BaseModel
+
+from unifai_agent.openrouter import make_client, post_chat
 
 Message = dict[str, str]
 
@@ -94,3 +97,72 @@ class GeminiLLM:
             config=types.EmbedContentConfig(output_dimensionality=768),
         )
         return [e.values for e in resp.embeddings]
+
+
+def _json_schema(schema: Any) -> Any:
+    """Gemini tool declarations use OpenAPI's uppercase types ("OBJECT"); OpenRouter wants JSON Schema."""
+    if isinstance(schema, dict):
+        return {k: v.lower() if k == "type" and isinstance(v, str) else _json_schema(v) for k, v in schema.items()}
+    if isinstance(schema, list):
+        return [_json_schema(v) for v in schema]
+    return schema
+
+
+class OpenRouterLLM:
+    def __init__(
+        self,
+        model: str = "google/gemini-3.8-flash",
+        api_key: str | None = None,
+        max_tokens: int = 4096,
+        attempts: int = 6,
+        timeout: float = 180.0,
+    ):
+        self.client = make_client(api_key, timeout)
+        self.model = model
+        # OpenRouter reserves credit for max_tokens on every in-flight request, so keep it bounded.
+        self.max_tokens = max_tokens
+        self.attempts = attempts
+
+    def generate(
+        self,
+        system: str,
+        history: list[Message],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        temperature: float = 0.7,
+        response_model: type[BaseModel] | None = None,
+    ) -> LLMResponse:
+        body: dict[str, Any] = {
+            "model": self.model,
+            "temperature": temperature,
+            "max_tokens": self.max_tokens,
+            "reasoning": {"effort": "low", "exclude": True},
+            "messages": [{"role": "system", "content": system}, *history],
+        }
+        if tools:
+            body["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": t["name"],
+                        "description": t.get("description", ""),
+                        "parameters": _json_schema(t.get("parameters", {"type": "object", "properties": {}})),
+                    },
+                }
+                for t in tools
+            ]
+        if response_model:
+            body["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": response_model.__name__, "schema": response_model.model_json_schema()},
+            }
+
+        message = post_chat(self.client, body, self.attempts)["choices"][0]["message"]
+        calls = [
+            ToolCall(c["function"]["name"], json.loads(c["function"].get("arguments") or "{}"))
+            for c in message.get("tool_calls") or []
+        ]
+        return LLMResponse(text=None if calls else message.get("content"), tool_calls=calls)
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        raise NotImplementedError("OpenRouterLLM has no embeddings; use GeminiLLM.embed")
