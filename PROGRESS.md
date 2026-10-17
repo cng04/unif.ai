@@ -1,6 +1,6 @@
 # unif.ai: progress and TODOs
 
-Last updated: 2026-10-17 (as of commit `ff06aff`). Keep this file current: when you pick up a task, put
+Last updated: 2026-10-17 (as of commit `63b21e2`). Keep this file current: when you pick up a task, put
 your name in **Owner**. When you finish it, check it off and add a line under [Changelog](#changelog).
 
 See `README.md` for setup and `AGENTS.md` for architecture and conventions.
@@ -19,10 +19,10 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
 | Onboarding API             | Done, untested  | Join, self-report, interview chat, profile build.                               |
 | Scraping (Browser Use)     | Done, optional  | Behind the `scrape` extra. Never run end to end.                                |
 | Interviewer agent          | Done, untested  | No tests.                                                                       |
-| Feature extraction/scoring | Done, untested  | Scoring runs one LLM call per user, one after another (slow).                   |
+| Keywords, scoring, filter  | Done            | Rewritten in `2cd6a5f`. Scoring runs in parallel. Unit tests for filter/ranking. |
 | Agent-to-agent conversation| Done            | 2 unit tests. Never run against real Gemini at scale.                           |
 | Judge (pair + group)       | Done, untested  | No tests. Error handling gaps (see below).                                      |
-| Grouping (Louvain)         | Done            | 2 unit tests. `review_groups` is untested.                                      |
+| Grouping (CP-SAT)          | Done            | Rewritten in `2cd6a5f` (OR-Tools). 4 unit tests. `review_groups` is untested.    |
 | 3D projection + graph API  | Done            | 1 shape test.                                                                   |
 | Ticketmaster events        | Done            | Doesn't filter by city.                                                         |
 | Photon notifications       | **Stub**        | Raises `NotImplementedError` when an API key is set.                            |
@@ -67,18 +67,20 @@ please record the result here.
   `POST|GET /users/{id}/profile`.
 - **Matching**: `POST /universes/{id}/matching` (background task), `GET /universes/{id}/graph`,
   `GET /universes/{id}/pairs`, `GET /pairs/{id}/messages`, `GET /universes/{id}/groups`.
-- **Pipeline** (`matching/pipeline.py`): features, then scores, then nearest-neighbor pairs (in
-  parallel, capped by a semaphore), then a conversation and judge per pair, then Louvain groups, then a
+- **Pipeline** (`matching/pipeline.py`, rewritten in `2cd6a5f`; full description in AGENTS.md): clear
+  old results, then keywords, then per-person scores + dealbreakers + availability (in parallel), then a
+  hard filter for blocked pairs, then each person's top-M unblocked matches, then a conversation and judge
+  per pair, then CP-SAT groups with no forbidden pairs (people who can't be placed are left out), then a
   group review, then Ticketmaster events and a Photon notification. Status goes `matching` to `matched`,
   or back to `onboarding` on failure.
 - **Services**: `ticketmaster.py` (Discovery API), `photon.py` (stub that only logs), `scraper.py`
   (Browser Use).
-- **Config** (`config.py`): feature_count 12, candidate_neighbors 6, max_conversation_turns 12,
-  max_concurrent_conversations 8, group size 4-8. All can be overridden with env vars.
+- **Config** (`config.py`): keyword_count 20, top_m 5, max_conversation_turns 12,
+  max_concurrent_conversations 8, group size 4-8, group_solver_seconds 10. All can be overridden with env vars.
 
 ### `db/`
 - `schema.sql`: universes, users, agent_profiles (with an unused `embedding vector(768)`),
-  onboarding_messages, features, user_feature_scores, pairs, pair_messages, groups, group_members, events.
+  onboarding_messages, keywords, keyword_scores (with a `dealbreaker` flag), pairs, pair_messages, groups, group_members, events.
 - `seed.sql`: one universe ("LA Hacks Demo", invite `lahacks`) and one user (Cynthia).
 - `docker-compose.yml`: local Postgres from the `timescaledb-ha:pg17` image. It loads the schema and
   seed on first boot only.
@@ -105,13 +107,13 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #4
 | #  | Task | Where | Owner |
 | -- | ---- | ----- | ----- |
 | 5  | [ ] Add `server/.env.example` (`DATABASE_URL`, `GEMINI_API_KEY`, `TICKETMASTER_API_KEY`, `PHOTON_API_KEY`, `CLIENT_URL`). Share the real keys in the team chat, never in the repo. | `server/` | |
-| 7  | [ ] **Seed about 20 varied profiles** (some clear mismatches and dealbreaker conflicts) so matching makes 3-4 groups. | `db/seed.sql` | |
-| 43 | [ ] **Fixture data for a finished matching run:** precomputed features, scores, pairs + transcripts, groups, events for the seed universe. Frontend can build every page without running the pipeline, and it's the **demo fallback** if Gemini fails live. | `db/seed.sql` or `db/fixture_matched.sql` | |
+| 7  | [ ] **Seed about 20 varied profiles** (some clear mismatches and dealbreaker conflicts) so matching makes 3-4 groups. Include `onboarding_messages` for each user, since keywords and scoring now read the interview transcript too. | `db/seed.sql` | |
+| 43 | [ ] **Fixture data for a finished matching run:** precomputed keywords, keyword scores, pairs + transcripts, groups, events for the seed universe. Frontend can build every page without running the pipeline, and it's the **demo fallback** if Gemini fails live. | `db/seed.sql` or `db/fixture_matched.sql` | |
 | 6  | [ ] **Build the client.** In demo order: create universe + invite QR, `/join/[code]` onboarding (name, paste self-report, interviewer chat), admin "start matching" + status, groups + events, then the 3D playground and pair transcripts. Read `client/AGENTS.md` first. | `client/` | |
-| 8  | [ ] **Run the full pipeline on real Gemini** with the seed data. Record how long it takes, which pairs failed, and group sizes. If it takes longer than about 2 minutes, lower `max_conversation_turns` or `candidate_neighbors` for the demo. | — | |
+| 8  | [ ] **Run the full pipeline on real Gemini** with the seed data. Record how long it takes, which pairs failed, and group sizes. If it takes longer than about 2 minutes, lower `max_conversation_turns` or `top_m` for the demo. Also count how many people the hard filter and CP-SAT leave out (see #17). | — | |
 | 9  | [ ] **Photon:** make `send_message` log and return instead of raising `NotImplementedError` (or implement it, if iMessage is part of the demo). Right now, setting the key fails the whole run after groups are saved. | `server/app/services/photon.py` | |
 | 10 | [ ] Wrap each `evaluate_group` call in error handling. One bad judge response currently fails the whole run. | `server/app/matching/groups.py` (`review_groups`) | |
-| 19 | [ ] **Clear the old results before re-running matching** (`groups`, `group_members`, `events`, `pairs` for the universe). You'll re-run many times while rehearsing, and the duplicates break the groups page and the graph. | `pipeline.py` | |
+| 19 | [x] ~~Clear the old results before re-running matching.~~ Done in `2cd6a5f` (`clear_results`). | `pipeline.py` | Caleb |
 | 21 | [ ] Set the status to `matching` inside the start request (`UPDATE ... WHERE status <> 'matching' RETURNING`) so a double click doesn't start two runs. Allow re-running a `matched` universe. | `routers/matching.py` | |
 | 27 | [ ] Add a retry with backoff to Gemini calls. 8 conversations at once will hit rate limits. | `agent/llm.py` | |
 | 11 | [ ] Prepend `CONVERSATION_KICKOFF` to the opening agent's history so it never starts with an `assistant` message. Check in #8 whether Gemini actually complains; skip this if it doesn't. | `agent/persona.py` | |
@@ -122,19 +124,19 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #4
 
 | #  | Task | Where | Owner |
 | -- | ---- | ----- | ----- |
-| 25 | [ ] Score profiles in parallel instead of one after another. This directly cuts live-demo wait time. | `scoring.py`, `pipeline.py` | |
+| 25 | [x] ~~Score profiles in parallel.~~ Done in `2cd6a5f`. | `pipeline.py` | Caleb |
 | 29 | [ ] Matching progress (pairs done out of total) plus a progress bar, so the live wait looks intentional. | pipeline, new endpoint, client | |
 | 2  | [ ] Drop `note` rows from `GET /pairs/{id}/messages` and strip `private` from `GET /users/{id}/profile`. Five minutes of work, and judges may ask about privacy. | `routers/matching.py`, `routers/onboarding.py` | |
-| 15 | [ ] A member the group judge removes is left with no group. Put them in the best group with room. | `groups.py` | |
+| 15 | [ ] **Show unplaced people.** CP-SAT leaves out anyone it can't fit, and the group judge can drop one more per group. Neither is shown anywhere. At minimum, list them on the admin page. Better: put each in the best group with room that has no forbidden pair. | `groups.py`, `pipeline.py`, client | |
 | 22 | [ ] Skip users with no built profile (half-finished onboarding during a live demo) and show the admin who isn't ready. | `repo.load_profiles`, pipeline | |
-| 13 | [ ] Retry once when the model returns empty or invalid JSON (judge, features, scoring, interviewer). | `agent/judge.py` and others | |
-| 24 | [ ] Match feature scores by index rather than name, so a slightly renamed feature doesn't silently score 0.5. | `scoring.py` | |
+| 13 | [ ] Retry once when the model returns empty or invalid JSON (judge, keywords, interviewer). Failed scoring already falls back to all 0.5. | `agent/judge.py` and others | |
+| 24 | [ ] Keyword scores are still matched by name (now case- and whitespace-insensitive). A reworded keyword still silently scores 0.5. Lower priority than before. | `scoring.py` | |
 | 46 | [ ] Fake model mode (`FAKE_LLM=1`) that returns canned answers, so teammates can run the whole flow without a key or spending quota. It also works as a smoke test. | `agent/llm.py`, `server/app/deps.py` | |
 | 47 | [ ] `Makefile`: `db`, `db-reset`, `server`, `client`, `simulate`, `test`. | repo root | |
 | 48 | [ ] Generate TypeScript types from the API (`openapi-typescript http://localhost:8000/openapi.json`) so backend changes break the client build instead of breaking at demo time. | `client/` | |
 | 12 | [ ] Don't drop the message when `end_conversation` comes before `send_message` in the same response. | `agent/persona.py` | |
 | 28 | [ ] Ticketmaster: pass the group's most common city so events are local. | `ticketmaster.py`, `pipeline.py` | |
-| 17 | [ ] After #8, check whether the judge lists too many dealbreakers (which zeroes out edges). Tune the prompt if so. | `prompts.py` | |
+| 17 | [ ] After #8, check for over-blocking. Dealbreakers now forbid a pair in two places: the scoring prompt's dealbreaker keywords (hard filter) and the judge's `dealbreaker_conflicts`. Too many means lots of people left out. Tune the prompts if so. | `scoring.py`, `prompts.py` | |
 
 ### After the hackathon: cut for now
 
@@ -170,7 +172,7 @@ This is a proposal. Rename or reshuffle as needed.
 | ------------------------------- | ------------------------ | ------------------- | ----- |
 | **A. Frontend**                 | 6                        | 29 (UI), 48         | The biggest chunk. Build against the #43 fixture from hour 3; don't wait for the pipeline. |
 | **B. Agent + judge**            | 11, 27                   | 12, 13, 17, 46      | Owns `agent/`. Run `scripts/simulate.py` often. Can help A once the Must items are done. |
-| **C. Matching pipeline**        | 7, 8, 10, 19, 21, 43     | 15, 22, 24, 25, 29  | #7 and #43 go first, since everyone needs that data. |
+| **C. Matching pipeline**        | 7, 8, 10, 21, 43         | 15, 22, 24, 29      | #7 and #43 go first, since everyone needs that data. |
 | **D. Platform + demo**          | 5, 9, 44, 45             | 2, 28, 47           | Owns deploys, integrations, and the demo script. Runs the rehearsals at hours 16-20. |
 
 **Dependencies between workstreams:**
@@ -199,6 +201,7 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Pipeline rewritten (`2cd6a5f`): keywords + hard filter + CP-SAT groups. Closes #19 and #25.
 - 2026-10-17: Reranked the TODOs for the hackathon MVP; added #43-48.
 - 2026-10-17: Client skeleton added (`ff06aff`).
 - 2026-10-17: Wrote this file after reviewing the code at `68cb046`.
