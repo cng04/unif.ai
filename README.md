@@ -16,10 +16,11 @@ db/       Postgres schema + seed (Tiger Data in prod, optional local Docker)
    the self-report prompt from their own AI, and chats with the interviewer agent. The server builds an
    agent profile with `public` (shareable) and `private` (dealbreakers, values, logistics) sections.
 3. **Matching** (admin-triggered):
-   - Gemini reads all onboarding transcripts and picks ~20 keywords, then scores each person 0-1 on
-     every keyword (one call per person). The k-dim scores are flattened to 3D for the playground view.
+   - Gemini reads all onboarding transcripts and picks ~20 keywords. Jev (TypeSafe) then scores each
+     person 0-1 on every keyword and flags their dealbreakers and free time (one request per person).
+     The k-dim scores are flattened to 3D for the playground view.
    - Pairs with a dealbreaker or availability conflict are dropped. Each person's top 5 remaining
-     matches by cosine similarity get an agent-to-agent conversation; the judge scores vibe (1-10),
+     matches by cosine similarity get an agent-to-agent conversation; Jev judges chemistry (1-10),
      dealbreaker conflicts, and logistics fit.
    - Only judged pairs become edges. CP-SAT forms groups of 4-8 with no conflicting pairs, maximizing
      edge weight, and each group is re-judged as a whole.
@@ -35,14 +36,14 @@ psql "$DATABASE_URL" -f db/schema.sql -f db/seed.sql
 # or run it locally: docker compose -f db/docker-compose.yml up -d
 
 # server (http://localhost:8000/docs)
-cd server && cp .env.example .env   # fill in DATABASE_URL, GEMINI_API_KEY, ...
+cd server && cp .env.example .env   # fill in DATABASE_URL, GEMINI_API_KEY, TYPESAFE_API_KEY, ...
 uv run uvicorn app.main:app --reload
 
 # client (http://localhost:3000)
 cd client && npm install && npm run dev
 
 # agent: try one simulated conversation
-cd agent && GEMINI_API_KEY=... uv run python scripts/simulate.py
+cd agent && GEMINI_API_KEY=... TYPESAFE_API_KEY=... uv run python scripts/simulate.py
 ```
 
 Tests: `uv run pytest` in `agent/` and `server/`.

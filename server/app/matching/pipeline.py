@@ -15,7 +15,7 @@ from unifai_agent import AgentProfile, GroupVerdict, Transcript, Verdict
 from app import repo
 from app.config import get_settings
 from app.db import pool
-from app.deps import get_judge, get_llm
+from app.deps import get_jev, get_judge, get_llm
 from app.matching.groups import build_groups, review_groups
 from app.matching.keywords import Keyword, extract_keywords
 from app.matching.pairing import simulate_pair
@@ -40,7 +40,7 @@ def pair_key(a: str, b: str) -> PairKey:
 
 async def run_matching(universe_id: UUID) -> None:
     settings = get_settings()
-    llm, judge = get_llm(), get_judge()
+    llm, jev, judge = get_llm(), get_jev(), get_judge()
     semaphore = asyncio.Semaphore(settings.max_concurrent_conversations)
 
     async def limited(fn, *args):
@@ -57,7 +57,7 @@ async def run_matching(universe_id: UUID) -> None:
 
             keywords = await asyncio.to_thread(extract_keywords, llm, documents, settings.keyword_count)
             scored = await asyncio.gather(
-                *(limited(score_person, llm, d, keywords) for d in documents), return_exceptions=True
+                *(limited(score_person, jev, d, keywords) for d in documents), return_exceptions=True
             )
             people = []
             for user_id, result in zip(ids, scored):

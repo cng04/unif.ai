@@ -1,30 +1,33 @@
-"""Step 2: score each person on every keyword, drop conflicting pairs, and pick who is worth an agent conversation."""
+"""Step 2: score each person on every keyword with Jev, drop conflicting pairs, and pick who is worth a chat."""
 
 from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
 from pydantic import BaseModel
-from unifai_agent import LLM
+from typesafe_sdk import Noul, Score
+from unifai_agent import YES, Jev
 
 from app.matching.keywords import Keyword
 
 NO_SIGNAL = 0.5
 
+# Five ordered levels with "no signal" in the middle, so the normalized score lands on NO_SIGNAL.
+KEYWORD_LEVELS = [
+    "Clearly does not describe them",
+    "Leans toward not describing them",
+    "The material gives no signal either way",
+    "Leans toward describing them",
+    "Clearly describes them",
+]
+
 Slot = Literal["weekday_daytime", "weekday_evening", "weekend_daytime", "weekend_evening"]
-
-SYSTEM = f"""\
-Read this person's onboarding material and fill in three things.
-
-scores: rate them from 0 to 1 on every keyword below, where 1 means it strongly describes them, \
-0 means it clearly does not, and {NO_SIGNAL} means the material gives no signal.
-dealbreakers: the keywords (exact names from the list) that they could not stand in a friend, \
-based only on dealbreakers they actually stated.
-availability: the slots when they are usually free. Leave it empty if they never said.
-
-Keywords:
-{{keywords}}
-"""
+SLOTS: dict[Slot, str] = {
+    "weekday_daytime": "weekday daytimes",
+    "weekday_evening": "weekday evenings",
+    "weekend_daytime": "weekend daytimes",
+    "weekend_evening": "weekend evenings",
+}
 
 
 class KeywordScore(BaseModel):
@@ -45,15 +48,33 @@ class Signals:
     availability: list[set[str]]
 
 
-def score_person(llm: LLM, document: str, keywords: list[Keyword]) -> PersonSignals:
-    listing = "\n".join(f"- {kw.name}: {kw.description}" for kw in keywords)
-    resp = llm.generate(
-        SYSTEM.format(keywords=listing),
-        [{"role": "user", "content": document}],
-        temperature=0.1,
-        response_model=PersonSignals,
+def score_person(jev: Jev, document: str, keywords: list[Keyword]) -> PersonSignals:
+    """One Jev request per person: a Score per keyword, a dealbreaker Noul per keyword, and availability Nouls."""
+    questions = {}
+    for i, kw in enumerate(keywords):
+        questions[f"score_{i}"] = Score(
+            instructions=f'How well does "{kw.name}" ({kw.description}) describe this person?',
+            criteria=KEYWORD_LEVELS,
+        )
+        questions[f"dealbreaker_{i}"] = Noul(
+            instructions=f'Did this person say they could not stand a friend described by "{kw.name}" '
+            f"({kw.description})?"
+        )
+    questions["availability_stated"] = Noul(instructions="Does the material say when this person is usually free?")
+    for slot, label in SLOTS.items():
+        questions[f"free_{slot}"] = Noul(instructions=f"Is this person usually free on {label}?")
+
+    result = jev.system_one(document, questions)
+    top = len(KEYWORD_LEVELS) - 1
+    stated = result.nouls["availability_stated"].noul > YES
+    return PersonSignals(
+        scores=[
+            KeywordScore(keyword=kw.name, score=result.scores[f"score_{i}"].score / top)
+            for i, kw in enumerate(keywords)
+        ],
+        dealbreakers=[kw.name for i, kw in enumerate(keywords) if result.nouls[f"dealbreaker_{i}"].noul > YES],
+        availability=[s for s in SLOTS if stated and result.nouls[f"free_{s}"].noul > YES],
     )
-    return PersonSignals.model_validate_json(resp.text or "{}")
 
 
 def to_signals(people: list[PersonSignals], keywords: list[Keyword]) -> Signals:
