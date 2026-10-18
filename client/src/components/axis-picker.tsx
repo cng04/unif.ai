@@ -31,22 +31,20 @@ export function AxisPicker({
   const mode = axes ? "keywords" : "similarity";
 
   return (
-    <Glass className={`flex w-[236px] flex-col gap-3 p-3.5 ${className}`}>
-      <div className="flex items-center justify-between">
-        <span className={`${label} text-ink-muted`}>( axes )</span>
-        <div className="flex rounded-full border border-ink/20 p-0.5" role="radiogroup" aria-label="axes mode">
-          {(["similarity", "keywords"] as const).map((m) => (
-            <button
-              key={m}
-              role="radio"
-              aria-checked={mode === m}
-              onClick={() => go(m === "similarity" ? null : (axes ?? keywords.slice(0, 3)))}
-              className={`press rounded-full px-2.5 py-1 ${label} ${mode === m ? "bg-ink text-paper" : "text-ink hover:bg-ink/5"}`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+    <Glass className={`flex w-[264px] flex-col gap-3 p-3.5 whitespace-nowrap ${className}`}>
+      <span className={`${label} text-ink-muted`}>( axes )</span>
+      <div className="grid grid-cols-2 rounded-full border border-ink/20 p-0.5" role="radiogroup" aria-label="axes mode">
+        {(["similarity", "keywords"] as const).map((m) => (
+          <button
+            key={m}
+            role="radio"
+            aria-checked={mode === m}
+            onClick={() => go(m === "similarity" ? null : (axes ?? keywords.slice(0, 3)))}
+            className={`press rounded-full py-1.5 ${label} ${mode === m ? "bg-ink text-paper" : "text-ink hover:bg-ink/5"}`}
+          >
+            {m}
+          </button>
+        ))}
       </div>
 
       {axes ? (
@@ -69,7 +67,7 @@ export function AxisPicker({
           ))}
         </div>
       ) : (
-        <p className="text-[12px] leading-[17px] font-light tracking-body text-ink-muted">
+        <p className="text-[12px] leading-[17px] font-light tracking-body whitespace-normal text-ink-muted">
           closer together = more alike across every keyword your agents scored.
         </p>
       )}

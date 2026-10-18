@@ -49,7 +49,12 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
   const strong = data.connections.filter((c) => !c.conflict && (c.vibe_score ?? 0) >= 7).length;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col md:pb-10">
+    <div
+      className={`mx-auto flex w-full max-w-6xl flex-1 flex-col transition-[margin] duration-300 ease-out md:pb-10 ${
+        // Desktop: make room for the drawer (460px + 12px insets) and re-centre in what's left.
+        pair ? "md:mr-[484px] md:ml-[max(0px,calc((100vw_-_484px_-_72rem)/2))]" : ""
+      }`}
+    >
       {data.universe.status === "matching" && <AutoRefresh seconds={10} />}
       {/* The warm group colour sits behind "me", which is roughly mid-viewport on every screen size. */}
       <Blobs

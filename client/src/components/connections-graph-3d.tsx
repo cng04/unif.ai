@@ -2,8 +2,8 @@
 
 import { Billboard, Line, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef, useState, type RefObject } from "react";
-import { Vector3 } from "three";
+import { Fragment, useMemo, useRef, useState, type RefObject } from "react";
+import { Color, Vector3 } from "three";
 import type { UserGraph } from "@/lib/api";
 import { formatScore } from "./ui";
 import { useOpenPair } from "./use-open-pair";
@@ -26,6 +26,13 @@ const POOL = "#cfcbc2";
 const MUTED = "#8c887e";
 
 const pos = (n: GraphNode): Vec3 => [n.x * SPREAD, n.y * SPREAD, n.z * SPREAD];
+const AXIS_LOW = "#e4e0d8";
+// Cones point along +y; turn them to point along +x, +y, +z.
+const ARROW_ROTATION: Vec3[] = [
+  [0, 0, -Math.PI / 2],
+  [0, 0, 0],
+  [Math.PI / 2, 0, 0],
+];
 const AXIS_ENDS: Vec3[] = [
   [SPREAD, 0, 0],
   [0, SPREAD, 0],
@@ -86,19 +93,23 @@ function Scene({ data, active, setActive, open, labels, refs }: {
     <>
       <LabelTracker labels={labels} refs={refs} />
 
+      {/* Keyword axes: light at the low end, darker toward "more", with an arrowhead on the high end. */}
       {data.axes &&
         AXIS_ENDS.map((end, i) => (
-          <Line
-            key={i}
-            points={[end.map((v) => -v) as Vec3, end]}
-            color={MUTED}
-            lineWidth={0.6}
-            dashed
-            dashSize={0.06}
-            gapSize={0.06}
-            transparent
-            opacity={0.5}
-          />
+          <group key={i}>
+            <Line
+              points={[end.map((v) => -v) as Vec3, end]}
+              color="#ffffff"
+              vertexColors={[new Color(AXIS_LOW), new Color(MUTED)]}
+              lineWidth={1}
+              transparent
+              opacity={0.9}
+            />
+            <mesh position={end} rotation={ARROW_ROTATION[i]}>
+              <coneGeometry args={[0.045, 0.14, 12]} />
+              <meshBasicMaterial color={MUTED} />
+            </mesh>
+          </group>
         ))}
 
       {/* Other people's pairs: faint texture, firmer when both ends are people you know. */}
@@ -201,7 +212,12 @@ export function ConnectionsGraph3D({ data }: { data: UserGraph }) {
   const labels = useMemo<Label[]>(
     () => [
       ...data.nodes.filter((n) => n.name).map((n) => ({ key: n.user_id, at: pos(n) })),
-      ...(data.axes ? AXIS_ENDS.map((end, i) => ({ key: `axis-${i}`, at: end.map((v) => v * 1.12) as Vec3 })) : []),
+      ...(data.axes
+        ? AXIS_ENDS.flatMap((end, i) => [
+            { key: `axis-hi-${i}`, at: end.map((v) => v * 1.14) as Vec3 },
+            { key: `axis-lo-${i}`, at: end.map((v) => v * -1.1) as Vec3 },
+          ])
+        : []),
     ],
     [data],
   );
@@ -212,7 +228,7 @@ export function ConnectionsGraph3D({ data }: { data: UserGraph }) {
 
   return (
     <div className="fade-in relative h-full w-full">
-      <Canvas camera={{ position: [0, 0, 7.5], fov: 40 }} gl={{ alpha: true, antialias: true }} dpr={[1, 2]}>
+      <Canvas camera={{ position: [0, 0, 8.6], fov: 40 }} gl={{ alpha: true, antialias: true }} dpr={[1, 2]}>
         <Scene data={data} active={active} setActive={setActive} open={open} labels={labels} refs={refs} />
         <OrbitControls
           enablePan={false}
@@ -227,11 +243,18 @@ export function ConnectionsGraph3D({ data }: { data: UserGraph }) {
       {/* Labels: positioned by LabelTracker each frame; the inner span offsets them beside the node. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
         {data.axes?.map((name, i) => (
-          <span key={`axis-${i}`} ref={track(`axis-${i}`)} className="invisible absolute top-0 left-0">
-            <span className="block -translate-x-1/2 -translate-y-1/2 rounded-full border border-line bg-paper/80 px-2.5 py-1 font-mono text-[10.5px] tracking-[0.08em] whitespace-nowrap text-ink-muted lowercase">
-              <span className="text-ink-faint">{"xyz"[i]} ·</span> {name} →
+          <Fragment key={i}>
+            <span ref={track(`axis-hi-${i}`)} className="invisible absolute top-0 left-0">
+              <span className="block -translate-x-1/2 -translate-y-1/2 rounded-full border border-line bg-paper/85 px-2.5 py-1 font-mono text-[10.5px] tracking-[0.08em] whitespace-nowrap text-ink lowercase">
+                <span className="text-ink-faint">{"xyz"[i]} ·</span> more {name}
+              </span>
             </span>
-          </span>
+            <span ref={track(`axis-lo-${i}`)} className="invisible absolute top-0 left-0">
+              <span className="block -translate-x-1/2 -translate-y-1/2 font-mono text-[10px] tracking-[0.08em] whitespace-nowrap text-ink-faint lowercase">
+                less {name}
+              </span>
+            </span>
+          </Fragment>
         ))}
         {namedNodes.map((n) => {
           const on = !!n.pair_id && active === n.pair_id;
