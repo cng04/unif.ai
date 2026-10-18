@@ -11,6 +11,12 @@ def simulate_pair(
     llm: LLM, judge: Judge, a: AgentProfile, b: AgentProfile, max_turns: int
 ) -> tuple[Transcript, Verdict]:
     try:
+        log.info(
+            "Starting pair %s/%s using %s",
+            a.user_id,
+            b.user_id,
+            getattr(llm, "model", type(llm).__name__),
+        )
         transcript = run_conversation(PersonaAgent(a, llm), PersonaAgent(b, llm), max_turns=max_turns)
         verdict = judge.evaluate(a, b, transcript)
         return transcript, verdict

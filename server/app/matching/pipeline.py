@@ -97,6 +97,7 @@ async def run_matching(universe_id: UUID) -> None:
             if failed_scoring:
                 log.warning("Scoring failed for %d users: %s", len(failed_scoring), failed_scoring)
             signals = to_signals(people, keywords)
+            log.info("Model scoring returned for %d users; saving keyword signals", len(profiles))
             await save_signals(conn, universe_id, ids, keywords, signals)
             log.info("Scored %d users for universe %s (took %.2fs)", len(profiles), universe_id, time.time() - stage_start)
 
@@ -116,6 +117,12 @@ async def run_matching(universe_id: UUID) -> None:
             verdicts: dict[PairKey, Verdict] = {}
             failed_conversations: list[tuple[str, str]] = []
             db_lock = asyncio.Lock()
+            log.info(
+                "Starting %d agent conversations with concurrency %d across chat models: %s",
+                len(candidates),
+                settings.max_concurrent_conversations,
+                ", ".join(getattr(model, "model", type(model).__name__) for model in chat_llms),
+            )
 
             async def run_and_save_pair(n: int, i: int, j: int) -> None:
                 try:

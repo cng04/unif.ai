@@ -154,6 +154,14 @@ export class WorldEngine {
 
   setMessages(pairId: string, lines: ChatLine[]) {
     this.messages.set(pairId, lines);
+    const convo = this.convos.get(pairId);
+    if (convo && convo.startedAt !== null && lines.length) {
+      // A live refresh often starts the animation before its transcript arrives. Restart at line one and
+      // extend the timer so every real line plays once instead of ending on the placeholder duration.
+      convo.line = 0;
+      convo.nextLineAt = this.simT;
+      convo.until = Math.max(convo.until, this.simT + Math.max(8, lines.length * 2.2 + 1));
+    }
   }
 
   select(id: string | null, follow = true) {
@@ -365,7 +373,7 @@ export class WorldEngine {
         if (a.arrived && b.arrived && close) {
           convo.startedAt = this.simT;
           const lines = this.messages.get(convo.pair.id);
-          convo.until = this.simT + (lines?.length ? Math.min(20, Math.max(8, lines.length * 2.2)) : 10);
+          convo.until = this.simT + (lines?.length ? Math.max(8, lines.length * 2.2 + 1) : 10);
           convo.nextLineAt = this.simT;
           a.setState("TALKING");
           b.setState("TALKING");

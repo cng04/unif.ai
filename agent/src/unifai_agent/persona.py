@@ -45,8 +45,6 @@ class PersonaAgent:
                         message = call.args.get("text", "")
                         if note := call.args.get("note"):
                             self.notes.append(note)
-                    case "end_conversation":
-                        return TurnResult(message, ended=True, end_reason=call.args.get("reason"))
 
             if message is not None:
                 return TurnResult(message)

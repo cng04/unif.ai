@@ -44,10 +44,8 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
   users paste in.
 - **`prompts.py`**: the self-report prompt users run in their own AI, the persona system prompt,
   the pair and group judge prompts, the interviewer prompt, and the profile-builder prompt.
-- **`tools.py`**: the persona agent's tools: `send_message` (with an optional private `note` for the
-  judge), `end_conversation`, `check_availability`, `lookup_profile`, `ask_my_human` (stub).
-- **`persona.py`**: `PersonaAgent.respond()` loops over tool calls, up to `max_steps` (4), until the
-  agent sends a message or ends the conversation.
+- **`tools.py`**: the persona agent's one tool is `send_message`, with an optional private `note` for the judge.
+- **`persona.py`**: `PersonaAgent.respond()` retries up to `max_steps` (3) until the agent sends a message.
 - **`conversation.py`**: `run_conversation(a, b, max_turns=6)` alternates speakers and returns a
   `Transcript` (messages, private notes, end reason).
 - **`judge.py`**: `Judge.evaluate` returns a `Verdict` (vibe 1-10, dealbreaker conflicts, logistics fit,
@@ -136,7 +134,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | 46 | [ ] Fake model mode (`FAKE_LLM=1`) that returns canned answers, so teammates can run the whole flow without a key or spending quota. It also works as a smoke test. | `agent/llm.py`, `server/app/deps.py` | |
 | 47 | [ ] `Makefile`: `db`, `db-reset`, `server`, `client`, `simulate`, `test`. | repo root | |
 | 48 | [ ] Generate TypeScript types from the API (`openapi-typescript http://localhost:8000/openapi.json`) so backend changes break the client build instead of breaking at demo time. | `client/` | |
-| 12 | [ ] Don't drop the message when `end_conversation` comes before `send_message` in the same response. | `agent/persona.py` | |
+| 12 | [x] Removed `end_conversation`; every pair now runs the configured fixed number of turns. | `agent/persona.py`, `tools.py` | Cursor |
 | 28 | [x] ~~Ticketmaster: pass the group's most common city so events are local.~~ Done with group plans: a search area from members' `area`. | `plans.py` | |
 | 50 | [ ] **Plan voting.** "i'm in / can't" per plan, per-member status, and "goes ahead at N yeses" from the design. Needs a table and endpoints. | `db/`, `routers/`, client | |
 | 17 | [ ] After #8, check for over-blocking. Dealbreakers now forbid a pair in two places: the scoring prompt's dealbreaker keywords (hard filter) and the judge's `dealbreaker_conflicts`. Too many means lots of people left out. Tune the prompts if so. | `scoring.py`, `prompts.py` | |
@@ -204,6 +202,8 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Pair agents now complete all configured turns instead of ending early, and the agent-world
+  animation restarts when a late transcript arrives and stays active long enough to show every line.
 - 2026-10-17: Fixed batched `keyword_scores` persistence to cast serial keyword IDs as `int[]` rather than
   `uuid[]`; the earlier cast failed immediately after successful parallel scoring.
 - 2026-10-17: OpenRouter Jev configuration now ignores stale chat-model entries (such as Claude or Gemini)

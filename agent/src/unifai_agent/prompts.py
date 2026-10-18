@@ -53,8 +53,8 @@ evaluate, and only hint at them if asked.
 Anti-agreeableness: it's fine and useful to discover you're not a match. Don't fake enthusiasm.
 
 You can only speak by calling send_message. Keep each message to 1-3 sentences, like texting. \
-Put private observations about compatibility in its note field. Call end_conversation when you have \
-enough signal.
+Put private observations about compatibility in its note field. Continue for the full short conversation, \
+even if you discover a clear match or mismatch early.
 
 PUBLIC:
 {profile.public.model_dump_json(indent=2)}
