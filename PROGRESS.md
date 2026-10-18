@@ -65,7 +65,7 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
   `GET /universes/{id}/pairs`, `GET /pairs/{id}/messages`, `GET /universes/{id}/groups`.
 - **Pipeline** (`matching/pipeline.py`, rewritten in `2cd6a5f`; full description in AGENTS.md): clear
   old results, then keywords, then per-person scores + dealbreakers + availability (in parallel), then a
-  hard filter for blocked pairs, then each person's top-M unblocked matches, then a conversation and judge
+  hard filter for blocked pairs, then a degree-capped set of top unblocked matches, then a conversation and judge
   per pair, then CP-SAT groups with no forbidden pairs (people who can't be placed are left out), then a
   group review. Status goes `matching` to `matched`, or back to `onboarding` on failure. After `matched`,
   each group gets 3 plans (`plans.py`) and a Photon notification.
@@ -204,6 +204,8 @@ Add a line here for each change merged to `main`.
 
 - 2026-10-17: Pair agents now complete all configured turns instead of ending early, and the agent-world
   animation restarts when a late transcript arrives and stays active long enough to show every line.
+- 2026-10-17: Candidate ranking now gives every person up to `TOP_M` outgoing proposals. Reciprocal proposals
+  become one conversation and the rejected direction gets a next-best replacement (`n * TOP_M` maximum).
 - 2026-10-17: Fixed batched `keyword_scores` persistence to cast serial keyword IDs as `int[]` rather than
   `uuid[]`; the earlier cast failed immediately after successful parallel scoring.
 - 2026-10-17: OpenRouter Jev configuration now ignores stale chat-model entries (such as Claude or Gemini)

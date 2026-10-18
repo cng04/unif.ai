@@ -100,8 +100,10 @@ text. A Noul (true/false) answer counts as yes above `YES = 0.5`.
    form an N x k matrix.
 3. **Hard filter** (`hard_conflicts`): a pair is blocked if either person scores above 0.5 on a keyword the
    other marked as a dealbreaker, or if both gave availability and none of their slots overlap.
-4. **Rank** (`candidate_pairs`): cosine similarity on the keyword vectors, then each person's top M
-   unblocked matches (`top_m`, default 4).
+4. **Rank** (`candidate_pairs`): cosine similarity on the keyword vectors, then give each person up to M outgoing
+   proposals (`top_m`, default 4). A small CP-SAT solve maximizes filled proposal slots first, then similarity.
+   Reciprocal A->B / B->A proposals are one conversation, so the rejected direction goes to a next-best person.
+   Incoming proposals do not count against M; a popular person can participate in more than M conversations.
 5. **Chat and judge**: only those pairs get a Gemini agent-to-agent conversation (`pairing.py` ->
    `agent/conversation.py`). The chemistry judge (`Judge.evaluate`, Jev) asks a 5-level chemistry Score
    (mapped to a 1-10 vibe score), a logistics Choice (`strong` / `workable` / `incompatible`), and one

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+from ortools.sat.python import cp_model
 from pydantic import BaseModel
 from typesafe_sdk import Noul, Score
 from unifai_agent import YES, Jev
@@ -119,7 +120,12 @@ def hard_conflicts(signals: Signals) -> np.ndarray:
 
 
 def candidate_pairs(scores: np.ndarray, blocked: np.ndarray, top_m: int) -> list[tuple[int, int]]:
-    """Each person's top-M most similar non-conflicting people by cosine similarity, as sorted index pairs."""
+    """Give each person up to top_m unique outgoing proposals, without duplicate conversations.
+
+    An A->B and B->A proposal can create only one undirected conversation; whichever direction is not selected
+    gets another proposal slot. Incoming proposals do not count against a person's top_m, so popular people can
+    appear in more than top_m conversations and the total can reach n * top_m.
+    """
     n = len(scores)
     if n < 2:
         return []
@@ -127,9 +133,35 @@ def candidate_pairs(scores: np.ndarray, blocked: np.ndarray, top_m: int) -> list
     sim = normed @ normed.T
     sim[blocked] = -np.inf
     np.fill_diagonal(sim, -np.inf)
-    pairs: set[tuple[int, int]] = set()
+    edges = [(i, j) for i in range(n) for j in range(i + 1, n) if np.isfinite(sim[i, j])]
+    if not edges:
+        return []
+
+    model = cp_model.CpModel()
+    proposed = {
+        (i, j): model.new_bool_var(f"proposal_{i}_{j}")
+        for a, b in edges
+        for i, j in ((a, b), (b, a))
+    }
+    for i, j in edges:
+        model.add(proposed[i, j] + proposed[j, i] <= 1)
     for i in range(n):
-        for j in np.argsort(sim[i])[::-1][:top_m]:
-            if np.isfinite(sim[i, j]):
-                pairs.add((min(i, int(j)), max(i, int(j))))
-    return sorted(pairs)
+        model.add(sum(var for (source, _), var in proposed.items() if source == i) <= top_m)
+
+    count = sum(proposed.values())
+    solver = cp_model.CpSolver()
+    solver.parameters.max_time_in_seconds = 1.0
+    solver.parameters.num_workers = 8
+    model.maximize(count)
+    if solver.solve(model) not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return []
+
+    max_count = round(solver.objective_value)
+    model.add(count == max_count)
+    for var in proposed.values():
+        model.add_hint(var, solver.boolean_value(var))
+    model.clear_objective()
+    model.maximize(sum(round(float(sim[i, j]) * 1000) * var for (i, j), var in proposed.items()))
+    if solver.solve(model) not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+        return []
+    return sorted((min(i, j), max(i, j)) for (i, j), var in proposed.items() if solver.boolean_value(var))

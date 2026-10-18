@@ -163,11 +163,24 @@ def test_candidate_pairs_are_unique_ordered_and_skip_blocked():
     scores = np.array([[1, 0], [0.9, 0.1], [0, 1], [0.1, 0.9]])
     blocked = np.zeros((4, 4), dtype=bool)
 
-    assert candidate_pairs(scores, blocked, top_m=1) == [(0, 1), (2, 3)]
+    pairs = candidate_pairs(scores, blocked, top_m=1)
+    assert len(pairs) == len(set(pairs)) == 4
+    assert all(i < j for i, j in pairs)
 
     blocked[0, 1] = blocked[1, 0] = True
     pairs = candidate_pairs(scores, blocked, top_m=1)
     assert (0, 1) not in pairs
+
+
+def test_candidate_pairs_replace_reciprocal_proposals_without_total_degree_cap():
+    scores = np.ones((6, 2))
+    blocked = np.zeros((6, 6), dtype=bool)
+
+    pairs = candidate_pairs(scores, blocked, top_m=2)
+    degree = [sum(i in pair for pair in pairs) for i in range(6)]
+
+    assert len(pairs) == len(set(pairs)) == 12
+    assert max(degree) > 2
 
 
 def test_to_signals_matches_keywords_case_insensitively_and_defaults_to_no_signal():

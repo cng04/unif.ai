@@ -294,12 +294,14 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
 2. **Keywords** (Gemini): `KEYWORD_COUNT` keywords from everyone's profile and interview.
 3. **Scores** (Jev, one request per person): a 0-1 score and a dealbreaker flag per keyword, plus free-time slots.
 4. **Hard filter**: block pairs with a dealbreaker on the other's high-scoring keyword or no overlapping availability.
-5. **Rank**: cosine similarity, each person's top `TOP_M` unblocked candidates.
+5. **Rank**: cosine similarity, giving each person up to `TOP_M` outgoing proposals. A small solve maximizes
+   filled proposal slots first and similarity second; reciprocal proposals become one chat and the rejected direction
+   goes to a next-best person. Incoming proposals do not count against the cap.
 6. **Chat and judge**: only candidate pairs get an agent conversation, then a Jev verdict (vibe 1-10, logistics, dealbreakers).
 7. **Groups** (CP-SAT): groups of 4-8 with no forbidden pair; place as many as possible, then maximize judged edge weight. Unplaced people are left out.
 8. **Group review** (Gemini) may drop one misfit; then events are looked up and members notified.
 
-Cost is bounded: at most about `n * TOP_M` conversations (not n²), each at most `MAX_CONVERSATION_TURNS` turns.
+Cost is bounded: at most `n * TOP_M` conversations (not n²), each with `MAX_CONVERSATION_TURNS` turns.
 Details, failure behavior and the known scaling issue are in `AGENTS.md`.
 
 ## API documentation
