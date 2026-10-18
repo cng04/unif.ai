@@ -21,16 +21,17 @@ partitions people into groups.
 | -------------------------------------------- | ---------------------------------------------------------------------- |
 | Universe + invite link                       | Implemented (API, admin web app, join page in the client and as server HTML). No QR code. |
 | Onboarding (self-report, interview, profile) | Implemented (API, plus chat bot over iMessage and ASI:One). Profile editing is not built. |
-| Admin console                                | Implemented in the client (`/admin`): universes, overview with pipeline strip and run matching, groups, agent world. |
+| Admin console                                | Implemented in the client (`/admin`): universes (real and demo), overview with pipeline strip and run matching, groups, agent world. |
+| Agent look (sprite)                          | Implemented: each agent picks its sprite parts from what the person wrote about themselves (never guessed); the person edits it on the `you` tab. |
 | Social scraping (Browser Use)                | Live when `BROWSER_USE_API_KEY` is set; links are always stored.        |
 | AI agent per user                            | Implemented (`PersonaAgent` with tools). Never run at scale.           |
 | Candidate matching (keywords, filter, rank)  | Implemented, unit-tested with fakes; never run on a real model.        |
 | Agent-to-agent interviews                    | Implemented; capped by turns and a concurrency limit.                  |
 | Compatibility judging (pair and group)       | Implemented (pair: Jev; group: LLM).                                   |
 | Group formation                              | Implemented (CP-SAT). Quality drops past about 100 people.             |
-| Group plans (events)                         | Partial: 3 plans per group from a Browser Use web search (needs `BROWSER_USE_API_KEY`) or Ticketmaster, fitted to shared free time and budget. Tested live once ($0.18 run). No voting yet. |
+| Group plans (events)                         | Partial: 3 plans per group from a Browser Use web search (needs `BROWSER_USE_API_KEY`) or Ticketmaster, fitted to shared free time and budget. Tested live once ($0.18 run). Members vote "i'm in" and a majority locks one plan. |
 | Notifications                                | Photon assigns iMessage lines at join and the bot sends each person their `/u/<id>` link. With the Photon keys set, members get a text when matched and when their group locks in a plan; without them, both only log. |
-| Web client                                   | Per-user mobile pages (agent, connections with 2D/3D keyword graph, you, pair detail), join page, admin console, 2.5D agent world. |
+| Web client                                   | Per-user mobile pages (agent, connections with 2D/3D keyword graph, you, world, group plans, pair detail), join page, admin console, procedural agent world. |
 | Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`, server and client). Everything else not started. |
 
 ## System architecture
@@ -59,7 +60,8 @@ flowchart LR
 - **Frontend (`client/`)** talks only to the server, never the database, and only from server components and
   server actions (`src/lib/api.ts` is `server-only`, set by `API_URL`). Routes:
   - `/u/[userId]/...`: one participant's view (agent chat, connections with a 2D graph and a three.js 3D
-    keyword graph with picked axes, profile, pair transcripts). No login; the id in the link is the identity.
+    keyword graph with picked axes, `you` with the profile and a **sprite look editor**, `world`, the group and
+    its plans, pair transcripts). No login; the id in the link is the identity.
   - `/join/[code]`: the join page (iMessage while Photon seats last, otherwise ASI:One). Served from the client
     when the server's `JOIN_ON_CLIENT` is on; otherwise the server renders its own HTML version.
   - `/admin/...`: the admin console: universes, universe overview (pipeline strip, members, keywords, run
@@ -82,6 +84,15 @@ flowchart LR
   (thinking while their interview or scoring is running), a pair walks to meet in a shared structure (otherwise
   the square) only while the server has its chat as `running`, and the speaker's sprite shows that turn. Groups
   sit at tables in the structure their members share, and unplaced people sit in the square.
+  A structure's room follows its keywords: a variant with `terms` in `presets.ts` is the room drawn for them
+  ("baking" gets the Bakery, "cocktails" the Cocktail bar, "chess" the Chess club, "hiking" the Trailhead), so
+  every keyword seen so far has a room (`catalog.test.ts`).
+  **Sprite looks:** each agent's skin, hair colour and style, shirt and pants come from its `look`
+  (`agent_profiles.public.look`); unset parts keep the id-seeded default. The agent picks it once after the profile
+  is built, from what the person wrote about how they look or dress and nothing else (no guessing from names,
+  places or interests; `agent/src/unifai_agent/appearance.py`, `server/app/profile_look.py`). The person changes
+  it on the `you` tab (`PUT /users/{id}/look`; `DELETE` asks the agent to choose again). It is public, so it
+  shows on the sprite in both World views.
   Completed chats can be re-enacted on request, always labelled (live / completed / replay / historical).
   Clicking an agent follows it and opens a bio card; chats open the transcript (messages only, never notes).
   Admins see everything at `/admin/universes/{id}/world` and can start or abort matching from that screen;
@@ -152,7 +163,8 @@ unif.ai/
 │   ├── src/unifai_agent/
 │   │   ├── llm.py, openrouter.py       LLM protocol; Gemini and OpenRouter implementations
 │   │   ├── jev.py                      Jev protocol; TypeSafe and OpenRouter implementations
-│   │   ├── profile.py, prompts.py      AgentProfile (public/private) and all prompts
+│   │   ├── profile.py, prompts.py      AgentProfile (public/private), Look (sprite parts), and all prompts
+│   │   ├── appearance.py               choose_look: sprite parts from what the person wrote
 │   │   ├── persona.py, tools.py        PersonaAgent and its tools
 │   │   ├── conversation.py             agent-to-agent loop and Transcript
 │   │   ├── judge.py                    pair verdict (Jev), group verdict (LLM)
@@ -296,7 +308,7 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
   exposes `GET /health` (which does not check the database).
 - **`routers/`**: thin HTTP handlers. `universes.py` (create, look up by invite, list users),
   `onboarding.py` (join, social links, self-report, interview, profile), `matching.py` (start, graph, pairs,
-  groups), `me.py` (one user's connections, 3D graph and pair detail, for `/u`), `invites.py` (JSON for the
+  groups), `me.py` (one user's connections, 3D graph, pair detail, group plans and sprite look, for `/u`), `invites.py` (JSON for the
   client's join page), `admin_api.py` (JSON for the client's admin console: universe list and detail, groups with
   `g-01` labels, weakest ties and leftovers), `web.py` (server-rendered `/admin` and `/join/{code}` pages, not in
   the OpenAPI schema; still used by the Docker stack, which doesn't run the client).
@@ -351,7 +363,7 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `POST /users/{id}/self-report`          | Save the pasted self-report                                          |
 | `GET`/`POST /users/{id}/interview`      | Read the transcript / send a message and get the interviewer's reply |
 | `POST /users/{id}/profile`              | Build the agent profile from all sources                             |
-| `GET`/`PUT`/`DELETE /users/{id}/look`   | The sprite look in the World: read, set your own, reset to the agent's pick |
+| `GET`/`PUT`/`DELETE /users/{id}/look`   | The sprite look in the World: read, set your own (ranges validated), reset to the agent's pick |
 | `GET /users/{id}/profile`               | Read the profile (includes `private`; see gaps)                      |
 | `POST /universes/{id}/matching`         | Start matching (202; 409 if running; 503 without a model key)        |
 | `POST /admin/api/universes/{id}/matching/abort` | Admin only: stop a run, drop its partial pairs and groups, back to `onboarding` (409 if not matching) |
@@ -411,9 +423,9 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
 ## Testing
 
 ```bash
-cd server && uv run pytest   # 70 tests; 23 need DATABASE_URL_TEST
-cd agent  && uv run pytest                  # 13 tests
-cd client && npm run lint && npm run build && npm test   # npm test: Vitest unit tests for World generation
+cd server && uv run pytest   # 80 tests; 28 need DATABASE_URL_TEST
+cd agent  && uv run pytest                  # 19 tests
+cd client && npm run lint && npm run build && npm test   # npm test: 78 Vitest tests (World generation, palettes)
 cd onboarding && npm test
 ```
 
