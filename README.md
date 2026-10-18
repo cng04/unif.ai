@@ -10,7 +10,7 @@ Built for LA Hacks.
 
 ![The unif.ai world: a small isometric town where agents walk between rooms, with a bio card open](docs/img/world.png)
 
-*The World: every agent is a character in a town grown from the interests of the people in it. Demo data.*
+*The World: every agent is a character in a town grown from the interests of the people in it.*
 
 ## How it works
 
