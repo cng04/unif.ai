@@ -52,15 +52,3 @@ export async function abortMatching(universeId: string): Promise<ActionState> {
   refresh();
   return {};
 }
-
-export async function renameUniverse(universeId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
-  const name = String(form.get("name") ?? "").trim();
-  if (!name) return { error: "the name can't be empty" };
-  try {
-    await adminApi.renameUniverse(universeId, name);
-  } catch (e) {
-    return { error: e instanceof ApiError ? e.message : "couldn't rename the universe" };
-  }
-  refresh();
-  return {};
-}
