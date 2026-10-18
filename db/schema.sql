@@ -128,7 +128,17 @@ CREATE TABLE events (
     price          TEXT,
     reason         TEXT,
     rank           INT,
+    -- Set when a majority of the group is in (plan_votes); at most one per group.
+    chosen_at      TIMESTAMPTZ,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- "I'm in" on a group's plan. A member can be in on more than one.
+CREATE TABLE plan_votes (
+    event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (event_id, user_id)
 );
 
 CREATE INDEX ON users (universe_id);
@@ -136,3 +146,4 @@ CREATE INDEX ON users (asi_address);
 CREATE INDEX ON pairs (universe_id);
 CREATE INDEX ON pair_messages (pair_id);
 CREATE INDEX ON groups (universe_id);
+CREATE UNIQUE INDEX events_one_chosen_per_group ON events (group_id) WHERE chosen_at IS NOT NULL;

@@ -3,11 +3,11 @@
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
-from app.routers.me import get_connections, get_graph, get_group, get_pair
+from app.routers.me import get_connections, get_graph, get_group, get_pair, unvote, vote
 
 
 async def add_user(conn: AsyncConnection, universe_id, name: str, looking_for: str = ""):
@@ -145,3 +145,45 @@ async def test_group_is_404_when_not_placed(test_db_conn, world):
         await get_group(world["ari"], test_db_conn)
     assert e.value.status_code == 404
 
+
+async def add_plans(conn: AsyncConnection, user_id, n: int = 2) -> list:
+    group = (await (await conn.execute("SELECT group_id FROM group_members WHERE user_id = %s", (user_id,))).fetchone())["group_id"]
+    ids = []
+    for rank in range(1, n + 1):
+        row = await (
+            await conn.execute(
+                "INSERT INTO events (group_id, source, name, rank) VALUES (%s, 'test', %s, %s) RETURNING id",
+                (group, f"plan {rank}", rank),
+            )
+        ).fetchone()
+        ids.append(row["id"])
+    await conn.commit()
+    return ids
+
+
+async def test_majority_vote_locks_a_plan_once(test_db_conn, world):
+    first, second = await add_plans(test_db_conn, world["me"])
+
+    tasks = BackgroundTasks()
+    group = await vote(world["me"], first, tasks, test_db_conn)
+    assert group.votes_needed == 2  # a group of 2
+    assert group.chosen_event_id is None and group.events[0].voters == [world["me"]]
+    assert not tasks.tasks
+
+    group = await vote(world["maya"], first, tasks, test_db_conn)
+    assert group.chosen_event_id == first and group.events[0].chosen
+    assert len(tasks.tasks) == 1  # everyone gets told, once
+
+    with pytest.raises(HTTPException) as e:
+        await vote(world["me"], second, BackgroundTasks(), test_db_conn)
+    assert e.value.status_code == 409
+
+    group = await unvote(world["me"], first, test_db_conn)
+    assert group.chosen_event_id == first and group.events[0].voters == [world["maya"]]
+
+
+async def test_vote_is_404_outside_your_group(test_db_conn, world):
+    [plan] = await add_plans(test_db_conn, world["me"], 1)
+    with pytest.raises(HTTPException) as e:
+        await vote(world["ari"], plan, BackgroundTasks(), test_db_conn)
+    assert e.value.status_code == 404

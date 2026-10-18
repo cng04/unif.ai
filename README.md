@@ -29,7 +29,7 @@ partitions people into groups.
 | Compatibility judging (pair and group)       | Implemented (pair: Jev; group: LLM).                                   |
 | Group formation                              | Implemented (CP-SAT). Quality drops past about 100 people.             |
 | Group plans (events)                         | Partial: 3 plans per group from a Browser Use web search (needs `BROWSER_USE_API_KEY`) or Ticketmaster, fitted to shared free time and budget. Tested live once ($0.18 run). No voting yet. |
-| Notifications                                | Photon assigns iMessage lines at join and the bot sends each person their `/u/<id>` link. With the Photon keys set, members get a text when matched; without them, it only logs. |
+| Notifications                                | Photon assigns iMessage lines at join and the bot sends each person their `/u/<id>` link. With the Photon keys set, members get a text when matched and when their group locks in a plan; without them, both only log. |
 | Web client                                   | Per-user mobile pages (agent, connections with 2D/3D keyword graph, you, pair detail), join page, admin console, 2.5D agent world. |
 | Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`, server and client). Everything else not started. |
 
@@ -52,7 +52,7 @@ flowchart LR
     Agent --> Jev["Jev (TypeSafe)\n(typed scores)"]
     Agent -.->|"OPENROUTER_API_KEY set"| OR["OpenRouter\n(replaces both)"]
     Pipeline --> TM["Ticketmaster\nDiscovery API"]
-    Pipeline --> Photon["Photon\n(line assignment; match texts)"]
+    Pipeline --> Photon["Photon\n(line assignment; match + plan texts)"]
     API --> BU["Browser Use\n(optional scrape)"]
 ```
 
@@ -256,7 +256,7 @@ can't reach if it's `localhost`).
 | `GEMINI_API_KEY`        | With `TYPESAFE_API_KEY`        | Gemini for text (interviews, chats, keywords, group judge).                        |
 | `TYPESAFE_API_KEY`      | With `GEMINI_API_KEY`          | Jev for scores, dealbreakers, availability, pair judge.                            |
 | `TICKETMASTER_API_KEY`  | Optional                       | Without it, no events are found.                                                   |
-| `PHOTON_API_KEY`, `PHOTON_PROJECT_ID` | Optional         | Both needed to assign iMessage lines at join and to text members when matched (otherwise that only logs). Only reaches people who have texted their line. |
+| `PHOTON_API_KEY`, `PHOTON_PROJECT_ID` | Optional         | Both needed to assign iMessage lines at join and to text members when matched and when a plan locks (otherwise those only log). Only reaches people who have texted their line. |
 | `PHOTON_SEAT_LIMIT`     | Optional                       | Shared-line seats on the Photon plan, default 10. At the limit, joins go to ASI:One. |
 | `ASI_AGENT_URL`, `ASI_AGENT_HANDLE` | Optional           | ASI:One agent chat page and handle shown on the join page (defaults: the team's Agentverse page, `@unifyai-onboarding`). |
 | `ADMIN_PASSWORD`        | Before exposing the server     | HTTP basic auth (any username) for the server's `/admin` pages and `/admin/api`. Set the same value in the client. |
@@ -357,7 +357,8 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `GET /users/{id}/connections`           | One user's group and pairs; others as anonymous ids, no rationales   |
 | `GET /users/{id}/graph?axes=a,b,c`      | Everyone in 3D by keyword scores (PCA, or 3 picked keywords), named like `/connections` |
 | `GET /users/{id}/pairs/{pair_id}`       | One of the user's pairs, for the pair detail page                    |
-| `GET /users/{id}/group`                 | The user's group for the group screens: members, shared keywords, public intros, plans; 404 until placed |
+| `GET /users/{id}/group`                 | The user's group for the group screens: members, shared keywords, public intros, plans and votes; 404 until placed |
+| `PUT`/`DELETE /users/{id}/plans/{event_id}/vote` | "I'm in" on a group plan, or take it back. A majority locks the plan and texts the group; 409 once another plan is locked |
 | `GET /invites/{code}`                   | Join page data: universe name, whether open, iMessage availability, ASI:One handle |
 | `POST /invites/{code}/join`             | Join from the client's join page (name, phone, consent)              |
 | `GET`/`POST /admin/api/universes`       | List universes with member/onboarded/group counts / create one (basic auth) |
@@ -403,8 +404,8 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
 ## Testing
 
 ```bash
-cd server && uv run pytest   # 43 tests; 6 need DATABASE_URL_TEST
-cd agent  && uv run pytest                  # 11 tests
+cd server && uv run pytest   # 70 tests; 23 need DATABASE_URL_TEST
+cd agent  && uv run pytest                  # 13 tests
 cd client && npm run lint && npm run build && npm test   # npm test: Vitest unit tests for World generation
 cd onboarding && npm test
 ```
@@ -453,8 +454,8 @@ inside the local DB container (so the local DB must be up):
 | Pair/group judging              | Yes         | Group judge untested at scale            |                                  |                                             |
 | Keywords, scoring, filter, rank | Yes         | Never run on a real model                | Over-blocking tuning (#17)       |                                             |
 | Group formation                 | CP-SAT      | Weak at 100+ people                      | Greedy warm start; unplaced list |                                             |
-| Group plans                     | Browser Use search, Ticketmaster fallback | Never run end to end         | Voting ("i'm in"), live refresh |                                             |
-| Notifications                   | Match texts via Photon | Not yet sent to a real phone | Plan texts, group chat |                                             |
+| Group plans                     | Browser Use search, Ticketmaster fallback; majority vote locks one | Never run end to end | Live refresh, "other times" |                                             |
+| Notifications                   | Match + plan-locked texts via Photon | Not yet sent to a real phone | Group chat |                                             |
 | Auth / consent / deletion       |             | `/admin` basic auth                      | All                              | Auth approach; retention policy             |
 | Database / migrations           | Schema+seed | Idempotent SQL patches                   | Migration tool                   | Which tool                                  |
 | Client                          | `/u` pages with 3D graph, join, admin, agent world (#51) | No automated client tests in CI | Client tests           | Login                                       |

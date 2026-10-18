@@ -125,7 +125,8 @@ text. A Noul (true/false) answer counts as yes above `YES = 0.5`.
    Browser Use (`services/event_search.py`, needs `BROWSER_USE_API_KEY`). Ticketmaster is the fallback. Code drops
    candidates outside the slot (by venue-local time) or over budget, Gemini picks 3 with a one-line reason
    built only from interest counts, and members are texted via Photon. `POST /groups/{id}/plans` re-runs it without
-   texting.
+   texting. Members then tap "i'm in" on plans (`plan_votes`); the first plan a majority is in on gets
+   `events.chosen_at` (one per group, `set_vote` in `plans.py`) and everyone is texted once (`announce_lock`).
 
 **Known issue:** at around 100 or more people, CP-SAT hits `group_solver_seconds` far from optimal. In a
 synthetic benchmark with 5 judged edges per person, the edge weight kept inside groups was 45% at 30
@@ -170,7 +171,8 @@ via react-three-fiber, loaded lazily) places the whole universe by keyword score
 axes (`?axes=a,b,c`).
 
 The app reads `GET /users/{id}/connections`, `GET /users/{id}/graph`, `GET /users/{id}/pairs/{pair_id}`, and
-`GET /users/{id}/group` (the `/u/{user_id}/group` reveal, meet and plans screens; `server/app/routers/me.py`).
+`GET /users/{id}/group` (the `/u/{user_id}/group` reveal, meet, plans and show-up screens; `server/app/routers/me.py`),
+and votes with `PUT`/`DELETE /users/{id}/plans/{event_id}/vote` (voters are shown to their own group by name).
 The `you` tab only links to the group; members and plans live in the group screens.
 They name only the user's own pairs and group members, return everyone else as anonymous ids, and never
 return judge rationales, dealbreaker flags, or private profile fields.
@@ -238,8 +240,8 @@ from stored rows; there is no stored progress or approval state. The older serve
  whose run died with a restarted server. Model calls already in worker threads finish and are discarded.
 - Photon assigns shared iMessage lines at join (`assign_line`, needs `PHOTON_API_KEY` and `PHOTON_PROJECT_ID`).
   `send_message` texts into the person's existing iMessage space as our agent, so it only reaches people who have
-  texted their line; without the keys it logs. Every send carries an idempotency key (`matched:{group}:{user}`),
-  so re-runs never double-text.
+  texted their line; without the keys it logs. Every send carries an idempotency key (`matched:{group}:{user}`,
+  `plan-locked:{event}:{user}`), so re-runs never double-text.
 - `GET /pairs/{id}/messages` returns only `kind = 'message'` rows; agents' private `note` rows are never exposed.
 - Pairs have a `status`: the pipeline inserts `running` when a chat starts and sets `complete` (with the verdict
   and transcript) when it's judged. Anything that reads judged pairs must filter `status = 'complete'`.

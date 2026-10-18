@@ -12,7 +12,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
-from psycopg import AsyncConnection
+from psycopg import AsyncConnection, errors
 from pydantic import BaseModel
 from unifai_agent import LLM, AgentProfile
 
@@ -310,3 +310,71 @@ async def plan_groups(group_ids: list[UUID]) -> None:
             await plan_group(group_id)
 
     await asyncio.gather(*(one(g) for g in group_ids))
+
+
+class PlanLocked(Exception):
+    """The group already locked in a different plan."""
+
+
+def votes_needed(size: int) -> int:
+    """A plan locks once a majority of the group is in."""
+    return size // 2 + 1
+
+
+async def set_vote(conn: AsyncConnection, group_id: UUID, event_id: UUID, user_id: UUID, going: bool) -> bool:
+    """Record (or take back) one member's "I'm in" on one of their group's plans, and lock the plan if that makes a
+    majority. Returns True if this vote locked it. Once a plan is locked, votes on the others raise PlanLocked;
+    taking back a vote never unlocks, since everyone has already been told."""
+    chosen = await (
+        await conn.execute("SELECT id FROM events WHERE group_id = %s AND chosen_at IS NOT NULL", (group_id,))
+    ).fetchone()
+    if chosen and chosen["id"] != event_id and going:
+        raise PlanLocked
+    if not going:
+        await conn.execute("DELETE FROM plan_votes WHERE event_id = %s AND user_id = %s", (event_id, user_id))
+        await conn.commit()
+        return False
+    await conn.execute(
+        "INSERT INTO plan_votes (event_id, user_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (event_id, user_id)
+    )
+    locked = False
+    if not chosen:
+        counts = await (
+            await conn.execute(
+                """
+                SELECT (SELECT count(*) FROM group_members WHERE group_id = %s) AS size,
+                       (SELECT count(*) FROM plan_votes WHERE event_id = %s) AS votes
+                """,
+                (group_id, event_id),
+            )
+        ).fetchone()
+        if counts["votes"] >= votes_needed(counts["size"]):
+            try:
+                await conn.execute("UPDATE events SET chosen_at = now() WHERE id = %s", (event_id,))
+            except errors.UniqueViolation:  # another plan reached a majority at the same moment
+                await conn.rollback()
+                raise PlanLocked from None
+            locked = True
+    await conn.commit()
+    return locked
+
+
+async def announce_lock(group_id: UUID, event_id: UUID) -> None:
+    """Text everyone in the group which plan they locked in. Runs after the vote's response; never raises."""
+    try:
+        async with pool.connection() as conn:
+            event = await (await conn.execute("SELECT * FROM events WHERE id = %s", (event_id,))).fetchone()
+            members = await (
+                await conn.execute(
+                    "SELECT u.id AS user_id, u.full_name, u.phone FROM group_members gm JOIN users u ON u.id = gm.user_id "
+                    "WHERE gm.group_id = %s",
+                    (group_id,),
+                )
+            ).fetchall()
+            going = (
+                await (await conn.execute("SELECT count(*) AS n FROM plan_votes WHERE event_id = %s", (event_id,))).fetchone()
+            )["n"]
+        if event:
+            await photon.notify_plan_locked(group_id, event, members, going)
+    except Exception:
+        log.exception("announcing the plan for group %s failed", group_id)

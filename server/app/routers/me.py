@@ -9,11 +9,12 @@ import math
 from uuid import UUID
 
 import numpy as np
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from psycopg import AsyncConnection
 
 from app import repo
 from app.db import get_conn
+from app.matching.plans import PlanLocked, announce_lock, set_vote, votes_needed
 from app.matching.projection import project_3d
 from app.schemas import Connections, Group, PairDetail, UserGraph, UserGraphLink, UserGraphNode, UserGroup
 
@@ -257,6 +258,20 @@ async def get_group(user_id: UUID, conn: AsyncConnection = Depends(get_conn)):
                 "intro": intros.get(uid, ""),
             }
         )
+    events = await (
+        await conn.execute(
+            """
+            SELECT e.id, e.name, e.url, e.venue, e.starts_at, e.time_label, e.price, e.reason, e.source,
+                   e.chosen_at IS NOT NULL AS chosen,
+                   coalesce(array_agg(v.user_id ORDER BY v.created_at) FILTER (WHERE v.user_id IS NOT NULL), '{}') AS voters
+            FROM events e LEFT JOIN plan_votes v ON v.event_id = e.id
+            WHERE e.group_id = %s
+            GROUP BY e.id ORDER BY e.rank NULLS LAST, e.starts_at
+            """,
+            (group["id"],),
+        )
+    ).fetchall()
+
     # You first, then whoever your agent got on with best.
     members.sort(key=lambda m: (not m["is_me"], -(m["vibe_score"] or 0)))
     return UserGroup(
@@ -268,5 +283,34 @@ async def get_group(user_id: UUID, conn: AsyncConnection = Depends(get_conn)):
         links=links,
         plans_status=group["plans_status"],
         plans_summary=group["plans_summary"],
-        events=group["events"],
+        events=events,
+        votes_needed=votes_needed(len(ids)),
+        chosen_event_id=next((e["id"] for e in events if e["chosen"]), None),
     )
+
+
+async def set_my_vote(user_id: UUID, event_id: UUID, going: bool, conn: AsyncConnection) -> bool:
+    group = await group_for(conn, user_id)
+    owner = await (await conn.execute("SELECT group_id FROM events WHERE id = %s", (event_id,))).fetchone()
+    if group is None or owner is None or owner["group_id"] != group["id"]:
+        raise HTTPException(404, "plan not found")
+    try:
+        return await set_vote(conn, group["id"], event_id, user_id, going)
+    except PlanLocked:
+        raise HTTPException(409, "your group already locked in another plan") from None
+
+
+# "I'm in" on one of your group's plans; a majority locks it and texts everyone. Called by the user themself
+# (no auth yet: the id in the URL is the identity, as for the other /users routes).
+@router.put("/plans/{event_id}/vote", response_model=UserGroup)
+async def vote(user_id: UUID, event_id: UUID, background: BackgroundTasks, conn: AsyncConnection = Depends(get_conn)):
+    if await set_my_vote(user_id, event_id, True, conn):
+        group = await group_for(conn, user_id)
+        background.add_task(announce_lock, group["id"], event_id)
+    return await get_group(user_id, conn)
+
+
+@router.delete("/plans/{event_id}/vote", response_model=UserGroup)
+async def unvote(user_id: UUID, event_id: UUID, conn: AsyncConnection = Depends(get_conn)):
+    await set_my_vote(user_id, event_id, False, conn)
+    return await get_group(user_id, conn)

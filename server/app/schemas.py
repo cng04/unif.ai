@@ -174,6 +174,14 @@ class UserGroupMember(BaseModel):
     intro: str  # their public intro, in their own words
 
 
+class UserPlan(EventOut):
+    """One of the group's plans, with who's in. Voters are group members, who already see each other by name."""
+
+    id: UUID
+    voters: list[UUID]
+    chosen: bool
+
+
 class UserGroup(BaseModel):
     """Your group seen from inside it: who's in it, why, and the plans. Nothing from private profiles."""
 
@@ -185,7 +193,9 @@ class UserGroup(BaseModel):
     links: list[Edge]  # judged pairs inside the group
     plans_status: Literal["pending", "ready", "none"]
     plans_summary: str | None
-    events: list[EventOut]
+    events: list[UserPlan]
+    votes_needed: int  # a plan locks once this many members are in
+    chosen_event_id: UUID | None
 
 
 class PairMessage(BaseModel):

@@ -372,3 +372,29 @@ def test_openrouter_jev_ignores_chat_models_and_falls_back(monkeypatch, caplog):
     assert [m.model for m in jevs] == ["~typesafe/jev-latest"]
     assert "Ignoring non-Jev OPENROUTER_JEV_MODEL entries" in caplog.text
 
+
+
+async def test_plan_lock_texts_each_member_once_with_their_link(monkeypatch):
+    from app.config import Settings
+    from app.services import photon
+
+    sent = []
+
+    async def fake_send(phone, text, key):
+        sent.append((phone, text, key))
+        return True
+
+    monkeypatch.setattr(photon, "send_message", fake_send)
+    monkeypatch.setattr(photon, "get_settings", lambda: Settings(client_url="https://app.test/"))
+    event = {"id": "e1", "name": "sunrise hike", "time_label": "sat 24 · 08:00", "venue": "canyon trailhead"}
+    members = [{"user_id": "u1", "full_name": "A", "phone": "+1"}, {"user_id": "u2", "full_name": "B", "phone": None}]
+    await photon.notify_plan_locked("g1", event, members, 2)
+
+    assert sent == [
+        (
+            "+1",
+            "It's on: sunrise hike, sat 24 · 08:00, canyon trailhead. 2 of 2 are in."
+            " Details: https://app.test/u/u1/group/show-up",
+            "plan-locked:e1:u1",
+        )
+    ]

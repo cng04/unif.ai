@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Blobs } from "@/components/atmosphere";
 import { GroupSteps } from "@/components/group-flow";
-import type { Plan } from "@/lib/api";
+import { PlanVote } from "@/components/plan-vote";
+import type { UserGroup, UserPlan } from "@/lib/api";
 import { getGroup } from "@/lib/cached";
+import { setVote } from "../actions";
 import { NoGroupYet } from "../no-group";
 
 export default function PlansPage({ params }: PageProps<"/u/[userId]/group/plans">) {
@@ -20,6 +22,8 @@ async function Plans({ params }: { params: Promise<{ userId: string }> }) {
   const group = await getGroup(userId);
   if (!group) return <NoGroupYet userId={userId} />;
   const [top, ...rest] = group.events;
+  const chosen = group.events.find((e) => e.chosen);
+  const vote = { userId, group };
 
   return (
     <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col md:max-w-5xl md:px-10 md:pt-14 md:pb-12">
@@ -39,37 +43,64 @@ async function Plans({ params }: { params: Promise<{ userId: string }> }) {
         <h1 className="text-title leading-[32px] font-light tracking-[0.12em] md:text-[34px] md:leading-10">pick a plan</h1>
         <p className="text-[13px] leading-[19px] text-ink-muted">
           {group.plans_summary ?? "Your event agent looked for things your whole group would be up for."}
+          {!chosen && group.events.length > 0 && ` Tap "i'm in" on any you'd go to. Once ${group.votes_needed} of you are in on one, it's on and everyone gets a text.`}
         </p>
       </header>
+
+      {chosen && (
+        <Link
+          href={`/u/${userId}/group/show-up`}
+          className="press mx-5 mb-4 flex items-center justify-between rounded-md bg-ink px-[18px] py-4 text-sheet md:mx-0 md:mb-6"
+        >
+          <span className="flex flex-col gap-1">
+            <span className="text-[15px] leading-5 font-light tracking-[0.06em]">it&apos;s on: {chosen.name.toLowerCase()}</span>
+            <span className="font-mono text-meta leading-3 tracking-meta text-sheet/70">{chosen.voters.length} of {group.members.length} in · see the plan</span>
+          </span>
+          <span aria-hidden>→</span>
+        </Link>
+      )}
 
       {/* Desktop: the top pick takes the left column, the others stack on the right. */}
       <div className="flex flex-col gap-2.5 px-5 md:grid md:grid-cols-[1.25fr_1fr] md:items-start md:gap-4 md:px-0">
         {group.plans_status === "pending" && group.events.length === 0 && <Note>your event agent is still looking. check back soon.</Note>}
         {group.plans_status === "none" && group.events.length === 0 && <Note>nothing fit everyone this time. your agent will keep looking.</Note>}
-        {top && <PlanCard plan={top} rank={1} featured />}
+        {top && <PlanCard plan={top} rank={1} featured {...vote} />}
         {rest.map((p, i) => (
-          <PlanCard key={p.name} plan={p} rank={i + 2} />
+          <PlanCard key={p.id} plan={p} rank={i + 2} {...vote} />
         ))}
       </div>
 
       <div className="mt-auto px-5 pt-6 pb-[max(24px,env(safe-area-inset-bottom))] md:px-0 md:pt-10 md:pb-0">
-        <GroupSteps userId={userId} current={2} />
+        <GroupSteps userId={userId} current={2} reached={chosen ? 3 : 2} />
       </div>
     </main>
   );
 }
 
-function PlanCard({ plan, rank, featured }: { plan: Plan; rank: number; featured?: boolean }) {
+function PlanCard({
+  plan,
+  rank,
+  featured,
+  userId,
+  group,
+}: {
+  plan: UserPlan;
+  rank: number;
+  featured?: boolean;
+  userId: string;
+  group: UserGroup;
+}) {
   const meta = [plan.time_label, plan.venue?.toLowerCase(), plan.price].filter(Boolean).join(" · ");
+  const lockedElsewhere = group.chosen_event_id !== null && !plan.chosen;
   return (
     <article
-      className={`rise-in flex flex-col gap-2 rounded-md px-[18px] py-4 ${featured ? "bg-sheet shadow-[0_8px_24px_-16px_rgb(38_36_31/0.35)] md:row-span-2 md:self-stretch md:gap-3 md:p-7" : "border border-line bg-white/45"}`}
+      className={`rise-in flex flex-col gap-2 rounded-md px-[18px] py-4 ${featured ? "bg-sheet shadow-[0_8px_24px_-16px_rgb(38_36_31/0.35)] md:row-span-2 md:self-stretch md:gap-3 md:p-7" : "border border-line bg-white/45"} ${lockedElsewhere ? "opacity-55" : ""}`}
       style={{ animationDelay: `${rank * 80}ms` }}
     >
       <div className="flex justify-between font-mono text-meta leading-3 tracking-meta text-ink-muted">
         <span>
           0{rank}
-          {featured ? " · top pick" : ""}
+          {plan.chosen ? " · it's on" : featured ? " · top pick" : ""}
         </span>
         <span>via {plan.source}</span>
       </div>
@@ -81,6 +112,14 @@ function PlanCard({ plan, rank, featured }: { plan: Plan; rank: number; featured
           details ↗
         </a>
       )}
+      <PlanVote
+        action={setVote.bind(null, userId, plan.id)}
+        going={plan.voters.length}
+        size={group.members.length}
+        needed={group.votes_needed}
+        mine={plan.voters.includes(userId)}
+        locked={lockedElsewhere}
+      />
     </article>
   );
 }

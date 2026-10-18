@@ -2,14 +2,14 @@ import Link from "next/link";
 
 const STEPS = ["meet", "pick a plan", "show up"] as const;
 
-/** "1 meet · 2 pick a plan · 3 show up", with the current step dark. Steps you've reached link back. */
-export function GroupSteps({ userId, current }: { userId: string; current: 1 | 2 | 3 }) {
-  const href = (i: number) => (i === 1 ? `/u/${userId}/group` : i === 2 ? `/u/${userId}/group/plans` : null);
+/** "1 meet · 2 pick a plan · 3 show up", with the current step dark. Steps you've reached (up to `reached`) link. */
+export function GroupSteps({ userId, current, reached = current }: { userId: string; current: 1 | 2 | 3; reached?: 1 | 2 | 3 }) {
+  const href = (i: number) => `/u/${userId}/group${["", "/plans", "/show-up"][i - 1]}`;
   return (
     <nav className="flex justify-center gap-3.5 font-mono text-meta leading-3 tracking-meta" aria-label="group steps">
       {STEPS.map((label, i) => {
         const n = i + 1;
-        const target = n < current ? href(n) : null;
+        const target = n !== current && n <= reached ? href(n) : null;
         const text = `${n} ${label}`;
         return (
           <span key={label} className="flex gap-3.5">

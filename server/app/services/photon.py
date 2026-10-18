@@ -178,3 +178,16 @@ async def notify_group(group_id, members: list[dict], events: list[Candidate]) -
         others = ", ".join(m["full_name"] for m in members if m is not member)
         text = f"You've been matched with {others}!{idea} Meet them and pick a plan: {group_link(member['user_id'])}"
         await send_message(member["phone"], text, f"matched:{group_id}:{member['user_id']}")
+
+
+async def notify_plan_locked(group_id, event: dict, members: list[dict], going: int) -> None:
+    """Tell each member which plan the group locked in. event: an events row; members as in notify_group."""
+    where = ", ".join(x for x in (event.get("time_label"), event.get("venue")) if x)
+    for member in members:
+        if not member.get("phone"):
+            continue
+        text = (
+            f"It's on: {event['name']}" + (f", {where}" if where else "") + f". {going} of {len(members)} are in."
+            f" Details: {group_link(member['user_id'])}/show-up"
+        )
+        await send_message(member["phone"], text, f"plan-locked:{event['id']}:{member['user_id']}")

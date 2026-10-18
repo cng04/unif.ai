@@ -142,8 +142,13 @@ export type UserGroup = {
   links: { a: string; b: string; vibe_score: number | null }[];
   plans_status: Group["plans_status"];
   plans_summary: string | null;
-  events: Plan[];
+  events: UserPlan[];
+  votes_needed: number; // a plan locks once this many members are in
+  chosen_event_id: string | null;
 };
+
+/** A group plan seen from inside the group: who's in, and whether it's the one the group locked in. */
+export type UserPlan = Plan & { id: string; voters: string[]; chosen: boolean };
 
 export type Universe = { id: string; name: string; status: UniverseStatus };
 
@@ -170,6 +175,9 @@ export const api = {
     request<UserGraph>(`/users/${userId}/graph${axes ? `?axes=${encodeURIComponent(axes.join(","))}` : ""}`),
   profile: (userId: string) => request<Profile>(`/users/${userId}/profile`),
   group: (userId: string) => request<UserGroup>(`/users/${userId}/group`),
+  /** "I'm in" (or take it back) on one of the user's group plans. 409 once the group locked in a different one. */
+  vote: (userId: string, eventId: string, going: boolean) =>
+    request<UserGroup>(`/users/${userId}/plans/${eventId}/vote`, { method: going ? "PUT" : "DELETE" }),
   interview: (userId: string) => request<InterviewMessage[]>(`/users/${userId}/interview`),
   sendInterview: (userId: string, message: string) =>
     request<{ reply: string }>(`/users/${userId}/interview`, { method: "POST", body: JSON.stringify({ message }) }),

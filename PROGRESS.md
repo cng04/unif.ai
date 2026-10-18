@@ -137,7 +137,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | 48 | [ ] Generate TypeScript types from the API (`openapi-typescript http://localhost:8000/openapi.json`) so backend changes break the client build instead of breaking at demo time. | `client/` | |
 | 12 | [x] Removed `end_conversation`; every pair now runs the configured fixed number of turns. | `agent/persona.py`, `tools.py` | Cursor |
 | 28 | [x] ~~Ticketmaster: pass the group's most common city so events are local.~~ Done with group plans: a search area from members' `area`. | `plans.py` | |
-| 50 | [ ] **Plan voting.** "i'm in / can't" per plan, per-member status, and "goes ahead at N yeses" from the design. Needs a table and endpoints. | `db/`, `routers/`, client | |
+| 50 | [x] **Plan voting.** "i'm in / can't" per plan, per-member status, and "goes ahead at N yeses" from the design. Needs a table and endpoints. Built as an "i'm in" toggle (taking it back is the "can't"); a majority locks the plan. | `db/`, `routers/`, client | jpolina |
 | 17 | [ ] After #8, check for over-blocking. Dealbreakers now forbid a pair in two places: the scoring prompt's dealbreaker keywords (hard filter) and the judge's `dealbreaker_conflicts`. Too many means lots of people left out. Tune the prompts if so. | `scoring.py`, `prompts.py` | |
 
 ### After the hackathon: cut for now
@@ -215,6 +215,9 @@ Add a line here for each change merged to `main`.
 - 2026-10-18: Photon `send_message` now sends for real when the keys are set: into the person's existing iMessage
   space as our agent, with idempotency keys, so the "you've been matched" text goes out. Not yet tested against a
   real phone.
+- 2026-10-18: Plan voting. "i'm in" on each plan (`plan_votes`); the first plan a majority is in on locks
+  (`events.chosen_at`), texts the group, and shows on the new "show up" step. **Schema change:**
+  `db/migrations/004_plan_votes.sql` (`./run.sh migrate`; applied to the shared Tiger instance on 2026-10-18).
 - 2026-10-18: #51 World is now one procedurally generated single-floor campus (branch `world-procedural`, M4-M8): layout from the universe's keywords (`world/select.ts` -> `world/plan.ts`, seeded by universe id + keyword set, stable when people join), drag-pan/zoom engine, agents act out only what the data says (`world/activity.ts`; chats are live only while `pairs.status = 'running'`), participant page `/u/{id}/world` with follow-me, admin real/demo switch (`/admin?mode=demo`), synthetic seeder `server/scripts/seed_synthetic.py`, Vitest tests and `client/scripts/world-check.mjs`. API client fetches are now `no-store`. Remaining: Paper structure drawings (conflict list for the user), real-model runs on synthetic people, merge `origin/main`.
 - 2026-10-18: World integration M1-M3 (branch `world-procedural`): `GET /admin/api/universes/{id}/world` and `GET /users/{id}/world` snapshots with a `since` cursor; the pipeline records its stage and writes pairs as `running` at chat start; `universes.is_demo` (seeded fixtures marked demo). **Schema change:** apply `db/migrations/003_world.sql` (`./run.sh migrate`) or `docker compose down -v` locally. World generation started: preset library + keyword-driven structure selection with Vitest tests (`npm test` in `client/`).
 - 2026-10-18: Lowered the default minimum group size from 4 to 3 and updated matching prompts and user-facing copy.
