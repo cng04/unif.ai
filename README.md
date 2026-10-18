@@ -25,26 +25,63 @@ Built for LA Hacks.
 5. **Plan.** Each group gets a few ideas for what to do, fitted to when everyone is free. Members tap *i'm in*,
    and when a majority is in, the plan locks and the group gets a text.
 
+## How it fits together
+
 ```mermaid
 flowchart LR
-    A["Invite link"] --> B["Interview<br/>(iMessage · ASI:One · web)"]
-    B --> C["Your agent<br/>public + private profile"]
-    C --> D["Keywords<br/>themes across the whole group"]
-    D --> E["Scores<br/>each person × each keyword"]
-    E --> F{"Compatible?<br/>dealbreakers · schedules"}
-    F -- no --> X["Skipped"]
-    F -- yes --> G["Agents chat<br/>pair by pair"]
-    G --> H["Judge<br/>chemistry · logistics"]
-    H --> I["Groups of 3–8<br/>optimiser"]
-    I --> J["Plans<br/>fitted to free time"]
-    J --> K{"Majority<br/>'i'm in'?"}
-    K -- yes --> L["Plan locks<br/>group gets a text"]
-    K -- not yet --> J
+    subgraph People["People"]
+        IM["iMessage<br/>(Photon)"]
+        ASI["ASI:One chat<br/>(Fetch.ai Agentverse)"]
+        WEB["Web app<br/>Next.js · React"]
+    end
 
-    W(["The World<br/>live view of every step"]) -.-> D
-    W -.-> G
-    W -.-> I
+    subgraph Onboard["Onboarding"]
+        RELAY["ASI relay<br/>uAgents · Chat Protocol"]
+        BOT["Interview bot<br/>TypeScript"]
+    end
+
+    subgraph Core["Core"]
+        API["API<br/>FastAPI"]
+        PIPE["Matching pipeline<br/>keywords · scores · groups<br/>OR-Tools CP-SAT"]
+        AG["Agent library<br/>interviewer · personas · judge"]
+        DB[("PostgreSQL<br/>pgvector")]
+    end
+
+    subgraph Models["Models"]
+        GEM["Gemini<br/>writes text"]
+        JEV["Jev (TypeSafe)<br/>typed scores"]
+        OR["OpenRouter<br/>optional, covers both"]
+    end
+
+    subgraph World["The World"]
+        PIXI["PixiJS<br/>generated town"]
+        G3D["three.js<br/>keyword graph"]
+    end
+
+    subgraph Outside["The outside world"]
+        BU["Browser Use<br/>profiles · event search"]
+        TM["Ticketmaster<br/>events"]
+    end
+
+    IM --> BOT
+    ASI --> RELAY --> BOT
+    BOT -->|profiles| DB
+    WEB -->|server-side requests| API
+    API <--> DB
+    API --> PIPE --> AG
+    PIPE <--> DB
+    AG --> GEM
+    AG --> JEV
+    AG -.-> OR
+    PIPE --> BU
+    PIPE --> TM
+    PIPE -->|"match + plan texts"| IM
+    API -->|"one snapshot, polled"| PIXI
+    API --> G3D
 ```
+
+Participants and admins only ever talk to the API through the web app's server side, never straight to the database.
+The agents are a plain Python library the server calls; the models behind it can be swapped for OpenRouter with one key.
 
 ## The World
 

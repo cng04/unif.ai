@@ -34,3 +34,6 @@ npm-debug.log*
 unifai-bots.tgz
 bot-data.tgz
 bot-data.tgz.imported
+
+# Internal hackathon notes (sponsor tracks), never committed
+SPONSOR_TRACKS.md
