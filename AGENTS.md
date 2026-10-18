@@ -121,7 +121,8 @@ synthetic benchmark with 5 judged edges per person, the edge weight kept inside 
 people, 27% at 100, and 3% at 200 (about what random grouping keeps). Everyone was still placed in a
 valid group. A greedy warm start is the planned fix.
 
-`projection.py` reduces the k-dim keyword scores to 3D for the playground view (`GET /universes/{id}/graph`).
+`projection.py` reduces the k-dim keyword scores to 3D (PCA) for `GET /universes/{id}/graph` and the web app's 3D view
+(`GET /users/{id}/graph`).
 
 ### Why two people matched
 
@@ -150,7 +151,13 @@ Pages are server components that call the API through `src/lib/api.ts` (`API_URL
 `http://localhost:8000`), so the browser never talks to FastAPI directly. Design tokens mirror the Paper
 file and live in `src/app/globals.css`. There is no auth yet: the user id in the URL is the only identity.
 
-The app reads `GET /users/{id}/connections` and `GET /users/{id}/pairs/{pair_id}` (`server/app/routers/me.py`).
+The connections tab defaults to 3D, with a `2d · 3d` toggle (`?view=2d` for the ego graph). Tapping a match opens
+the agent conversation in a drawer (`?pair={pair_id}`, `components/pair-drawer.tsx`) instead of navigating. The 3D view (`components/connections-graph-3d.tsx`, three.js
+via react-three-fiber, loaded lazily) places the whole universe by keyword scores, either PCA or three keywords picked as
+axes (`?axes=a,b,c`).
+
+The app reads `GET /users/{id}/connections`, `GET /users/{id}/graph`, and `GET /users/{id}/pairs/{pair_id}`
+(`server/app/routers/me.py`).
 They name only the user's own pairs and group members, return everyone else as anonymous ids, and never
 return judge rationales, dealbreaker flags, or private profile fields.
 

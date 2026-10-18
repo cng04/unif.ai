@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
-from app.routers.me import get_connections, get_pair
+from app.routers.me import get_connections, get_graph, get_pair
 
 
 async def add_user(conn: AsyncConnection, universe_id, name: str, looking_for: str = ""):
@@ -78,3 +78,46 @@ async def test_pair_is_404_for_non_members(test_db_conn, world):
     with pytest.raises(HTTPException) as e:
         await get_pair(world["me"], world["others_pair"], test_db_conn)
     assert e.value.status_code == 404
+
+
+async def add_scores(conn: AsyncConnection, universe_id, scores: dict):
+    """scores: {user_id: [score per keyword]} over keywords k0, k1, k2."""
+    ids = []
+    for i in range(3):
+        row = await (
+            await conn.execute("INSERT INTO keywords (universe_id, name) VALUES (%s, %s) RETURNING id", (universe_id, f"k{i}"))
+        ).fetchone()
+        ids.append(row["id"])
+    for user_id, values in scores.items():
+        for kid, score in zip(ids, values):
+            await conn.execute(
+                "INSERT INTO keyword_scores (user_id, keyword_id, score, dealbreaker) VALUES (%s, %s, %s, true)",
+                (user_id, kid, score),
+            )
+    await conn.commit()
+
+
+async def test_graph_names_only_my_people(test_db_conn, test_universe, world):
+    await add_scores(
+        test_db_conn,
+        test_universe,
+        {world["me"]: [0.9, 0.5, 0.1], world["maya"]: [0.8, 0.6, 0.2], world["ari"]: [0.1, 0.9, 0.5], world["jo"]: [0.5, 0.5, 0.9]},
+    )
+    graph = await get_graph(world["me"], None, test_db_conn)
+
+    kinds = {n.user_id: (n.kind, n.name) for n in graph.nodes}
+    assert kinds[world["me"]] == ("me", "Cyn")
+    assert kinds[world["maya"]] == ("group", "Maya")
+    assert kinds[world["ari"]] == ("match", "Ari")
+    assert kinds[world["jo"]] == ("pool", None)
+    assert {(l.a, l.b, l.mine) for l in graph.links} >= {(world["me"], world["maya"], True)}
+    assert "secret" not in graph.model_dump_json()
+    assert "dealbreaker" not in graph.model_dump_json()
+
+    by_axes = await get_graph(world["me"], "k0,k1,k2", test_db_conn)
+    me = next(n for n in by_axes.nodes if n.kind == "me")
+    assert (me.x, me.y, me.z) == pytest.approx((0.8, 0.0, -0.8))
+
+    with pytest.raises(HTTPException) as e:
+        await get_graph(world["me"], "k0,nope,k2", test_db_conn)
+    assert e.value.status_code == 422
