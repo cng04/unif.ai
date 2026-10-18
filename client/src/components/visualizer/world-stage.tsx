@@ -1,11 +1,10 @@
 "use client";
 
-// The Pixi canvas. Loaded with `ssr: false` from WorldCanvas, since Pixi needs the DOM and a GPU context.
+// Loaded with `ssr: false` from WorldCanvas, since Pixi needs the DOM and a GPU context.
 
-import { Application, useApplication, useTick } from "@pixi/react";
-import { useCallback, useEffect, useRef, type RefObject } from "react";
-import type { Ticker } from "pixi.js";
-import { WorldEngine, type EngineEvents } from "./engine";
+import { useEffect, useState, type RefObject } from "react";
+import type { WorldEngine, EngineEvents } from "./engine";
+import { mountWorld } from "./world-renderer";
 
 export default function WorldStage({
   container,
@@ -16,45 +15,40 @@ export default function WorldStage({
   events: RefObject<EngineEvents>;
   onReady: (engine: WorldEngine | null) => void;
 }) {
-  return (
-    <Application
-      resizeTo={container}
-      backgroundAlpha={0}
-      antialias={false}
-      autoDensity
-      resolution={typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2)}
-      roundPixels
-    >
-      <EngineHost events={events} onReady={onReady} />
-    </Application>
-  );
-}
-
-function EngineHost({ events, onReady }: { events: RefObject<EngineEvents>; onReady: (engine: WorldEngine | null) => void }) {
-  const { app, isInitialised } = useApplication();
-  const engine = useRef<WorldEngine | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!isInitialised) return;
-    // Events go through the ref so the engine always calls the latest React handlers.
-    const proxy: EngineEvents = {
-      onSelect: (id) => events.current.onSelect(id),
-      onFollow: (on) => events.current.onFollow(on),
-      onStatus: (status) => events.current.onStatus(status),
-    };
-    const instance = new WorldEngine(app, proxy);
-    engine.current = instance;
-    onReady(instance);
-    if (process.env.NODE_ENV !== "production") (window as { __unifaiWorld?: WorldEngine }).__unifaiWorld = instance;
-    return () => {
-      if (process.env.NODE_ENV !== "production") delete (window as { __unifaiWorld?: WorldEngine }).__unifaiWorld;
-      engine.current = null;
-      onReady(null);
-      instance.destroy();
-    };
-  }, [app, isInitialised, events, onReady]);
+    const host = container.current;
+    if (!host) return;
+    const dispose = mountWorld(host, events, (engine) => {
+      onReady(engine);
+      setStatus(engine ? "ready" : "loading");
+    }, (error) => {
+      console.error("World renderer failed to initialize", error);
+      setStatus("error");
+    });
+    return dispose;
+  }, [container, events, onReady, attempt]);
 
-  const tick = useCallback((ticker: Ticker) => engine.current?.update(ticker.deltaMS / 1000), []);
-  useTick(tick);
-  return null;
+  if (status === "ready") return null;
+  return (
+    <div className="absolute inset-0 z-10 grid place-items-center font-mono fs-11 tracking-[0.16em] text-paper/70" role="status">
+      {status === "loading" ? "( loading world )" : (
+        <div className="flex flex-col items-center gap-4">
+          <p>The world couldn’t load.</p>
+          <button
+            type="button"
+            className="press rounded-full bg-paper px-4 py-2 text-ink"
+            onClick={() => {
+              setStatus("loading");
+              setAttempt((value) => value + 1);
+            }}
+          >
+            Retry world
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }

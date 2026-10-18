@@ -149,10 +149,10 @@ export function WorldCanvas({
   }, [engine, speed]);
   // A participant's own agent is followed when the world opens (they can look around any time).
   const viewer = snapshot.viewer;
-  const followedViewer = useRef(false);
+  const followedViewer = useRef<WorldEngine | null>(null);
   useEffect(() => {
-    if (!engine || !viewer || followedViewer.current || !members.has(viewer)) return;
-    followedViewer.current = true;
+    if (!engine || !viewer || followedViewer.current === engine || !members.has(viewer)) return;
+    followedViewer.current = engine;
     engine.select(viewer, true);
   }, [engine, viewer, members]);
   useEffect(() => {
