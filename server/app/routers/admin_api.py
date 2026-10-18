@@ -4,6 +4,7 @@ Everything is derived from what matching stores; there is no separate pipeline-p
 """
 
 import secrets
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -38,6 +39,7 @@ def universe_out(row: dict) -> dict:
         "invite_code": row["invite_code"],
         "invite_url": invite_url(row["invite_code"]),
         "created_at": row["created_at"],
+        "is_demo": row["is_demo"],
     }
 
 
@@ -50,7 +52,10 @@ async def group_labels(conn: AsyncConnection, universe_id: UUID) -> dict[UUID, s
 
 
 @router.get("/universes")
-async def list_universes(conn: AsyncConnection = Depends(get_conn)) -> list[dict]:
+async def list_universes(
+    mode: Literal["real", "demo", "all"] = "all", conn: AsyncConnection = Depends(get_conn)
+) -> list[dict]:
+    """Universes, optionally only real ones or only demo/test ones (seeded fixtures, synthetic people)."""
     rows = await (
         await conn.execute(
             f"""
@@ -60,8 +65,10 @@ async def list_universes(conn: AsyncConnection = Depends(get_conn)) -> list[dict
             FROM universes un
             LEFT JOIN users u ON u.universe_id = un.id
             LEFT JOIN agent_profiles ap ON ap.user_id = u.id
+            WHERE %(mode)s = 'all' OR un.is_demo = (%(mode)s = 'demo')
             GROUP BY un.id ORDER BY un.created_at DESC
-            """
+            """,
+            {"mode": mode},
         )
     ).fetchall()
     return [{**universe_out(r), "members": r["members"], "onboarded": r["onboarded"], "groups": r["groups"]} for r in rows]
@@ -104,7 +111,7 @@ async def universe_detail(universe_id: UUID, conn: AsyncConnection = Depends(get
                    {repo.USER_STATUS_SQL} AS status,
                    COALESCE(jsonb_array_length(ap.private -> 'dealbreakers'), 0) AS dealbreakers,
                    gm.group_id,
-                   (SELECT COUNT(*) FROM pairs p WHERE u.id IN (p.user_a, p.user_b)) AS chats,
+                   (SELECT COUNT(*) FROM pairs p WHERE u.id IN (p.user_a, p.user_b) AND p.status = 'complete') AS chats,
                    (SELECT COUNT(*) FROM pairs p WHERE u.id IN (p.user_a, p.user_b)
                        AND p.vibe_score >= {STRONG_VIBE} AND NOT {CONFLICT}) AS strong_ties
             FROM users u
@@ -123,7 +130,7 @@ async def universe_detail(universe_id: UUID, conn: AsyncConnection = Depends(get
               (SELECT COUNT(*) FROM keywords WHERE universe_id = %(u)s) AS keywords,
               (SELECT COUNT(DISTINCT s.user_id) FROM keyword_scores s JOIN users x ON x.id = s.user_id
                  WHERE x.universe_id = %(u)s) AS scored,
-              (SELECT COUNT(*) FROM pairs p WHERE p.universe_id = %(u)s) AS pairs,
+              (SELECT COUNT(*) FROM pairs p WHERE p.universe_id = %(u)s AND p.status = 'complete') AS pairs,
               (SELECT COUNT(*) FROM pairs p WHERE p.universe_id = %(u)s AND {CONFLICT}) AS conflicts,
               (SELECT AVG(p.vibe_score) FROM pairs p WHERE p.universe_id = %(u)s) AS avg_vibe,
               (SELECT COUNT(*) FROM events e JOIN groups g ON g.id = e.group_id WHERE g.universe_id = %(u)s) AS events,
@@ -230,6 +237,7 @@ async def universe_groups(universe_id: UUID, conn: AsyncConnection = Depends(get
                 JOIN group_members ga ON ga.user_id = p.user_a AND ga.group_id = %(g)s
                 JOIN group_members gb ON gb.user_id = p.user_b AND gb.group_id = %(g)s
                 JOIN users ua ON ua.id = p.user_a JOIN users ub ON ub.id = p.user_b
+                WHERE p.status = 'complete'
                 ORDER BY p.vibe_score ASC NULLS LAST LIMIT 1
                 """,
                 {"g": group_id},
@@ -240,7 +248,7 @@ async def universe_groups(universe_id: UUID, conn: AsyncConnection = Depends(get
         await conn.execute(
             f"""
             SELECT u.id, u.full_name,
-                   (SELECT COUNT(*) FROM pairs p WHERE u.id IN (p.user_a, p.user_b)) AS chats,
+                   (SELECT COUNT(*) FROM pairs p WHERE u.id IN (p.user_a, p.user_b) AND p.status = 'complete') AS chats,
                    (SELECT COUNT(*) FROM pairs p WHERE u.id IN (p.user_a, p.user_b)
                        AND p.vibe_score >= {STRONG_VIBE} AND NOT {CONFLICT}) AS strong_ties
             FROM users u JOIN agent_profiles ap ON ap.user_id = u.id

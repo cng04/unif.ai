@@ -9,6 +9,11 @@ CREATE TABLE universes (
     invite_code  TEXT NOT NULL UNIQUE,
     status       TEXT NOT NULL DEFAULT 'onboarding'
                  CHECK (status IN ('onboarding', 'matching', 'matched')),
+    -- Demo/test universes (seeded fixtures, synthetic people), kept apart from real ones.
+    is_demo      BOOLEAN NOT NULL DEFAULT false,
+    -- The matching stage running now (NULL outside a run), for the World's live progress.
+    matching_stage    TEXT CHECK (matching_stage IN ('keywords', 'scoring', 'chats', 'groups')),
+    matching_stage_at TIMESTAMPTZ,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -74,6 +79,9 @@ CREATE TABLE pairs (
     logistics_fit      TEXT CHECK (logistics_fit IN ('strong', 'workable', 'incompatible')),
     judge_rationale    TEXT,
     end_reason         TEXT,
+    -- 'running' from the moment the agents start talking; 'complete' once judged (transcript written then).
+    status             TEXT NOT NULL DEFAULT 'complete' CHECK (status IN ('running', 'complete')),
+    completed_at       TIMESTAMPTZ,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (universe_id, user_a, user_b),
     CHECK (user_a < user_b)

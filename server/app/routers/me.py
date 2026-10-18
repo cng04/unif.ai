@@ -50,7 +50,7 @@ async def get_connections(user_id: UUID, conn: AsyncConnection = Depends(get_con
                    {CONFLICT_SQL} AS conflict
             FROM pairs p
             JOIN users u ON u.id = CASE WHEN p.user_a = %(me)s THEN p.user_b ELSE p.user_a END
-            WHERE p.universe_id = %(universe)s AND %(me)s IN (p.user_a, p.user_b)
+            WHERE p.universe_id = %(universe)s AND %(me)s IN (p.user_a, p.user_b) AND p.status = 'complete'
             ORDER BY p.vibe_score DESC NULLS LAST
             """,
             {"me": user_id, "universe": universe["id"]},
@@ -59,7 +59,7 @@ async def get_connections(user_id: UUID, conn: AsyncConnection = Depends(get_con
     edges = await (
         await conn.execute(
             "SELECT user_a AS a, user_b AS b, vibe_score FROM pairs WHERE universe_id = %(universe)s "
-            "AND %(me)s NOT IN (user_a, user_b)",
+            "AND %(me)s NOT IN (user_a, user_b) AND status = 'complete'",
             {"me": user_id, "universe": universe["id"]},
         )
     ).fetchall()
@@ -148,7 +148,7 @@ async def get_graph(user_id: UUID, axes: str | None = None, conn: AsyncConnectio
 async def get_pair(user_id: UUID, pair_id: UUID, conn: AsyncConnection = Depends(get_conn)):
     pair = await (
         await conn.execute(
-            f"SELECT p.*, {CONFLICT_SQL} AS conflict FROM pairs p WHERE p.id = %s AND %s IN (p.user_a, p.user_b)",
+            f"SELECT p.*, {CONFLICT_SQL} AS conflict FROM pairs p WHERE p.id = %s AND %s IN (p.user_a, p.user_b) AND p.status = 'complete'",
             (pair_id, user_id),
         )
     ).fetchone()
