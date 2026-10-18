@@ -26,6 +26,10 @@ class UniverseCreate(BaseModel):
     admin_email: str
 
 
+class UniverseRename(BaseModel):
+    name: str
+
+
 def universe_out(row: dict) -> dict:
     return {
         "id": row["id"],
@@ -73,6 +77,19 @@ async def create_universe(body: UniverseCreate, conn: AsyncConnection = Depends(
             (body.name.strip()[:120], body.admin_email.strip(), secrets.token_urlsafe(6)),
         )
     ).fetchone()
+    return universe_out(row)
+
+
+@router.patch("/universes/{universe_id}")
+async def rename_universe(universe_id: UUID, body: UniverseRename, conn: AsyncConnection = Depends(get_conn)) -> dict:
+    name = body.name.strip()[:120]
+    if not name:
+        raise HTTPException(400, "name is required")
+    row = await (
+        await conn.execute("UPDATE universes SET name = %s WHERE id = %s RETURNING *", (name, universe_id))
+    ).fetchone()
+    if row is None:
+        raise HTTPException(404, "universe not found")
     return universe_out(row)
 
 

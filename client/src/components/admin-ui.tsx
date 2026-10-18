@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 
+export const titleClass = "text-[28px] leading-[34px] font-light tracking-[0.1em] lowercase";
+
+/** A string title is wrapped in the page's h1; anything else renders as-is and brings its own heading. */
 export function AdminHeader({
   crumbs,
   title,
@@ -15,7 +18,7 @@ export function AdminHeader({
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div className="flex flex-col gap-2">
         <p className="font-mono text-[10px] leading-3 tracking-meta text-ink-muted">( {crumbs.join(" / ")} )</p>
-        <h1 className="text-[28px] leading-[34px] font-light tracking-[0.1em] lowercase">{title}</h1>
+        {typeof title === "string" ? <h1 className={titleClass}>{title}</h1> : title}
         {subtitle && <p className="font-mono text-[10px] leading-3 tracking-label text-ink-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

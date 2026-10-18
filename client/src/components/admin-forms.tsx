@@ -1,7 +1,71 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { ActionState } from "@/app/admin/actions";
+import { titleClass } from "@/components/admin-ui";
+
+export function RenameUniverseTitle({
+  name,
+  action,
+}: {
+  name: string;
+  action: (prev: ActionState, form: FormData) => Promise<ActionState>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [state, formAction, pending] = useActionState(async (prev: ActionState, form: FormData) => {
+    const result = await action(prev, form);
+    if (!result.error) setEditing(false);
+    return result;
+  }, {});
+
+  if (!editing) {
+    return (
+      <div className="group flex items-baseline gap-3">
+        <h1 className={titleClass}>{name}</h1>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="micro text-ink-muted opacity-60 transition-opacity group-hover:opacity-100 hover:text-ink"
+        >
+          rename
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          name="name"
+          required
+          autoFocus
+          maxLength={120}
+          defaultValue={name}
+          aria-label="universe name"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setEditing(false);
+          }}
+          className={`${titleClass} min-w-0 rounded-[12px] border border-line bg-white/55 px-3 py-0.5 outline-none focus:border-ink/40`}
+        />
+        <button
+          disabled={pending}
+          className="press rounded-full bg-ink px-3.5 py-[7px] text-label leading-3 tracking-meta text-paper disabled:opacity-50"
+        >
+          {pending ? "saving…" : "save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="micro text-ink-muted hover:text-ink"
+        >
+          cancel
+        </button>
+      </div>
+      {state.error && <p className="micro text-ember-text">{state.error}</p>}
+    </form>
+  );
+}
 
 export function CreateUniverseForm({ action }: { action: (prev: ActionState, form: FormData) => Promise<ActionState> }) {
   const [state, formAction, pending] = useActionState(action, {});

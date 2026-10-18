@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
-import { RunMatchingButton } from "@/components/admin-forms";
+import { RenameUniverseTitle, RunMatchingButton } from "@/components/admin-forms";
 import { AdminHeader, Caption, Chip, outline, Panel, shortDate } from "@/components/admin-ui";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { CopyButton } from "@/components/copy-button";
 import { CountUp } from "@/components/count-up";
 import { adminApi, ApiError, type UniverseDetail } from "@/lib/api";
-import { abortMatching, runMatching } from "../../actions";
+import { abortMatching, renameUniverse, runMatching } from "../../actions";
 
 // Matching needs at least one full group (MIN_GROUP_SIZE on the server).
 const MIN_TO_MATCH = 4;
@@ -52,7 +52,7 @@ async function UniverseScreen({
       {universe.status === "matching" && <AutoRefresh seconds={10} />}
       <AdminHeader
         crumbs={["universes", universe.name]}
-        title={universe.name}
+        title={<RenameUniverseTitle key={universe.name} name={universe.name} action={renameUniverse.bind(null, universe.id)} />}
         subtitle={`${universe.status} · created ${shortDate(universe.created_at)} · invite code ${universe.invite_code}`}
         actions={
           <>

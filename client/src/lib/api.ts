@@ -205,6 +205,12 @@ export const adminApi = {
       headers: adminHeaders(),
       body: JSON.stringify({ name, admin_email }),
     }),
+  renameUniverse: (id: string, name: string) =>
+    request<UniverseSummary>(`/admin/api/universes/${id}`, {
+      method: "PATCH",
+      headers: adminHeaders(),
+      body: JSON.stringify({ name }),
+    }),
   universe: (id: string) => request<UniverseDetail>(`/admin/api/universes/${id}`, { headers: adminHeaders() }),
   groups: (id: string) => request<UniverseGroups>(`/admin/api/universes/${id}/groups`, { headers: adminHeaders() }),
   runMatching: (id: string) =>

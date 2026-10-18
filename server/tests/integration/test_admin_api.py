@@ -4,7 +4,14 @@ import pytest
 from fastapi import HTTPException
 from psycopg import AsyncConnection
 
-from app.routers.admin_api import abort_matching, universe_detail, universe_groups, universe_scores
+from app.routers.admin_api import (
+    UniverseRename,
+    abort_matching,
+    rename_universe,
+    universe_detail,
+    universe_groups,
+    universe_scores,
+)
 from tests.integration.test_me import add_pair, add_user
 
 
@@ -61,6 +68,17 @@ async def test_abort_matching_reopens_onboarding_and_drops_partial_results(test_
     with pytest.raises(HTTPException) as err:
         await abort_matching(test_universe, conn)
     assert err.value.status_code == 409
+
+
+async def test_rename_universe_trims_and_rejects_blank(test_db_conn: AsyncConnection, test_universe):
+    conn = test_db_conn
+    out = await rename_universe(test_universe, UniverseRename(name="  LA Hacks 2026  "), conn)
+    assert out["name"] == "LA Hacks 2026"
+    assert (await universe_detail(test_universe, conn))["name"] == "LA Hacks 2026"
+
+    with pytest.raises(HTTPException) as err:
+        await rename_universe(test_universe, UniverseRename(name="   "), conn)
+    assert err.value.status_code == 400
 
 
 async def test_scores_are_keyword_level_only(test_db_conn: AsyncConnection, test_universe):
