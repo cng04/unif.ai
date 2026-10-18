@@ -62,6 +62,24 @@ class GraphPoint(BaseModel):
     group_id: UUID | None = None
 
 
+class KeywordOut(BaseModel):
+    id: int
+    name: str
+
+
+class PersonScores(BaseModel):
+    user_id: UUID
+    name: str
+    group_id: UUID | None = None
+    scores: list[float]  # aligned with KeywordMatrix.keywords
+    dealbreakers: list[int]  # keyword ids this person can't be grouped around
+
+
+class KeywordMatrix(BaseModel):
+    keywords: list[KeywordOut]
+    people: list[PersonScores]
+
+
 class Pair(BaseModel):
     id: UUID
     user_a: UUID

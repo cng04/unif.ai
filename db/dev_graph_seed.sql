@@ -98,6 +98,70 @@ SELECT '00000000-0000-0000-0000-000000000001', ua, ub, vibe, fit,
        'max_turns'
 FROM verdict;
 
+-- Agent-to-agent conversations for the judged pairs: one template per cluster (-1 for cross-cluster
+-- pairs), filled with first names (%1$s = user_a, %2$s = user_b) and their top shared keyword (%3$s).
+CREATE TEMP TABLE dev_chat (cluster INT, turn INT, speaker CHAR(1), content TEXT) ON COMMIT DROP;
+INSERT INTO dev_chat VALUES
+    (0, 1, 'a', 'Hi, I''m here for %1$s. They climb most Saturdays and want people who''d rather chat between problems than chase grades.'),
+    (0, 2, 'b', 'Same energy as %2$s. They boulder 2-3x a week and aren''t competitive about it at all.'),
+    (0, 3, 'a', 'Would %2$s be up for a long breakfast after? That''s half the point for %1$s.'),
+    (0, 4, 'b', 'Always. %2$s also does early hikes if the group wants a change of scene.'),
+    (0, 5, 'a', 'Perfect. I think they''d both want a low-key %3$s crew.'),
+    (1, 1, 'a', 'Hey! %1$s hosts a board game night most weeks, usually 4-6 people.'),
+    (1, 2, 'b', '%2$s would love that. They''re more co-op than cutthroat, if that matters.'),
+    (1, 3, 'a', 'Matters a lot, %1$s hates rules lawyers. Any games %2$s is into lately?'),
+    (1, 4, 'b', 'Mostly long strategy games, and some %3$s on weekday nights.'),
+    (1, 5, 'a', 'Good overlap. I''d put them in the same group.'),
+    (2, 1, 'a', '%1$s paints most evenings and goes to small gigs when they can.'),
+    (2, 2, 'b', '%2$s is the same, they''d take a tiny venue over a stadium any day.'),
+    (2, 3, 'a', 'Would %2$s be up for a sketch-and-coffee morning?'),
+    (2, 4, 'b', 'Honestly yes. They''re quieter at first but open up around %3$s.'),
+    (2, 5, 'a', 'Same with %1$s. Sounds like a good fit.'),
+    (3, 1, 'a', '%1$s cooks for friends almost every Sunday and is always looking for more people at the table.'),
+    (3, 2, 'b', 'That''s %2$s''s dream. They''d bring dessert and stay to do dishes.'),
+    (3, 3, 'a', 'Any dietary stuff I should know about?'),
+    (3, 4, 'b', 'Nothing strict. They just get excited about %3$s.'),
+    (3, 5, 'a', 'Then they''ll get along. Noting it.'),
+    (4, 1, 'a', '%1$s runs early, most weekdays, and lifts after work.'),
+    (4, 2, 'b', '%2$s is similar, though they''d skip the bar after. Not into drinking much.'),
+    (4, 3, 'a', 'Neither is %1$s, so that works. Weekend long runs?'),
+    (4, 4, 'b', 'Saturday mornings, yes. They like having people to keep them honest about %3$s.'),
+    (4, 5, 'a', 'Good. Strong match from my side.'),
+    (5, 1, 'a', '%1$s is in two book clubs and writes a little on the side.'),
+    (5, 2, 'b', '%2$s too. They''d much rather a quiet cafe than anything loud.'),
+    (5, 3, 'a', 'Same for %1$s, clubs are a hard no. Any genres %2$s loves?'),
+    (5, 4, 'b', 'Mostly literary fiction. They''d love a group that swaps %3$s recommendations.'),
+    (5, 5, 'a', 'That''s exactly what %1$s wants. Adding a note.'),
+    (6, 1, 'a', '%1$s is out most Fridays, cocktail bars first, dancing after.'),
+    (6, 2, 'b', '%2$s too, they know half the bartenders in the neighbourhood.'),
+    (6, 3, 'a', 'Would %2$s be up for a later start? %1$s rarely heads out before 10.'),
+    (6, 4, 'b', 'Later is better honestly. They''re all about %3$s.'),
+    (6, 5, 'a', 'Then they''ll have fun. Good match.'),
+    (-1, 1, 'a', 'Hi, I''m here for %1$s. We don''t overlap much on paper, but I wanted to check.'),
+    (-1, 2, 'b', 'Fair. %2$s is open to new things as long as the group is easygoing.'),
+    (-1, 3, 'a', 'They do share some interest in %3$s.'),
+    (-1, 4, 'b', 'True, though it''s not a big part of %2$s''s week.'),
+    (-1, 5, 'a', 'Makes sense. Friendly, but probably not the same group.');
+
+INSERT INTO pair_messages (pair_id, speaker_id, kind, content)
+SELECT p.id, CASE WHEN c.speaker = 'a' THEN p.user_a ELSE p.user_b END, 'message',
+       format(c.content, split_part(ua.full_name, ' ', 1), split_part(ub.full_name, ' ', 1), kw.name)
+FROM pairs p
+JOIN users ua ON ua.id = p.user_a
+JOIN users ub ON ub.id = p.user_b
+JOIN dev_user da ON da.user_id = p.user_a
+JOIN dev_user db ON db.user_id = p.user_b
+CROSS JOIN LATERAL (
+    SELECT k.name FROM keyword_scores sa
+    JOIN keyword_scores sb ON sb.keyword_id = sa.keyword_id AND sb.user_id = p.user_b
+    JOIN keywords k ON k.id = sa.keyword_id
+    WHERE sa.user_id = p.user_a
+    ORDER BY sa.score * sb.score DESC LIMIT 1
+) kw
+JOIN dev_chat c ON c.cluster = CASE WHEN da.cluster = db.cluster THEN da.cluster ELSE -1 END
+WHERE p.universe_id = '00000000-0000-0000-0000-000000000001'
+ORDER BY p.id, c.turn;
+
 -- One group per cluster.
 INSERT INTO groups (id, universe_id, group_score, rationale)
 SELECT md5('dev-group-' || cluster)::uuid, '00000000-0000-0000-0000-000000000001', 8, 'dev seed: everyone shares the same core interests'
