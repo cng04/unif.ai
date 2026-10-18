@@ -9,5 +9,5 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function loadPairMessages(pairId: string): Promise<ChatLine[]> {
   if (!UUID.test(pairId)) throw new Error("invalid pair id");
   const rows = await api.pairMessages(pairId);
-  return rows.map((r) => ({ speakerId: r.speaker_id, content: r.content }));
+  return rows.map((r) => ({ speakerId: r.speaker_id, content: r.content, createdAt: r.created_at }));
 }

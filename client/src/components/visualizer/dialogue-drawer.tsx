@@ -1,6 +1,9 @@
 "use client";
 
-import { Bubble, formatScore, SpeakerLabel } from "@/components/ui";
+// One agent-to-agent chat, laid out like the "Dialogue drawer" on the Paper "World visualizer" page, including
+// its loading / empty states.
+
+import { Caption, CloseButton, DotPill, Pill, fitTone, panel } from "./hud";
 import type { WorldAgent, WorldPair } from "./types";
 import type { MessageState } from "./WorldCanvas";
 
@@ -9,6 +12,7 @@ export function DialogueDrawer({
   agentsById,
   messages,
   live,
+  className = "",
   onClose,
   onRetry,
   onSelectAgent,
@@ -17,20 +21,20 @@ export function DialogueDrawer({
   agentsById: Map<string, WorldAgent>;
   messages: MessageState | undefined;
   live: boolean;
+  className?: string;
   onClose: () => void;
   onRetry: () => void;
   onSelectAgent: (id: string) => void;
 }) {
   const nameOf = (id: string) => agentsById.get(id)?.name ?? "someone";
+  const conflict = pair.dealbreakerFlags.length > 0;
 
   return (
-    <aside
-      aria-label="Agent dialogue"
-      className="rise-in flex max-h-[min(520px,75vh)] w-full flex-col overflow-hidden rounded-md border border-line bg-sheet/95 shadow-lg backdrop-blur md:pointer-events-auto md:w-[340px]"
-    >
-      <header className="flex flex-col gap-2 border-b border-line p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="text-[16px] font-light tracking-label lowercase">
+    <aside aria-label="Agent dialogue" className={`${panel} flex flex-col gap-3.5 p-5 ${className}`}>
+      <header className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Caption>dialogue</Caption>
+          <h2 className="font-sans text-[21px] leading-[26px] font-light tracking-[-0.01em] text-ink">
             <button type="button" className="hover:underline" onClick={() => onSelectAgent(pair.a)}>
               {nameOf(pair.a)}
             </button>
@@ -39,50 +43,79 @@ export function DialogueDrawer({
               {nameOf(pair.b)}
             </button>
           </h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="press micro h-7 w-7 shrink-0 rounded-full border border-ink/20">
-            ✕
-          </button>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {live && (
-            <span className="micro flex items-center gap-1.5 rounded-full bg-ink px-2 py-0.5 text-paper uppercase">
-              <span className="size-1.5 animate-pulse rounded-full bg-ember" /> talking now
-            </span>
-          )}
-          <span className="micro rounded-full border border-line px-2 py-0.5 uppercase">
-            match {formatScore(pair.vibe)}
-          </span>
-          {pair.logistics && <span className="micro rounded-full border border-line px-2 py-0.5 uppercase">logistics {pair.logistics}</span>}
-          {pair.dealbreakerFlags.map((f) => (
-            <span key={f} className="micro rounded-full bg-ember/15 px-2 py-0.5 text-ember-text uppercase">
-              {f}
-            </span>
-          ))}
+        <div className="flex items-center gap-2">
+          {live && <DotPill>live</DotPill>}
+          <CloseButton onClick={onClose} />
         </div>
-        {pair.rationale && <p className="text-[12px] leading-[18px] font-light text-ink/80">{pair.rationale}</p>}
       </header>
 
-      <div className="flex flex-col gap-3 overflow-y-auto p-4">
+      <div className="flex items-end justify-between gap-3">
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-sans text-[64px] leading-[64px] font-light tracking-[-0.03em] text-ink">
+            {pair.vibe == null ? "—" : pair.vibe.toFixed(1)}
+          </span>
+          <span className="font-mono text-[11px] leading-[14px] tracking-[0.14em] text-ink-faint">/ 10 vibe</span>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <span className="font-mono text-[9.5px] leading-3 tracking-[0.16em] text-ink-faint">logistics</span>
+          <Pill tone={fitTone(pair.logistics, conflict)} className="px-[11px] py-1 text-[10px]">
+            {conflict ? "incompatible" : (pair.logistics ?? "—")}
+          </Pill>
+        </div>
+      </div>
+
+      {pair.dealbreakerFlags.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5">
+          {pair.dealbreakerFlags.map((f) => (
+            <li key={f}>
+              <Pill tone="ember">{f}</Pill>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {pair.rationale && (
+        <div className="flex flex-col gap-2">
+          <Caption>judge&apos;s rationale</Caption>
+          <p className="font-sans text-[13px] leading-[19px] text-ink-muted">{pair.rationale}</p>
+        </div>
+      )}
+
+      <div className="h-px shrink-0 bg-line" />
+
+      <div className="flex min-h-0 flex-col gap-2.5 overflow-y-auto pr-1">
         {messages === undefined || messages === "loading" ? (
-          <p className="micro text-ink-muted uppercase">loading transcript…</p>
+          <div className="flex items-center gap-2 py-2">
+            <span className="size-2 rounded-full bg-blob-ochre" />
+            <span className="size-2 rounded-full bg-blob-glacier" />
+            <span className="size-2 rounded-full bg-blob-periwinkle" />
+            <span className="ml-1 font-sans text-[13px] leading-4 text-ink-muted">judging the chat…</span>
+          </div>
         ) : messages === "error" ? (
-          <p className="text-[12px] text-ink-muted">
+          <p className="font-sans text-[13px] text-ink-muted">
             couldn&apos;t load the transcript.{" "}
             <button type="button" className="underline" onClick={onRetry}>
               try again
             </button>
           </p>
         ) : messages.length === 0 ? (
-          <p className="text-[12px] text-ink-muted">no messages saved for this chat</p>
+          <p className="py-2 font-sans text-[14px] text-ink-muted">no messages yet</p>
         ) : (
           messages.map((m, i) => {
-            const side = m.speakerId === pair.a ? "them" : "you";
+            const first = m.speakerId === pair.a;
             return (
-              <div key={i} className={`flex flex-col gap-1 ${side === "you" ? "items-end pl-6" : "items-start pr-6"}`}>
-                <SpeakerLabel side={side}>{nameOf(m.speakerId)}&apos;s agent</SpeakerLabel>
-                <Bubble side={side}>
-                  <span className="text-[13px] leading-5">{m.content}</span>
-                </Bubble>
+              <div key={i} className={`flex max-w-[290px] flex-col gap-1 ${first ? "items-start" : "items-end self-end"}`}>
+                <span className="font-mono text-[9.5px] leading-3 tracking-[0.14em] text-ink-faint">
+                  {nameOf(m.speakerId).toLowerCase()} · {clock(m.createdAt)}
+                </span>
+                <p
+                  className={`px-3.5 py-2.5 font-sans text-[14px] leading-[21px] text-ink ${
+                    first ? "rounded-[18px] rounded-bl-md bg-[#E2B36C3D]" : "rounded-[18px] rounded-br-md bg-[#A8D6E066]"
+                  }`}
+                >
+                  {m.content}
+                </p>
               </div>
             );
           })
@@ -90,4 +123,9 @@ export function DialogueDrawer({
       </div>
     </aside>
   );
+}
+
+function clock(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }

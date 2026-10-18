@@ -203,6 +203,7 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: #51 agent world matched to Paper: open warehouse floors (no walls, zone tints, pillars, design-system palette), overlays rebuilt to the "World visualizer" page (top bar, floor selector, pipeline HUD with auto/speed/follow, bio card with the agent's sprite as avatar, dialogue drawer with loading/empty states); Paper's canvas placeholders now show real renders and the legacy male/female sprite artboards were removed in favour of "Sprites · in-game". Headless-Edge check and layout check pass.
 - 2026-10-17: Group plans: after matching, each group gets 3 events or activities from a Browser Use web search
   (Ticketmaster fallback), fitted in code to the group's shared free slot and lowest budget, shown on the `you` tab.
   New `groups.plans_status`/`plans_summary` and `events.time_label`/`price`/`reason`/`rank` columns

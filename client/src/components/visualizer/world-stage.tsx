@@ -19,7 +19,7 @@ export default function WorldStage({
   return (
     <Application
       resizeTo={container}
-      background={0x1f1c19}
+      backgroundAlpha={0}
       antialias={false}
       autoDensity
       resolution={typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, 2)}

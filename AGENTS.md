@@ -173,7 +173,9 @@ The onboarding bot sends that link once dealbreakers are confirmed (`onboarding/
 `onboarding/.env`; unset means no link is sent).
 
 **Admin** (`/admin`): universes list, universe overview (pipeline strip, members, keywords, run matching),
-groups, and the agent world (`/world`: PixiJS pixel-art building, `src/components/visualizer/`), under
+groups, and the agent world (`/world`: PixiJS pixel-art building, `src/components/visualizer/`; overlays follow
+the Paper "World visualizer" page, floors the "Warehouse · open floor" artboards, and `character.ts` is the
+Pixi-free sprite painter shared by the canvas and the bio-card avatar), under
 `/admin/universes/{id}`. The world reads the public endpoints plus `/admin/api` (including `/scores`, the keyword
 vectors and keyword-level dealbreaker flags) and passes only public profile fields, keyword vectors and judge output
 to the browser; never `agent_profiles.private` text. Dev builds expose `window.__unifaiWorld.snapshot()` (agent

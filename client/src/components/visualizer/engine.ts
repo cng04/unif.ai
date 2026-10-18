@@ -88,15 +88,16 @@ export class WorldEngine {
     for (const { id, name } of FLOORS) {
       const scene = buildFloor(id);
       const root = new Container();
+      // Floor title and zone legend above each floor, like the Paper floor artboards' header.
+      const zones = ROOMS.filter((r) => r.floor === id).map((r) => r.name.toLowerCase());
       const label = new Text({
-        text: name.toUpperCase(),
-        style: { fontFamily: "monospace", fontSize: 9, fill: 0xf3f1ed, letterSpacing: 2, fontWeight: "700" },
+        text: `${name.split(" · ")[0]}  ( ${zones.join(" · ")} )`,
+        style: { fontFamily: "monospace", fontSize: 8, fill: 0xf3f1ed, letterSpacing: 1.6 },
         resolution: 4,
       });
-      // Right-aligned so it doesn't sit under the HUD pill in the top-left corner.
-      label.anchor.set(1, 0);
-      label.position.set(FLOOR_W - 10, floorTop(id) - FLOOR_GAP + 12);
-      label.alpha = 0.75;
+      label.anchor.set(0.5, 0);
+      label.position.set(FLOOR_W / 2, floorTop(id) - FLOOR_GAP + 14);
+      label.alpha = 0.55;
       root.addChild(label, scene.ground, scene.entities);
       this.camera.addChild(root);
       this.floors[id] = { root, scene };
@@ -200,6 +201,20 @@ export class WorldEngine {
         return { id: s.id, name: s.name, state: s.state, floor: s.floor, x: p.x * k, y: (p.y - 12) * k - this.camY * k };
       }),
     };
+  }
+
+  /** Design hook (dev builds only): each agent's sprite sheet as a PNG data URL, upscaled without smoothing. */
+  exportSheets(scale = 1) {
+    return [...this.agents.values()].map((s) => {
+      const src = s.sheetCanvas;
+      const out = document.createElement("canvas");
+      out.width = src.width * scale;
+      out.height = src.height * scale;
+      const ctx = out.getContext("2d")!;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(src, 0, 0, out.width, out.height);
+      return { id: s.id, name: s.name, png: out.toDataURL("image/png") };
+    });
   }
 
   update(dt: number) {

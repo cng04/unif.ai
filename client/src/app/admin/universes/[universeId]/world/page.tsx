@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { AdminHeader, Caption, outline } from "@/components/admin-ui";
+import { Caption } from "@/components/admin-ui";
 import { AutoRefresh } from "@/components/auto-refresh";
 import type { WorldData } from "@/components/visualizer/types";
 import { WorldCanvas } from "@/components/visualizer/WorldCanvas";
@@ -26,16 +25,7 @@ async function WorldScreen({ params }: { params: Promise<{ universeId: string }>
     <>
       {status === "matching" && <AutoRefresh seconds={5} />}
       {status === "onboarding" && <AutoRefresh seconds={15} />}
-      <AdminHeader
-        crumbs={["universes", data.universe.name, "world"]}
-        title="agent world"
-        subtitle={`${status} · ${data.agents.length} agents · ${data.pairs.length} chats · ${data.groups.length} groups`}
-        actions={
-          <Link href={`/admin/universes/${universeId}`} className={outline}>
-            ← overview
-          </Link>
-        }
-      />
+      {/* Top bar, stage and overlays follow the Paper "World visualizer" page. */}
       <WorldCanvas data={data} loadMessages={loadPairMessages} />
     </>
   );

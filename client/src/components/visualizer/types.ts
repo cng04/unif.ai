@@ -48,7 +48,7 @@ export type WorldData = {
   groups: WorldGroup[];
 };
 
-export type ChatLine = { speakerId: string; content: string };
+export type ChatLine = { speakerId: string; content: string; createdAt: string };
 
 /** Which pipeline stage the world acts out. "auto" follows the data. */
 export type Phase = "lounge" | "rooms" | "chats" | "groups";
