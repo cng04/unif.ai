@@ -30,3 +30,13 @@ export async function runMatching(universeId: string): Promise<ActionState> {
   refresh();
   return {};
 }
+
+export async function abortMatching(universeId: string): Promise<ActionState> {
+  try {
+    await adminApi.abortMatching(universeId);
+  } catch (e) {
+    return { error: e instanceof ApiError ? e.message : "couldn't abort matching" };
+  }
+  refresh();
+  return {};
+}

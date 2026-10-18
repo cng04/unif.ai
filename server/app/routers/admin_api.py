@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from app import repo
 from app.db import get_conn
+from app.matching import runs
 from app.routers.web import invite_url, require_admin
 
 router = APIRouter(prefix="/admin/api", dependencies=[Depends(require_admin)], tags=["admin"])
@@ -157,6 +158,14 @@ async def universe_detail(universe_id: UUID, conn: AsyncConnection = Depends(get
             for m in members
         ],
     }
+
+
+@router.post("/universes/{universe_id}/matching/abort")
+async def abort_matching(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> dict:
+    await repo.get_universe(conn, universe_id)  # 404 if missing
+    if not await runs.abort(conn, universe_id):
+        raise HTTPException(409, "matching isn't running")
+    return {"status": "onboarding"}
 
 
 @router.get("/universes/{universe_id}/groups")

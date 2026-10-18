@@ -1,13 +1,13 @@
 from uuid import UUID
 
 import numpy as np
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from psycopg import AsyncConnection
 
 from app import repo
 from app.config import get_settings
 from app.db import get_conn
-from app.matching.pipeline import run_matching
+from app.matching import runs
 from app.matching.projection import project_3d
 from app.schemas import GraphPoint, Group, Pair
 
@@ -15,14 +15,14 @@ router = APIRouter(tags=["matching"])
 
 
 @router.post("/universes/{universe_id}/matching", status_code=202)
-async def start_matching(universe_id: UUID, background: BackgroundTasks, conn: AsyncConnection = Depends(get_conn)):
+async def start_matching(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)):
     await repo.get_universe(conn, universe_id)  # 404 if missing
     settings = get_settings()
     if not (settings.openrouter_api_key or settings.typesafe_api_key):
         raise HTTPException(503, "Set OPENROUTER_API_KEY or TYPESAFE_API_KEY; matching needs Jev")
     if not await repo.claim_matching(conn, universe_id):
         raise HTTPException(409, "matching already in progress")
-    background.add_task(run_matching, universe_id)
+    runs.start(universe_id)
     return {"status": "matching"}
 
 

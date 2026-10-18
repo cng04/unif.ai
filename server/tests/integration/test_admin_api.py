@@ -1,8 +1,10 @@
 """Admin JSON: pipeline counts, unplaced members, group labels and weakest ties, all derived from stored rows."""
 
+import pytest
+from fastapi import HTTPException
 from psycopg import AsyncConnection
 
-from app.routers.admin_api import universe_detail, universe_groups
+from app.routers.admin_api import abort_matching, universe_detail, universe_groups
 from tests.integration.test_me import add_pair, add_user
 
 
@@ -42,3 +44,20 @@ async def test_universe_detail_and_groups(test_db_conn: AsyncConnection, test_un
     assert g["label"] == "g-01"
     assert (g["weakest_tie"]["a"], g["weakest_tie"]["b"]) in (("Ben", "Cal"), ("Cal", "Ben"))
     assert [p["full_name"] for p in groups["leftovers"]] == ["Dee"]
+
+
+async def test_abort_matching_reopens_onboarding_and_drops_partial_results(test_db_conn: AsyncConnection, test_universe):
+    conn = test_db_conn
+    a, b = [await add_user(conn, test_universe, n) for n in ("Ana", "Ben")]
+    await add_pair(conn, test_universe, a, b, 7.0)
+    await conn.execute("UPDATE universes SET status = 'matching' WHERE id = %s", (test_universe,))
+    await conn.commit()
+
+    assert await abort_matching(test_universe, conn) == {"status": "onboarding"}
+    universe = await universe_detail(test_universe, conn)
+    assert universe["status"] == "onboarding"
+    assert universe["stats"]["pairs"] == 0
+
+    with pytest.raises(HTTPException) as err:
+        await abort_matching(test_universe, conn)
+    assert err.value.status_code == 409

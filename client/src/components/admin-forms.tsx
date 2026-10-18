@@ -37,20 +37,35 @@ export function CreateUniverseForm({ action }: { action: (prev: ActionState, for
 export function RunMatchingButton({
   action,
   label,
+  pendingLabel = "starting…",
+  confirm,
+  danger,
   disabled,
 }: {
   action: (prev: ActionState) => Promise<ActionState>;
   label: string;
+  pendingLabel?: string;
+  /** Asked in a browser confirm dialog before submitting. */
+  confirm?: string;
+  danger?: boolean;
   disabled?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   return (
-    <form action={formAction} className="flex flex-col gap-1.5">
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        if (confirm && !window.confirm(confirm)) e.preventDefault();
+      }}
+      className="flex flex-col gap-1.5"
+    >
       <button
         disabled={pending || disabled}
-        className="press self-start rounded-full bg-ink px-3.5 py-[7px] text-label leading-3 tracking-meta text-paper disabled:opacity-40"
+        className={`press self-start rounded-full px-3.5 py-[7px] text-label leading-3 tracking-meta disabled:opacity-40 ${
+          danger ? "border border-ember bg-ember/10 text-ember-text hover:bg-ember/20" : "bg-ink text-paper"
+        }`}
       >
-        {pending ? "starting…" : label}
+        {pending ? pendingLabel : label}
       </button>
       {state.error && <p className="micro max-w-[220px] text-ember-text">{state.error}</p>}
     </form>

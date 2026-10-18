@@ -313,6 +313,7 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `POST /users/{id}/profile`              | Build the agent profile from all sources                             |
 | `GET /users/{id}/profile`               | Read the profile (includes `private`; see gaps)                      |
 | `POST /universes/{id}/matching`         | Start matching (202; 409 if running; 503 without a model key)        |
+| `POST /admin/api/universes/{id}/matching/abort` | Admin only: stop a run, drop its partial pairs and groups, back to `onboarding` (409 if not matching) |
 | `GET /universes/{id}/graph`             | 3D projected keyword scores per user, with group id                  |
 | `GET /universes/{id}/pairs`             | Judged pairs with scores and rationale                               |
 | `GET /pairs/{id}/messages`              | Pair transcript (messages only; private notes are hidden)            |
@@ -383,7 +384,8 @@ Missing: a client Dockerfile (so Docker deployments use the server's HTML admin 
 migration tool, authentication and authorization beyond `/admin`, rate
 limiting, secrets management, a job queue (runs die with the process), progress reporting, structured
 logging and metrics, and a deployed environment. The shared database is intended to be Tiger Data, which has
-to be loaded with `schema.sql` by hand.
+to be loaded with `schema.sql` by hand, or overwritten with a copy of your local Docker database by
+`TIGER_DATABASE_URL=... db/push-to-tiger.sh` (asks for confirmation; one transaction, so a failure changes nothing).
 
 ## Current development status
 

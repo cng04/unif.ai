@@ -184,12 +184,15 @@ async def run_matching(universe_id: UUID) -> None:
             await repo.set_universe_status(conn, universe_id, "matched")
             total_time = time.time() - pipeline_start
             log.info("Matching completed for universe %s in %.2fs", universe_id, total_time)
+        except asyncio.CancelledError:
+            log.warning("matching cancelled for universe %s", universe_id)
+            raise
         except Exception:
             log.exception("matching failed for universe %s", universe_id)
             await conn.rollback()
             await repo.set_universe_status(conn, universe_id, "onboarding")
         finally:
-            executor.shutdown(wait=False)
+            executor.shutdown(wait=False, cancel_futures=True)
 
 
 def shared_interests(profiles: list[AgentProfile], top: int = 3) -> list[str]:

@@ -7,7 +7,7 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { CopyButton } from "@/components/copy-button";
 import { CountUp } from "@/components/count-up";
 import { adminApi, ApiError, type UniverseDetail } from "@/lib/api";
-import { runMatching } from "../../actions";
+import { abortMatching, runMatching } from "../../actions";
 
 // Matching needs at least one full group (MIN_GROUP_SIZE on the server).
 const MIN_TO_MATCH = 4;
@@ -137,6 +137,7 @@ function Pipeline({ universe }: { universe: UniverseDetail }) {
             label: "02 · matching · running",
             value: <span className="animate-pulse">{stats.pairs} chats so far</span>,
             sub: `${stats.keywords} keywords · ${stats.scored} scored`,
+            extra: <AbortMatchingButton universeId={universe.id} />,
             state: "active",
             wide: true,
           }
@@ -230,6 +231,18 @@ function RunMatchingButtonLight({ universeId }: { universeId: string }) {
         <RunMatchingButton action={runMatching.bind(null, universeId)} label="re-run matching" />
       </div>
     </details>
+  );
+}
+
+function AbortMatchingButton({ universeId }: { universeId: string }) {
+  return (
+    <RunMatchingButton
+      action={abortMatching.bind(null, universeId)}
+      label="■ abort matching"
+      pendingLabel="aborting…"
+      confirm="Abort matching? The run stops, its chats so far are deleted, and the universe goes back to onboarding."
+      danger
+    />
   );
 }
 

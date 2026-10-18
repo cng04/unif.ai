@@ -206,7 +206,10 @@ from stored rows; there is no stored progress or approval state. The older serve
 - Failure handling in the pipeline: `extract_keywords` returns `[]` on error (the run then resets the universe to
   `onboarding`), `score_person` falls back to all-0.5 scores, and `review_groups` keeps a group with a neutral
   verdict if the group judge errors. `POST /universes/{id}/matching` claims the universe atomically
-  (`repo.claim_matching`) and returns 409 if a run is already in progress.
+  (`repo.claim_matching`) and returns 409 if a run is already in progress. Runs are asyncio tasks tracked in
+ `matching/runs.py`; the admin abort (`POST /admin/api/universes/{id}/matching/abort`, the "abort matching" button)
+ cancels the run, deletes its partial pairs and groups, and resets to `onboarding`. It also unsticks a universe
+ whose run died with a restarted server. Model calls already in worker threads finish and are discarded.
 - Photon assigns shared iMessage lines at join (`assign_line`, needs `PHOTON_API_KEY` and `PHOTON_PROJECT_ID`),
   but `send_message` is still a stub: match notifications only log.
 - `GET /pairs/{id}/messages` returns only `kind = 'message'` rows; agents' private `note` rows are never exposed.

@@ -35,6 +35,16 @@ async def claim_matching(conn: AsyncConnection, universe_id: UUID) -> bool:
     return claimed
 
 
+async def release_matching(conn: AsyncConnection, universe_id: UUID) -> bool:
+    """Move a universe from 'matching' back to 'onboarding'. False if it wasn't matching."""
+    cur = await conn.execute(
+        "UPDATE universes SET status = 'onboarding' WHERE id = %s AND status = 'matching' RETURNING id", (universe_id,)
+    )
+    released = await cur.fetchone() is not None
+    await conn.commit()
+    return released
+
+
 async def merge_raw_sources(conn: AsyncConnection, user_id: UUID, patch: dict) -> None:
     await conn.execute(
         "UPDATE agent_profiles SET raw_sources = raw_sources || %s, updated_at = now() WHERE user_id = %s",

@@ -202,6 +202,8 @@ export const adminApi = {
   groups: (id: string) => request<UniverseGroups>(`/admin/api/universes/${id}/groups`, { headers: adminHeaders() }),
   runMatching: (id: string) =>
     request<{ status: string }>(`/universes/${id}/matching`, { method: "POST", headers: adminHeaders() }),
+  abortMatching: (id: string) =>
+    request<{ status: string }>(`/admin/api/universes/${id}/matching/abort`, { method: "POST", headers: adminHeaders() }),
 };
 
 // ---- Join page (client/src/app/join). Validation, seats and member creation all happen on the server. ----

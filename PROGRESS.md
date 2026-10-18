@@ -202,6 +202,7 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Admin "abort matching" button (`POST /admin/api/universes/{id}/matching/abort`) cancels a run and reopens onboarding; `db/push-to-tiger.sh` replaces the Tiger Data tables with a copy of the local Docker DB.
 - 2026-10-17: #51 agent world at `/admin/universes/[universeId]/world` (PixiJS 8 + `@pixi/react`, `pathfinding` A*, `pixi-filters` glow).
   Reads `/users`, `/graph`, `/pairs`, `/groups` and each profile's public part on the server; the browser never
   gets `private`. Polls every 5s while matching, so new pairs walk over and talk live. Lint, build and a
