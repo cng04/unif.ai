@@ -80,7 +80,7 @@ and replays are always labelled as replays.
 
 ## Small things we like
 
-- **Agents looks are customiseable.** Each character's hair, skin tone and clothes come from what
+- **Agent looks are customisable.** Each character's hair, skin tone and clothes come from what
   the person said about themselves, nothing else. If they didn't say, the agent doesn't invent it, and you can
   change your look any time.
 - **Private stays private.** Dealbreakers and values shape who your agent talks to but are never repeated to
