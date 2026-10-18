@@ -202,6 +202,7 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: #51 agent world matched to Paper: open warehouse floors (no walls, zone tints, pillars, design-system palette), overlays rebuilt to the "World visualizer" page (top bar, floor selector, pipeline HUD with auto/speed/follow, bio card with the agent's sprite as avatar, dialogue drawer with loading/empty states); Paper's canvas placeholders now show real renders and the legacy male/female sprite artboards were removed in favour of "Sprites · in-game". Headless-Edge check and layout check pass.
 - 2026-10-17: #51 follow-up: new admin-only `GET /admin/api/universes/{id}/scores` (keyword vectors and keyword-level
   dealbreakers, no private text; test added) drives room affinity and the bio card; floors are 32x32 pixel-art iso
   tiles; a headless-Edge run checked every phase, a real sprite click (glow, follow, bio card, transcript drawer),

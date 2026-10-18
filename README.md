@@ -65,12 +65,17 @@ flowchart LR
   - `/admin/...`: the admin console: universes, universe overview (pipeline strip, members, keywords, run
     matching), groups, and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
     `ADMIN_PASSWORD` basic auth in `src/proxy.ts`, and the client forwards the same password to `/admin/api`.
-- **Agent world** (`client/src/components/visualizer/`): a PixiJS building of three floors and nine themed rooms
-  on a 32x32 pixel-art isometric tilemap. Agents spawn in the lounge, walk (A*) to the room their keyword scores
-  point to (public interests as a fallback), pair up to talk for each judged pair, and sit with their CP-SAT
-  group; unplaced people wait on B1. Clicking an agent gives a glow, camera follow and a bio card (top keyword
-  scores, keyword-level dealbreakers, group); clicking a talking one opens the transcript. It refreshes every 5
-  seconds while matching runs. The browser gets public profile fields, keyword vectors and judge output only.
+- **Agent world** (`client/src/components/visualizer/`): a PixiJS building of three open warehouse floors (no
+  walls, nine zones by tint and furniture, stone pillars) on a 32x32 pixel-art isometric tilemap. Agents spawn in
+  the lounge, walk (A*) to the zone their keyword scores point to (public interests as a fallback), pair up to
+  talk for each judged pair, and sit with their CP-SAT group; unplaced people wait on B1. Clicking an agent gives
+  a glow, camera follow and a bio card (its sprite as avatar, top keyword scores, keyword-level dealbreakers,
+  group, judged pairs); clicking a talking one opens the transcript. It refreshes every 5 seconds while matching
+  runs. The browser gets public profile fields, keyword vectors and judge output only.
+  **Design source:** Paper file "Agent Friend Groups — Screens": the "World visualizer" page (top bar, floor
+  selector, pipeline HUD, bio card, dialogue drawer; desktop and mobile), the "Warehouse · open floor" artboards
+  (floors) and "Sprites · in-game" (characters). Sprites are drawn in code (`character.ts`); exported sheets and
+  canvas renders live in `design/sprites/` and `design/world/`.
 - **Onboarding bot (`onboarding/`)** is a TypeScript chat version of onboarding. It runs over iMessage (Photon)
   and a local HTTP channel used by the ASI:One relay (`asi-agent/`, see `asi-agent/SETUP.md`), and writes
   profiles straight to Postgres.

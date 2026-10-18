@@ -1,5 +1,6 @@
-// The building: three floors of three rooms each on an isometric tile grid, plus the spots agents use
-// (activities, chats, group circles) and the A* walkability matrix. Pure data and math, no Pixi.
+// The building: three open warehouse floors (no walls; zones by tint and furniture, as in the Paper "Warehouse ·
+// open floor" artboards) of three zones each on an isometric tile grid, plus the spots agents use (activities,
+// chats, group circles) and the A* walkability matrix. Pure data and math, no Pixi.
 
 import type { WorldAgent } from "./types";
 
@@ -7,6 +8,7 @@ export const TILE_W = 32;
 export const TILE_H = 16;
 export const COLS = 29;
 export const ROWS = 11;
+/** Headroom above the back row for tall furniture (bookshelves, arcade cabinets, pillars). */
 export const WALL_H = 44;
 /** Gap between floors in world pixels, where the floor label sits. */
 export const FLOOR_GAP = 36;
@@ -85,8 +87,8 @@ export type Room = {
   name: string;
   x0: number;
   x1: number;
+  /** Light checker in the zone's tint. */
   floorColors: [number, number];
-  wallColor: number;
   /** What a group does around its centerpiece here. */
   groupActivity: Activity;
   groupPose: "sit" | "act";
@@ -101,10 +103,16 @@ export type Room = {
   keywords: RegExp;
 };
 
-/** Every floor has an elevator on the back wall of its middle room, at the same tile. */
+/** Every floor has an elevator pad at the back of its middle zone, at the same tile. */
 export const ELEVATOR = { x: 14, y: 0 };
 const ROOM_X = [0, 10, 20] as const;
-const DOOR_YS = [2, 3, 4];
+
+/** Stone pillars on the old partition lines between zones; they block movement. */
+export const PILLARS: Record<FloorId, { x: number; y: number }[]> = {
+  L2: [{ x: 9, y: 3 }, { x: 19, y: 1 }, { x: 9, y: 8 }, { x: 19, y: 7 }],
+  L1: [{ x: 9, y: 2 }, { x: 19, y: 4 }, { x: 19, y: 9 }],
+  B1: [{ x: 9, y: 2 }, { x: 19, y: 1 }, { x: 19, y: 8 }],
+};
 
 type RoomSpec = Omit<Room, "x0" | "x1" | "furniture" | "spots" | "chatSpots" | "circles"> & {
   /** Local-x furniture and spots, shifted into the room's columns. */
@@ -122,21 +130,21 @@ const s = (x: number, y: number, dir: Dir, pose: Spot["pose"], activity: Activit
 const SPECS: RoomSpec[] = [
   // ---- L2 ----
   {
-    id: "study", floor: "L2", name: "Quiet Study", floorColors: [0xb98b5e, 0xa97c52], wallColor: 0x7d8f7a,
+    id: "study", floor: "L2", name: "Quiet Study", floorColors: [0xefebe4, 0xe7e2d9],
     groupActivity: "read", groupPose: "sit", centerpiece: "bigtable",
     keywords: /read|book|study|writ|poet|science|research|learn|philosoph|history|math|cod(e|ing)|program|tech|startup|ai\b|language|museum|podcast/i,
-    furniture: [f("bookshelf", 0, 0, 2), f("desk", 2, 0, 2), f("plant", 4, 0), f("desk", 5, 0, 2), f("bookshelf", 7, 0, 2)],
+    furniture: [f("bookshelf", 0, 0, 2), f("desk", 2, 0, 2), f("plant", 4, 0), f("desk", 5, 0, 2), f("bookshelf", 7, 0, 2), f("rug", 1, 2, 7, 2, false)],
     spots: [s(2, 1, "N", "sit", "type"), s(3, 1, "N", "sit", "type"), s(5, 1, "N", "sit", "type"), s(6, 1, "N", "sit", "type"), s(0, 1, "N", "stand", "read"), s(8, 1, "N", "stand", "read")],
   },
   {
-    id: "music", floor: "L2", name: "Music Studio", floorColors: [0x4a3f5c, 0x423852], wallColor: 0x2f2a3d,
+    id: "music", floor: "L2", name: "Music Studio", floorColors: [0xf0e8d8, 0xe9dfcc],
     groupActivity: "guitar", groupPose: "act", centerpiece: "rug",
     keywords: /music|guitar|piano|sing|band|concert|jazz|vinyl|song|drum|dj|art\b|arts|paint|draw|film|photo|creative|theat|danc(e|ing) class|museum/i,
     furniture: [f("amp", 0, 0), f("drums", 1, 0, 2), f("speaker", 3, 0), f("piano", 5, 0, 2), f("amp", 7, 0), f("plant", 8, 0)],
     spots: [s(0, 1, "N", "act", "guitar"), s(1, 1, "N", "act", "drums"), s(2, 1, "N", "act", "drums"), s(5, 1, "N", "sit", "keys"), s(6, 1, "N", "sit", "keys"), s(7, 1, "N", "act", "guitar")],
   },
   {
-    id: "arcade", floor: "L2", name: "Gaming Arcade", floorColors: [0x1f2340, 0x262b4d], wallColor: 0x15182c,
+    id: "arcade", floor: "L2", name: "Gaming Arcade", floorColors: [0xd9dcea, 0xd0d4e5],
     groupActivity: "game", groupPose: "sit", centerpiece: "table",
     keywords: /game|gaming|arcade|anime|esport|nintendo|chess|dnd|d&d|tabletop|board ?game|puzzle|trivia|movie|comic|sci-?fi/i,
     furniture: [0, 1, 2, 3, 5, 6, 7, 8].map((x) => f("arcade", x, 0)),
@@ -144,21 +152,21 @@ const SPECS: RoomSpec[] = [
   },
   // ---- L1 ----
   {
-    id: "lounge", floor: "L1", name: "Onboarding Lounge", floorColors: [0xc7a27c, 0xbd9771], wallColor: 0xd9c7a8,
+    id: "lounge", floor: "L1", name: "Onboarding Lounge", floorColors: [0xefebe4, 0xe7e2d9],
     groupActivity: "chill", groupPose: "sit", centerpiece: "table",
     keywords: /convers|chat|deep talk|people|friends|meet|community|volunteer|chill|relax|tea\b/i,
     furniture: [f("bookshelf", 0, 0), f("plant", 1, 0), f("tv", 3, 0, 3), f("lamp", 7, 0), f("couch", 8, 0), f("rug", 2, 1, 5, 2, false)],
     spots: [s(3, 1, "N", "sit", "chill"), s(4, 1, "N", "sit", "chill"), s(5, 1, "N", "sit", "chill"), s(2, 2, "N", "sit", "chill"), s(6, 2, "N", "sit", "chill")],
   },
   {
-    id: "kitchen", floor: "L1", name: "Kitchen & Bar", floorColors: [0xe8e2d4, 0x9fb3b8], wallColor: 0xc9a46a,
+    id: "kitchen", floor: "L1", name: "Kitchen & Bar", floorColors: [0xede2d0, 0xe5d8c4],
     groupActivity: "drink", groupPose: "sit", centerpiece: "table",
     keywords: /cook|food|bak(e|ing)|brunch|breakfast|coffee|caf[eé]|wine|beer|cocktail|restaurant|supper|dinner|foodie|eat|bbq|ramen|sushi|pizza|taco|kitchen|chef/i,
     furniture: [f("fridge", 0, 0), f("stove", 1, 0, 2), f("counter", 3, 0), f("bar", 5, 0, 4)],
     spots: [s(1, 1, "N", "act", "cook"), s(2, 1, "N", "act", "cook"), s(3, 1, "N", "act", "cook"), s(5, 1, "N", "sit", "drink"), s(6, 1, "N", "sit", "drink"), s(7, 1, "N", "sit", "drink"), s(8, 1, "N", "sit", "drink")],
   },
   {
-    id: "party", floor: "L1", name: "Party Plaza", floorColors: [0x2a2238, 0x33294a], wallColor: 0x3b2d55,
+    id: "party", floor: "L1", name: "Party Plaza", floorColors: [0xe6e6ee, 0xdedfea],
     groupActivity: "dance", groupPose: "act", centerpiece: "speaker",
     keywords: /party|danc|club|nightlife|festival|rave|karaoke|bar hop|night out|social|drinks|edm|house music|techno/i,
     furniture: [f("speaker", 0, 0), f("plant", 1, 0), f("dj", 3, 0, 3), f("plant", 7, 0), f("speaker", 8, 0), f("discofloor", 1, 1, 7, 3, false)],
@@ -166,21 +174,22 @@ const SPECS: RoomSpec[] = [
   },
   // ---- B1 ----
   {
-    id: "gym", floor: "B1", name: "Gym & Track", floorColors: [0x3d4147, 0x363a3f], wallColor: 0x5a6068,
+    id: "gym", floor: "B1", name: "Gym & Track", floorColors: [0xf0ddd3, 0xe9d3c7],
     groupActivity: "lift", groupPose: "act", centerpiece: "mat",
     keywords: /gym|fitness|run|lift|workout|yoga|pilates|sport|soccer|football|basketball|tennis|volleyball|cycl|bike|swim|marathon|crossfit|martial|box(ing)?\b|pickleball/i,
     furniture: [f("treadmill", 0, 0), f("treadmill", 1, 0), f("treadmill", 2, 0), f("rack", 4, 0, 3), f("plant", 8, 0)],
     spots: [s(0, 1, "N", "act", "run"), s(1, 1, "N", "act", "run"), s(2, 1, "N", "act", "run"), s(4, 1, "N", "act", "lift"), s(5, 1, "N", "act", "lift"), s(6, 1, "N", "act", "lift")],
   },
   {
-    id: "boulder", floor: "B1", name: "Bouldering Wall", floorColors: [0x5d7a8c, 0x557183], wallColor: 0xb7804f,
+    id: "boulder", floor: "B1", name: "Bouldering Wall", floorColors: [0xefebe4, 0xe7e2d9],
     groupActivity: "climb", groupPose: "act", centerpiece: "boulder",
     keywords: /climb|boulder|hik(e|ing)|outdoor|camp|trail|surf|ski|snowboard|nature|adventure|travel|kayak|backpack|mountain|national park/i,
-    furniture: [f("climbwall", 0, 0, 4, 1, false), f("climbwall", 5, 0, 4, 1, false), f("mat", 0, 1, 9, 1, false)],
-    spots: [0, 1, 2, 3, 5, 6, 7, 8].map((x) => s(x, 0, "N", "act", "climb")),
+    // A free-standing wall (no room walls on an open floor); climbers stand on the mats in front of it.
+    furniture: [f("climbwall", 0, 0, 4, 1), f("climbwall", 5, 0, 4, 1), f("mat", 0, 1, 9, 2, false)],
+    spots: [0, 1, 2, 3, 5, 6, 7, 8].map((x) => s(x, 1, "N", "act", "climb")),
   },
   {
-    id: "bench", floor: "B1", name: "Unplaced Bench", floorColors: [0x8a8f94, 0x81868b], wallColor: 0x6f7479,
+    id: "bench", floor: "B1", name: "Unplaced Bench", floorColors: [0xeee6d8, 0xe6dccb],
     groupActivity: "chill", groupPose: "sit", centerpiece: "table",
     keywords: /^$/,
     furniture: [f("bench", 0, 0, 3, 1, false), f("plant", 4, 0), f("bench", 6, 0, 3, 1, false), f("bench", 0, 8, 1, 3, false), f("lamp", 8, 9)],
@@ -237,15 +246,11 @@ export function circleSeats(cx: number, cy: number, pose: "sit" | "act", activit
 /** 0 = walkable, 1 = blocked, indexed [y][x] as the `pathfinding` Grid expects. */
 export function walkMatrix(floor: FloorId): number[][] {
   const m = Array.from({ length: ROWS }, () => Array<number>(COLS).fill(0));
-  for (const wx of [9, 19]) for (let y = 0; y < ROWS; y++) if (!DOOR_YS.includes(y)) m[y][wx] = 1;
+  for (const p of PILLARS[floor]) m[p.y][p.x] = 1;
   for (const room of ROOMS.filter((r) => r.floor === floor))
     for (const it of room.furniture)
       if (it.block) for (let y = it.y; y < it.y + it.h; y++) for (let x = it.x; x < it.x + it.w; x++) m[y][x] = 1;
   return m;
-}
-
-export function isPartitionWall(x: number, y: number): boolean {
-  return (x === 9 || x === 19) && !DOOR_YS.includes(y);
 }
 
 // ---- Room affinity ----

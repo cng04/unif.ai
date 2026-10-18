@@ -134,6 +134,11 @@ export class AgentSprite {
     return this.ride !== null;
   }
 
+  /** The generated 13x4 sheet canvas (poses x directions S, N, E, W), for exporting the art. */
+  get sheetCanvas(): HTMLCanvasElement {
+    return this.sheet.frames.S.idle0.source.resource as HTMLCanvasElement;
+  }
+
   setSelected(on: boolean, filters: Filter[]) {
     this.selected = on;
     this.body.filters = on ? filters : null;
