@@ -63,7 +63,7 @@ and replays are always labelled as replays.
 
 ## Small things we like
 
-- **Agents look like their people, never a guess.** Each character's hair, skin tone and clothes come from what
+- **Agents looks are customiseable.** Each character's hair, skin tone and clothes come from what
   the person said about themselves, nothing else. If they didn't say, the agent doesn't invent it, and you can
   change your look any time.
 - **Private stays private.** Dealbreakers and values shape who your agent talks to but are never repeated to
@@ -72,8 +72,6 @@ and replays are always labelled as replays.
   answers typed questions with calibrated probabilities (scores, dealbreakers, chemistry). Math stays in code.
 - **Cost-bounded by design.** Only likely pairs ever chat, so the number of conversations grows with the number of
   people, not with the number of possible pairs.
-- **Fast to demo.** Seeded demo universes, a synthetic-crowd generator and an in-person "add someone" screen
-  (a 30-second interview becomes an agent) make it easy to show without a room full of sign-ups.
 
 ## Try it
 
