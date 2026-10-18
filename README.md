@@ -19,8 +19,9 @@ partitions people into groups.
 
 | Capability                                   | Status                                                                 |
 | -------------------------------------------- | ---------------------------------------------------------------------- |
-| Universe + invite link                       | Implemented (API, `/admin` HTML page, `/join/{code}` page). No QR code. |
+| Universe + invite link                       | Implemented (API, admin web app, join page in the client and as server HTML). No QR code. |
 | Onboarding (self-report, interview, profile) | Implemented (API, plus chat bot over iMessage and ASI:One). Profile editing is not built. |
+| Admin console                                | Implemented in the client (`/admin`): universes, overview with pipeline strip and run matching, groups, agent world. |
 | Social scraping (Browser Use)                | Partial: off unless `SCRAPE_ENABLED`; links are always stored.         |
 | AI agent per user                            | Implemented (`PersonaAgent` with tools). Never run at scale.           |
 | Candidate matching (keywords, filter, rank)  | Implemented, unit-tested with fakes; never run on a real model.        |
@@ -28,19 +29,19 @@ partitions people into groups.
 | Compatibility judging (pair and group)       | Implemented (pair: Jev; group: LLM).                                   |
 | Group formation                              | Implemented (CP-SAT). Quality drops past about 100 people.             |
 | Real-world events                            | Partial: Ticketmaster lookup works if a key is set; no city filter.    |
-| Notifications                                | Partial: Photon assigns iMessage lines at join; match messages only log. |
-| Web client                                   | Per-user mobile pages (agent, connections, you, pair detail), plus admin pages under `/admin` (universes, overview, groups, and the 2.5D agent world). |
-| Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`). Everything else not started. |
+| Notifications                                | Partial: Photon assigns iMessage lines at join and the bot sends each person their `/u/<id>` link; match messages only log. |
+| Web client                                   | Per-user mobile pages (agent, connections with 2D/3D keyword graph, you, pair detail), join page, admin console, 2.5D agent world. |
+| Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`, server and client). Everything else not started. |
 
 ## System architecture
 
 ```mermaid
 flowchart LR
-    Client["client/ (Next.js)\nper-user pages"] -->|HTTP JSON| API
+    Client["client/ (Next.js)\n/u, /join, /admin, agent world"] -->|HTTP JSON, server-side| API
     Bot["onboarding/ (TypeScript bot)\niMessage + HTTP channel"] --> DB
     ASI["asi-agent/ (uAgent)\nASI:One relay"] --> Bot
     subgraph Server["server/ (FastAPI)"]
-        API["routers/\nuniverses, onboarding, matching,\nme, web (/admin, /join)"] --> Repo["repo.py + psycopg pool\n(raw SQL)"]
+        API["routers/\nuniverses, onboarding, matching, me,\ninvites, admin_api, web (HTML /admin, /join)"] --> Repo["repo.py + psycopg pool\n(raw SQL)"]
         API -->|BackgroundTasks| Pipeline["matching/pipeline.py\nkeywords, scoring, filter, rank,\nCP-SAT groups"]
         Pipeline --> Repo
     end
@@ -55,11 +56,19 @@ flowchart LR
     API --> BU["Browser Use\n(optional scrape)"]
 ```
 
-- **Frontend (`client/`)** talks only to the server, never the database. It has per-user mobile pages under
-  `/u/[userId]` (agent, connections, you, pair detail) and no login. `/admin/universes/[universeId]/world` is the organizer
-  view: a PixiJS building of three floors where agents walk (A*) to rooms matching their public interests, pair
-  up to talk, and sit with their CP-SAT group (`client/src/components/visualizer/`). It shows judge rationales
-  for every pair, so it lives under `/admin`, which `client/src/proxy.ts` puts behind `ADMIN_PASSWORD` basic auth.
+- **Frontend (`client/`)** talks only to the server, never the database, and only from server components and
+  server actions (`src/lib/api.ts` is `server-only`, set by `API_URL`). Routes:
+  - `/u/[userId]/...`: one participant's view (agent chat, connections with a 2D graph and a three.js 3D
+    keyword graph with picked axes, profile, pair transcripts). No login; the id in the link is the identity.
+  - `/join/[code]`: the join page (iMessage while Photon seats last, otherwise ASI:One). Served from the client
+    when the server's `JOIN_ON_CLIENT` is on; otherwise the server renders its own HTML version.
+  - `/admin/...`: the admin console: universes, universe overview (pipeline strip, members, keywords, run
+    matching), groups, and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
+    `ADMIN_PASSWORD` basic auth in `src/proxy.ts`, and the client forwards the same password to `/admin/api`.
+- **Agent world** (`client/src/components/visualizer/`): a PixiJS building of three floors and nine themed rooms.
+  Agents spawn in the lounge, walk (A*) to rooms matching their public interests once scored, pair up to talk
+  for each judged pair, and sit with their CP-SAT group; unplaced people wait on B1. It refreshes every 5
+  seconds while matching runs. Only public profile fields and judge output reach the browser.
 - **Onboarding bot (`onboarding/`)** is a TypeScript chat version of onboarding. It runs over iMessage (Photon)
   and a local HTTP channel used by the ASI:One relay (`asi-agent/`, see `asi-agent/SETUP.md`), and writes
   profiles straight to Postgres.
@@ -76,11 +85,12 @@ flowchart LR
 
 | Layer      | Technology                                                                                       | Why                                              |
 | ---------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| Client     | Next.js 16.4, React 19.3, Tailwind 4, TypeScript 5, ESLint 9                                      | Per-user web UI                                  |
+| Client     | Next.js 16.4, React 19.3, Tailwind 4, TypeScript 5, ESLint 9                                      | Participant, join and admin web UI               |
+| 3D graph   | three, @react-three/fiber, @react-three/drei                                                     | Keyword graph on the connections page            |
 | Agent world | pixi.js 8, @pixi/react 8, pixi-filters 6, pathfinding (A*)                                       | WebGL sprite world, glow outline, grid routing   |
 | Onboarding bot | Node, TypeScript, tsx, `@anthropic-ai/sdk`, `@photon-ai/api`, pg, socket.io-client, zod      | Chat onboarding over iMessage / HTTP             |
 | ASI agent  | Python 3.11+, uagents, httpx                                                                      | ASI:One relay to the onboarding bot              |
-| Server     | Python 3.11-3.14, FastAPI (`standard` extra for CLI startup), uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
+| Server     | Python 3.11-3.14, FastAPI, uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
 | Agent lib  | google-genai, pydantic, httpx, typesafe-sdk                                                       | Gemini calls, schemas, Jev client, OpenRouter    |
 | Models     | Gemini (`gemini-3.8-flash` by default), Jev (`jev-latest`), or OpenRouter (`google/gemini-3.8-flash`) | Text generation; typed scoring and judging       |
 | Database   | Postgres 17 with pgvector and pgcrypto; local image `timescale/timescaledb-ha:pg17`               | Storage. No TimescaleDB-specific features used. |
@@ -96,15 +106,20 @@ unif.ai/
 ├── RUNNING.md                          step-by-step local setup
 ├── excalidraw_mockup_1.excalidraw      original architecture diagram (product intent, not a spec)
 ├── docker-compose.yml, run.sh          full stack (db, server, bot, ASI agent, tunnel); deploy/ has the Dockerfiles
-├── client/                             Next.js app (per-user pages, /admin incl. agent world). Has its own AGENTS.md; read it first.
+├── client/                             Next.js app. Has its own AGENTS.md; read it first.
+│   └── src/
+│       ├── app/u/, app/join/, app/admin/   participant pages, join page, admin console (+ world/)
+│       ├── components/visualizer/      agent world: engine, sprites, scenery, layout, director, overlays
+│       ├── lib/api.ts                  server-only API client (api, adminApi, joinApi)
+│       └── proxy.ts                    basic auth on /admin
 ├── onboarding/                         TypeScript chat onboarding bot (iMessage via Photon, HTTP channel)
 ├── asi-agent/                          Python uAgent relay for onboarding from ASI:One (see SETUP.md)
 ├── db/
 │   ├── schema.sql                      full schema (source of truth)
 │   ├── migrations/                     idempotent SQL patches for older databases
-│   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`), 40 celebrities with
-│   │                                   profiles and interview transcripts
-│   ├── dev_graph_seed.sql              fake matching output for "LA Hacks Demo" (scores, pairs, chats, groups)
+│   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`): 40 playful celebrity
+│   │                                   profiles in 8 clusters of 5, with interviews and dealbreaker clashes
+│   ├── dev_graph_seed.sql              fake matching output for that universe (scores, pairs, groups); run by hand
 │   └── docker-compose.yml              local Postgres; runs schema + seed on first boot only
 ├── agent/                              unifai_agent library
 │   ├── src/unifai_agent/
@@ -122,11 +137,11 @@ unif.ai/
     │   ├── main.py                     app, CORS, lifespan (DB pool), /health, logging
     │   ├── config.py, deps.py, db.py   settings and validation, model wiring, connection pool
     │   ├── schemas.py, repo.py         API models, shared SQL helpers
-    │   ├── routers/                    universes.py, onboarding.py, matching.py, me.py, web.py
+    │   ├── routers/                    universes, onboarding, matching, me, invites, admin_api, web
     │   ├── matching/                   pipeline, keywords, scoring, pairing, groups, projection
     │   └── services/                   ticketmaster.py, photon.py, scraper.py (optional)
     ├── scripts/seed_demo.py            fake post-matching "UI Demo" universe
-    ├── tests/                          test_matching.py, test_scraper.py; integration/ (skipped without a test DB)
+    ├── tests/                          test_matching.py, test_scraper.py; integration/ (admin API, /me; need a test DB)
     └── .env.example
 ```
 
@@ -142,7 +157,7 @@ unif.ai/
 ### From a fresh clone
 
 ```bash
-# 1. Database. There are no migrations: the schema is applied once, on first boot.
+# 1. Database. schema.sql and seed.sql are applied once, on first boot of the volume.
 docker compose -f db/docker-compose.yml up -d
 #    Shared instance instead: psql "$DATABASE_URL" -f db/schema.sql -f db/seed.sql
 
@@ -152,13 +167,12 @@ cp .env.example .env          # then fill in keys; see the table below
 uv sync                       # add `--extra scrape` for Browser Use
 uv run uvicorn app.main:app --reload     # http://localhost:8000
 
-#    Optional: a fake "UI Demo" universe that looks post-matching; prints a login link for the web app
-uv run python -m scripts.seed_demo
-#    Or fake matching output for the 30-person "LA Hacks Demo" (no LLM credits needed):
-docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_graph_seed.sql
+#    Optional demo data without running the models:
+uv run python -m scripts.seed_demo       # "UI Demo" universe that looks post-matching; prints /u/<id> links
+docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_graph_seed.sql   # fake results for "LA Hacks Demo"
 
-# 3. Client
-cd client && npm install && npm run dev  # http://localhost:3001
+# 3. Client (API_URL defaults to http://localhost:8000; set ADMIN_PASSWORD to the server's value if you set one)
+cd client && npm install && npm run dev  # http://localhost:3001, admin at /admin
 
 # 4. Try one real agent conversation (needs model keys)
 cd agent && uv sync && uv run python scripts/simulate.py
@@ -168,10 +182,15 @@ cd agent && uv sync && uv run python scripts/simulate.py
   health check: <http://localhost:8000/health>.
 - Stop: `Ctrl+C` for server and client; `docker compose -f db/docker-compose.yml down` for the database.
 - Reset the database after a schema change: `docker compose -f db/docker-compose.yml down -v`, then `up -d`.
-- "Running migrations" means resetting the database as above. See [Database](#database).
+- Existing databases: apply `db/migrations/*.sql` (`./run.sh migrate`) instead of resetting. See [Database](#database).
 - **Windows + OneDrive:** `uv sync` can fail with hardlink or "Access is denied" errors. Set
   `UV_LINK_MODE=copy` and keep the virtualenvs outside OneDrive, for example
   `UV_PROJECT_ENVIRONMENT=C:\dev-venvs\unifai-server`.
+- **Windows event loop (known issue):** psycopg's async mode can't use the Proactor loop that uvicorn and
+  pytest-asyncio pick on Windows, so the server can't reach the database and DB tests error out. Run the server
+  under WSL or Docker (`./run.sh up`), or start uvicorn with a `SelectorEventLoop` until this is fixed in the repo.
+- **Stale client cache:** if the dev server keeps an old error after a merge or dependency change (for example
+  a `package.json` parse error), stop it and delete `client/.next/dev` and `client/.next/cache`.
 - Step-by-step local setup with troubleshooting: `RUNNING.md`.
 
 ### Run everything with Docker
@@ -196,7 +215,9 @@ the same time, or both bots answer every message; `./run.sh up` refuses to start
 
 All are read by `server/app/config.py` (from the environment or `server/.env`), and `server/.env.example`
 lists them. No secret has a default, and `.env` is gitignored. The onboarding bot and ASI agent have their own
-`onboarding/.env.example` and `asi-agent/.env.example`.
+`onboarding/.env.example` (including `APP_URL`, the client base for each person's `/u/<id>` link) and
+`asi-agent/.env.example`. The client reads two variables of its own: `API_URL` (server base, default
+`http://localhost:8000`) and `ADMIN_PASSWORD` (gates `/admin` and is forwarded to `/admin/api`).
 
 | Variable                | Required                       | Purpose / default                                                                  |
 | ----------------------- | ------------------------------ | ---------------------------------------------------------------------------------- |
@@ -207,17 +228,19 @@ lists them. No secret has a default, and `.env` is gitignored. The onboarding bo
 | `TICKETMASTER_API_KEY`  | Optional                       | Without it, no events are found.                                                   |
 | `PHOTON_API_KEY`, `PHOTON_PROJECT_ID` | Optional         | Both needed to assign iMessage lines at join. Match notifications only log either way. |
 | `PHOTON_SEAT_LIMIT`     | Optional                       | Shared-line seats on the Photon plan, default 10. At the limit, joins go to ASI:One. |
-| `ASI_AGENT_URL`, `ASI_AGENT_HANDLE` | Optional           | ASI:One agent chat page and handle shown on the join page (handle default `@unifyai-onboarding`). |
-| `ADMIN_PASSWORD`        | Before exposing the server     | HTTP basic auth for `/admin` (any username). Set the same value for `client/`: it gates the Next `/admin` pages and is forwarded to `/admin/api`. |
-| `CLIENT_URL`            | Optional                       | CORS origin. Default `http://localhost:3001`.                                      |
+| `ASI_AGENT_URL`, `ASI_AGENT_HANDLE` | Optional           | ASI:One agent chat page and handle shown on the join page (defaults: the team's Agentverse page, `@unifyai-onboarding`). |
+| `ADMIN_PASSWORD`        | Before exposing the server     | HTTP basic auth (any username) for the server's `/admin` pages and `/admin/api`. Set the same value in the client. |
+| `CLIENT_URL`            | Optional                       | CORS origin and web app base. Default `http://localhost:3001`.                     |
 | `PUBLIC_URL`            | Optional                       | Base for invite links (`/join/<code>`, served by this server). Default `http://localhost:8000`. |
+| `JOIN_ON_CLIENT`        | Optional                       | Redirect the server's `/join/<code>` to `CLIENT_URL/join/<code>`. Default off (the Docker stack has no client). |
 | `SCRAPE_ENABLED`, `BROWSER_USE_API_KEY` | Optional       | Scrape stored social links with Browser Use Cloud. Default off.                    |
 | `SCRAPE_MODEL`, `SCRAPE_MAX_COST_USD`, `SCRAPE_TIMEOUT_S`, `SCRAPE_SKIP_PLATFORMS` | Optional | Defaults `gemini-3-flash`, 0.05, 180, `instagram,tiktok,facebook`. |
 | `GEMINI_MODEL`          | Optional                       | Default `gemini-3.8-flash`.                                                        |
 | `JEV_MODEL`             | Optional                       | Default `jev-latest`.                                                              |
 | `OPENROUTER_MODEL`      | Optional                       | Keywords, interviewer, judges, Jev stand-in. Default `google/gemini-3.8-flash`.    |
-| `OPENROUTER_CHAT_MODEL` | Optional                       | Persona chats. Default `google/gemini-3.8-flash`.                                  |
-| `OPENROUTER_RPM`        | Optional                       | Per-model requests per minute; default 0 (unlimited). New accounts are capped at 20. |
+| `OPENROUTER_CHAT_MODEL` | Optional                       | Persona chats; comma-separate models to rotate pairs across them (each has its own rate limit). Default `google/gemini-3.8-flash`. |
+| `OPENROUTER_JEV_MODEL`  | Optional                       | Jev stand-in for scoring and the pair judge, comma-separated to rotate. Empty = `OPENROUTER_MODEL`. |
+| `OPENROUTER_RPM`        | Optional                       | Per-model requests per minute; default 0 (unlimited). OpenRouter caps accounts at 20/min per model. |
 | `OPENROUTER_JEV_REASONING` | Optional                    | Reasoning effort for scoring and the pair judge. Default `low`.                    |
 | `KEYWORD_COUNT`         | Optional                       | Default 20 (allowed 5-50).                                                         |
 | `TOP_M`                 | Optional                       | Candidates per person, default 5 (1-20).                                           |
@@ -235,8 +258,10 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
   exposes `GET /health` (which does not check the database).
 - **`routers/`**: thin HTTP handlers. `universes.py` (create, look up by invite, list users),
   `onboarding.py` (join, social links, self-report, interview, profile), `matching.py` (start, graph, pairs,
-  groups), `me.py` (one user's connections and pair detail, for the client), `web.py` (server-rendered
-  `/admin` and `/join/{code}` pages, not in the OpenAPI schema).
+  groups), `me.py` (one user's connections, 3D graph and pair detail, for `/u`), `invites.py` (JSON for the
+  client's join page), `admin_api.py` (JSON for the client's admin console: universe list and detail, groups with
+  `g-01` labels, weakest ties and leftovers), `web.py` (server-rendered `/admin` and `/join/{code}` pages, not in
+  the OpenAPI schema; still used by the Docker stack, which doesn't run the client).
 - **`schemas.py`**: pydantic API models. `agent/profile.py` holds the profile models shared with the library.
 - **`repo.py` and `db.py`**: raw SQL (no ORM) over an `AsyncConnectionPool`. Handlers get a connection from
   `get_conn`.
@@ -244,9 +269,9 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
 - **`matching/`**: the pipeline stages described below, orchestrated by `pipeline.run_matching`.
 - **`services/`**: Ticketmaster (httpx), Photon (iMessage line assignment; sending is a stub), Browser Use
   scraper (optional, run as a background task after join).
-- **Authentication and authorization:** only `/admin` (server pages and `/admin/api`, plus the client's `/admin` pages) is protected (basic auth
-  with `ADMIN_PASSWORD`; open when unset). Every
-  JSON route is public, including private profiles and the `/users/{id}/...` views.
+- **Authentication and authorization:** only `/admin` and `/admin/api` are protected (basic auth with
+  `ADMIN_PASSWORD`; open when unset). Every other JSON route is public, including private profiles, all pairs
+  with rationales, and the `/users/{id}/...` views.
 - **Error handling**: a failed matching run resets the universe to `onboarding`. Within a run, a failed
   conversation is skipped, a failed scoring call falls back to neutral scores, a failed keyword call ends the
   run, and a failed group review keeps the group unreviewed. Exceptions elsewhere surface as plain 500s.
@@ -271,7 +296,7 @@ Details, failure behavior and the known scaling issue are in `AGENTS.md`.
 
 ## API documentation
 
-Generated docs: <http://localhost:8000/docs>. No JSON endpoint requires authentication.
+Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authentication.
 
 | Method and path                         | Purpose                                                              |
 | --------------------------------------- | -------------------------------------------------------------------- |
@@ -293,10 +318,17 @@ Generated docs: <http://localhost:8000/docs>. No JSON endpoint requires authenti
 | `GET /pairs/{id}/messages`              | Pair transcript (messages only; private notes are hidden)            |
 | `GET /universes/{id}/groups`            | Groups with members, score, rationale and events                     |
 | `GET /users/{id}/connections`           | One user's group and pairs; others as anonymous ids, no rationales   |
+| `GET /users/{id}/graph?axes=a,b,c`      | Everyone in 3D by keyword scores (PCA, or 3 picked keywords), named like `/connections` |
 | `GET /users/{id}/pairs/{pair_id}`       | One of the user's pairs, for the pair detail page                    |
+| `GET /invites/{code}`                   | Join page data: universe name, whether open, iMessage availability, ASI:One handle |
+| `POST /invites/{code}/join`             | Join from the client's join page (name, phone, consent)              |
+| `GET`/`POST /admin/api/universes`       | List universes with member/onboarded/group counts / create one (basic auth) |
+| `GET /admin/api/universes/{id}`         | Overview: stats, members with onboarding status, keywords (basic auth) |
+| `GET /admin/api/universes/{id}/groups`  | Groups with labels and weakest tie, plus leftovers (basic auth)      |
 
 HTML pages (not in `/docs`): `GET /admin`, `POST /admin/universes`, `GET /admin/universes/{id}` (basic auth),
-and `GET`/`POST /join/{code}` (public join form; offers iMessage while Photon seats last, and ASI:One).
+and `GET`/`POST /join/{code}` (public join form; offers iMessage while Photon seats last, and ASI:One;
+redirects to the client when `JOIN_ON_CLIENT` is on).
 
 There is no progress endpoint, profile edit endpoint, consent or deletion endpoint, or notifications endpoint.
 
@@ -314,25 +346,29 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
   (`./run.sh migrate`, also run by `./run.sh up`); `schema.sql` already includes them. There is no migration
   tool or version tracking; that is an open decision.
 - **Persistence**: local data lives in the `pgdata` Docker volume.
-- **Seed data**: the `lahacks` universe with 40 celebrities (athletes, actors, musicians, politicians, historical figures) in 8 clusters, with deliberate dealbreaker clashes.
+- **Seed data**: `seed.sql` creates the `lahacks` universe with 40 playful celebrity profiles (built from public
+  personas, not real data) in 8 clusters, with deliberate dealbreaker clashes. `dev_graph_seed.sql` adds fake
+  matching output for it so `/graph`, `/pairs` and `/groups` have data; `server/scripts/seed_demo.py` builds a
+  separate post-matching "UI Demo" universe (invite `ui-demo`).
 - **Unused**: `agent_profiles.embedding` (vector(768)).
 
 ## Testing
 
 ```bash
-cd server && uv run --extra scrape pytest   # 18 tests + 3 DB tests; test_scraper.py needs the scrape extra
-cd agent  && uv run pytest     # 10 tests
+cd server && uv run --extra scrape pytest   # 23 tests; 5 need DATABASE_URL_TEST; test_scraper.py needs the extra
+cd agent  && uv run pytest                  # 11 tests
 cd client && npm run lint && npm run build
 cd onboarding && npm test
 ```
 
 - **Unit** (all with fake models; no network): hard filter, ranking, scoring, CP-SAT groups, projection, group
   review fallback, Photon stub, scraper (server); conversation loop, judge, Jev, LLM and OpenRouter clients (agent).
-- **Integration**: `server/tests/integration/test_me.py` covers the `/users/{id}/...` views against a throwaway
-  universe. Skipped without `DATABASE_URL_TEST`.
-- **Gaps**: few API-level tests, no tests for the HTTP onboarding routes, interviewer, Ticketmaster or the full
-  pipeline; nothing has run against real Gemini, Jev or OpenRouter at scale; no client tests; no CI or linter
-  for Python.
+- **Integration** (`server/tests/integration/`, skipped without `DATABASE_URL_TEST`): the admin API and the
+  `/users/{id}/...` views (only my pairs, no notes or private fields, 404 for non-members, graph naming), each
+  against a throwaway universe. Point `DATABASE_URL_TEST` at a separate database with `schema.sql` applied.
+- **Gaps**: no tests for the HTTP onboarding routes, interviewer, Ticketmaster or the full pipeline; nothing has
+  run against real Gemini, Jev or OpenRouter at scale; no client tests (the agent world's layout and seating were
+  checked by a one-off script, and its rendering hasn't been checked in a browser); no CI or linter for Python.
 
 ## Deployment
 
@@ -343,7 +379,8 @@ Not production-ready. What exists:
   plus an optional Cloudflare quick tunnel. See [Run everything with Docker](#run-everything-with-docker).
 - Start command: `uv run uvicorn app.main:app --host 0.0.0.0 --port 8000`.
 
-Missing: a client Dockerfile, CI, a real migration tool, authentication and authorization beyond `/admin`, rate
+Missing: a client Dockerfile (so Docker deployments use the server's HTML admin and join pages), CI, a real
+migration tool, authentication and authorization beyond `/admin`, rate
 limiting, secrets management, a job queue (runs die with the process), progress reporting, structured
 logging and metrics, and a deployed environment. The shared database is intended to be Tiger Data, which has
 to be loaded with `schema.sql` by hand.
@@ -352,7 +389,7 @@ to be loaded with `schema.sql` by hand.
 
 | Component                       | Implemented | Partial                                  | Planned                          | Blocked / needs decision                    |
 | ------------------------------- | :---------: | ---------------------------------------- | -------------------------------- | ------------------------------------------- |
-| Universes + invites             | API, `/admin`, `/join` | No QR; one shared admin password | QR code, per-admin ownership     | Auth model                                  |
+| Universes + invites             | API, admin console, `/join` (client + server) | No QR; one shared admin password | QR code, per-admin ownership | Auth model                    |
 | Onboarding                      | API, chat bot (iMessage, ASI:One) | Scraping off by default | Profile review/edit              | Consent flow, scrape sources                |
 | Agent persona + conversation    | Library     | `ask_my_human` is a stub                 | Server-side private-data check   |                                             |
 | Pair/group judging              | Yes         | Group judge untested at scale            |                                  |                                             |
@@ -362,7 +399,7 @@ to be loaded with `schema.sql` by hand.
 | Notifications                   | Line assignment | Match messages only log              | Real match messages via Photon   |                                             |
 | Auth / consent / deletion       |             | `/admin` basic auth                      | All                              | Auth approach; retention policy             |
 | Database / migrations           | Schema+seed | Idempotent SQL patches                   | Migration tool                   | Which tool                                  |
-| Client                          | Per-user pages, admin, agent world (#51) | World not yet checked in a browser | Playground (#49)          | Login                                       |
+| Client                          | `/u` pages with 3D graph, join, admin, agent world (#51) | Agent world not checked in a browser | Client tests      | Login                                       |
 | Deployment / CI                 | Docker Compose stack | No client image                 | CI, deploy                       | Hosting target                              |
 
 ## Roadmap
@@ -373,7 +410,8 @@ Backend foundation first, then advanced AI features. Task numbers refer to `PROG
    time, failures and group sizes. Everything else depends on these numbers.
 2. **Backend gaps for the demo**: matching progress (#29), skip incomplete profiles (#22), show unplaced
    people (#15), city-aware events (#28), fixture of a finished run (#43).
-3. **Test and tooling foundation**: API tests with a test DB, ruff, CI, a migration tool.
-4. **Client** (#6, #49) against the fixture, then deployment (#44) once the API is stable.
+3. **Test and tooling foundation**: more API tests with a test DB, the Windows event-loop fix, ruff, CI, a
+   migration tool.
+4. **Client**: finish #6 (QR code), client tests, a client Dockerfile, then deployment (#44) once the API is stable.
 5. **Trust and safety**: auth, consent, data deletion, server-side private-data check, prompt-injection hardening.
 6. **Scale and quality**: greedy warm start for grouping, over-blocking tuning, evaluation of match quality.
