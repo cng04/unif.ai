@@ -3,9 +3,9 @@ import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { RenameUniverseTitle, RunMatchingButton } from "@/components/admin-forms";
 import { AdminHeader, Caption, Chip, outline, Panel, shortDate } from "@/components/admin-ui";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { CopyButton } from "@/components/copy-button";
 import { CountUp } from "@/components/count-up";
-import { LiveChatStream } from "@/components/live-chat-stream";
 import { adminApi, ApiError, type UniverseDetail } from "@/lib/api";
 import { abortMatching, renameUniverse, runMatching } from "../../actions";
 
@@ -67,6 +67,7 @@ async function UniverseScreen({
 
   return (
     <>
+      {universe.status === "matching" && <AutoRefresh seconds={10} />}
       <AdminHeader
         crumbs={["universes", universe.name]}
         title={<RenameUniverseTitle key={universe.name} name={universe.name} action={renameUniverse.bind(null, universe.id)} />}
@@ -92,7 +93,6 @@ async function UniverseScreen({
       />
 
       <Pipeline universe={universe} />
-      {universe.status === "matching" && <LiveChatStream universeId={universe.id} />}
 
       <div className="flex flex-col gap-6 xl:flex-row">
         <section className="flex min-w-0 flex-1 flex-col">

@@ -63,7 +63,7 @@ flowchart LR
   - `/join/[code]`: the join page (iMessage while Photon seats last, otherwise ASI:One). Served from the client
     when the server's `JOIN_ON_CLIENT` is on; otherwise the server renders its own HTML version.
   - `/admin/...`: the admin console: universes, universe overview (pipeline strip, members, keywords, run
-    matching, and one live stream of every agent chat), groups, **add person**
+    matching), groups, **add person**
     (`/admin/universes/[universeId]/add`: a ~30s in-person interview by Chrome
     dictation or typing becomes an onboarded agent, for live demos), and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
     `ADMIN_PASSWORD` basic auth in `src/proxy.ts`, and the client forwards the same password to `/admin/api`.
