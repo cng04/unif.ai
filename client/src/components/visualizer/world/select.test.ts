@@ -12,7 +12,7 @@ describe("keyword matching", () => {
     expect(termScore("long breakfasts", "breakfast")).toBe(0.85);
     expect(termScore("reliability", "read")).toBe(0);
     expect(bestPreset("rock climbing")?.preset.id).toBe("climbing");
-    expect(bestPreset("board games")?.preset.id).toBe("boardgames");
+    expect(bestPreset("board games")?.preset.id).toBe("tabletop");
     expect(bestPreset("punctuality")).toBeNull();
   });
 });
@@ -44,7 +44,7 @@ describe("structure selection", () => {
       keywords: kw("cooking", "punctuality", "astrology"),
       members: [member("a", "cooking", "punctuality"), member("b", "cooking", "punctuality"), member("c", "astrology"), member("d", "astrology")],
     });
-    expect(sel.structures.map((s) => s.id)).toEqual(["kitchen"]);
+    expect(sel.structures.map((s) => s.id)).toEqual(["cafe"]);
     expect(sel.structures[0].keywords).toEqual(["cooking", "punctuality"]);
     expect(sel.leftOut).toEqual(["astrology"]);
   });
@@ -60,8 +60,8 @@ describe("structure selection", () => {
         member("e", "running"),
       ],
     });
-    expect(sel.structures.map((s) => s.id)).toEqual(["kitchen+boardgames", "fitness"]);
-    expect(sel.structures[0].presets.map((p) => p.id)).toEqual(["kitchen", "boardgames"]);
+    expect(sel.structures.map((s) => s.id)).toEqual(["cafe+tabletop", "sports"]);
+    expect(sel.structures[0].presets.map((p) => p.id)).toEqual(["cafe", "tabletop"]);
   });
 
   it("scales prominence and tier with the crowd", () => {
@@ -71,7 +71,7 @@ describe("structure selection", () => {
     ];
     const sel = selectStructures({ keywords: kw("cooking", "reading"), members });
     const [kitchen, study] = sel.structures;
-    expect(kitchen.id).toBe("kitchen");
+    expect(kitchen.id).toBe("cafe");
     expect(kitchen.prominence).toBeCloseTo(0.75);
     expect(kitchen.tier).toBe("L");
     expect(study.tier).toBe("M");
