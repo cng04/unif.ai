@@ -171,7 +171,9 @@ return judge rationales, dealbreaker flags, or private profile fields.
   `typesafe-sdk` client, model `jev_model`, default `jev-latest`). Tests use fakes of both.
   **OpenRouter mode:** if `OPENROUTER_API_KEY` is set, `server/app/deps.py` uses `OpenRouterLLM` for text and
   `OpenRouterJev` for the typed questions (model `openrouter_model`), replacing both Gemini and TypeSafe. One key
-  is enough to run the whole pipeline.
+  is enough to run the whole pipeline. OpenRouter caps each model at about 20 requests per minute, so persona chats
+  (`openrouter_chat_model`) and scoring plus the pair judge (`openrouter_jev_model`) take comma-separated model lists
+  and rotate pairs across them; `openrouter_rpm` paces each model under the cap.
 - Jev works best with literal, single-judgment questions and a state that holds only what the question
   needs. Keep math, counting, and date comparisons in code. See the TypeSafe "jaggedness" docs.
 - Tuning knobs (`keyword_count`, `top_m`, turns, group sizes, `group_solver_seconds`) live in

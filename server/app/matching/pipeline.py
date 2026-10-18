@@ -6,6 +6,7 @@ import asyncio
 import logging
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID
 
 import numpy as np
@@ -16,8 +17,8 @@ from unifai_agent import AgentProfile, GroupVerdict, Transcript, Verdict
 from app import repo
 from app.config import get_settings
 from app.db import pool
-from app.deps import get_chat_llm, get_jev, get_judge, get_llm
-from app.matching.groups import build_groups, review_groups
+from app.deps import get_chat_llms, get_jevs, get_judges, get_llm
+from app.matching.groups import build_groups, review_group
 from app.matching.keywords import Keyword, extract_keywords
 from app.matching.pairing import simulate_pair
 from app.matching.scoring import (
@@ -41,12 +42,14 @@ def pair_key(a: str, b: str) -> PairKey:
 
 async def run_matching(universe_id: UUID) -> None:
     settings = get_settings()
-    llm, chat_llm, jev, judge = get_llm(), get_chat_llm(), get_jev(), get_judge()
+    llm, chat_llms, jevs, judges = get_llm(), get_chat_llms(), get_jevs(), get_judges()
     semaphore = asyncio.Semaphore(settings.max_concurrent_conversations)
+    # asyncio.to_thread's default pool has min(32, cpu + 4) threads, which would cap concurrency below the setting.
+    executor = ThreadPoolExecutor(max_workers=settings.max_concurrent_conversations)
 
     async def limited(fn, *args):
         async with semaphore:
-            return await asyncio.to_thread(fn, *args)
+            return await asyncio.get_running_loop().run_in_executor(executor, fn, *args)
 
     log.info("Starting matching for universe %s", universe_id)
     pipeline_start = time.time()
@@ -78,7 +81,8 @@ async def run_matching(universe_id: UUID) -> None:
             # Stage 4: Score each person
             stage_start = time.time()
             scored = await asyncio.gather(
-                *(limited(score_person, jev, d, keywords) for d in documents), return_exceptions=True
+                *(limited(score_person, jevs[n % len(jevs)], d, keywords) for n, d in enumerate(documents)),
+                return_exceptions=True,
             )
             people = []
             failed_scoring = []
@@ -109,8 +113,15 @@ async def run_matching(universe_id: UUID) -> None:
             stage_start = time.time()
             results = await asyncio.gather(
                 *(
-                    limited(simulate_pair, chat_llm, judge, profiles[i], profiles[j], settings.max_conversation_turns)
-                    for i, j in candidates
+                    limited(
+                        simulate_pair,
+                        chat_llms[n % len(chat_llms)],
+                        judges[n % len(judges)],
+                        profiles[i],
+                        profiles[j],
+                        settings.max_conversation_turns,
+                    )
+                    for n, (i, j) in enumerate(candidates)
                 ),
                 return_exceptions=True,
             )
@@ -152,7 +163,9 @@ async def run_matching(universe_id: UUID) -> None:
             # Stage 8: Group review and events
             stage_start = time.time()
             by_id = {p.user_id: p for p in profiles}
-            reviewed = await asyncio.to_thread(review_groups, judge, groups, by_id, verdicts, settings.min_group_size)
+            reviewed = await asyncio.gather(
+                *(limited(review_group, judges[0], g, by_id, verdicts, settings.min_group_size) for g in groups)
+            )
 
             for members, group_verdict in reviewed:
                 group_profiles = [by_id[m] for m in members]
@@ -175,6 +188,8 @@ async def run_matching(universe_id: UUID) -> None:
             log.exception("matching failed for universe %s", universe_id)
             await conn.rollback()
             await repo.set_universe_status(conn, universe_id, "onboarding")
+        finally:
+            executor.shutdown(wait=False)
 
 
 def shared_interests(profiles: list[AgentProfile], top: int = 3) -> list[str]:

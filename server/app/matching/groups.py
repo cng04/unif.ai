@@ -100,14 +100,21 @@ def review_groups(
     min_size: int,
 ) -> list[tuple[list[str], GroupVerdict]]:
     """Re-judge each candidate group as a whole and drop one misfit if the judge names one."""
-    reviewed = []
-    for members in groups:
+    return [review_group(judge, members, profiles, verdicts, min_size) for members in groups]
+
+
+def review_group(
+    judge: Judge,
+    members: list[str],
+    profiles: dict[str, AgentProfile],
+    verdicts: dict[PairKey, Verdict],
+    min_size: int,
+) -> tuple[list[str], GroupVerdict]:
+    verdict = _safe_judge_group(judge, members, profiles, verdicts)
+    if not verdict.works and verdict.remove_user_id in members and len(members) > min_size:
+        members = [m for m in members if m != verdict.remove_user_id]
         verdict = _safe_judge_group(judge, members, profiles, verdicts)
-        if not verdict.works and verdict.remove_user_id in members and len(members) > min_size:
-            members = [m for m in members if m != verdict.remove_user_id]
-            verdict = _safe_judge_group(judge, members, profiles, verdicts)
-        reviewed.append((members, verdict))
-    return reviewed
+    return members, verdict
 
 
 def _safe_judge_group(

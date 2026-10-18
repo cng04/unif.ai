@@ -5,6 +5,10 @@ from unifai_agent import LLM, GeminiLLM, Interviewer, Jev, Judge, OpenRouterJev,
 from app.config import get_settings
 
 
+def _models(csv: str) -> list[str]:
+    return [m.strip() for m in csv.split(",") if m.strip()]
+
+
 @lru_cache
 def get_llm() -> LLM:
     settings = get_settings()
@@ -14,29 +18,36 @@ def get_llm() -> LLM:
 
 
 @lru_cache
-def get_chat_llm() -> LLM:
+def get_chat_llms() -> list[LLM]:
+    """Persona-chat LLMs. Pairs rotate through them, so each model's own rate limit adds throughput."""
     settings = get_settings()
-    if settings.openrouter_api_key:
-        return OpenRouterLLM(settings.openrouter_chat_model, settings.openrouter_api_key, rpm=settings.openrouter_rpm)
-    return get_llm()
+    if not settings.openrouter_api_key:
+        return [get_llm()]
+    models = _models(settings.openrouter_chat_model)
+    return [OpenRouterLLM(m, settings.openrouter_api_key, rpm=settings.openrouter_rpm) for m in models]
 
 
 @lru_cache
-def get_jev() -> Jev:
+def get_jevs() -> list[Jev]:
+    """Scoring and pair-judge models, rotated the same way as the chat models."""
     settings = get_settings()
-    if settings.openrouter_api_key:
-        return OpenRouterJev(
+    if not settings.openrouter_api_key:
+        return [jev_client(settings.typesafe_api_key, settings.jev_model)]
+    models = _models(settings.openrouter_jev_model) or [settings.openrouter_model]
+    return [
+        OpenRouterJev(
             settings.openrouter_api_key,
-            settings.openrouter_model,
+            m,
             rpm=settings.openrouter_rpm,
             reasoning_effort=settings.openrouter_jev_reasoning,
         )
-    return jev_client(settings.typesafe_api_key, settings.jev_model)
+        for m in models
+    ]
 
 
 def get_interviewer() -> Interviewer:
     return Interviewer(get_llm())
 
 
-def get_judge() -> Judge:
-    return Judge(get_llm(), get_jev())
+def get_judges() -> list[Judge]:
+    return [Judge(get_llm(), jev) for jev in get_jevs()]

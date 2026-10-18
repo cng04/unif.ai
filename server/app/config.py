@@ -14,9 +14,11 @@ class Settings(BaseSettings):
     jev_model: str = "jev-latest"
     openrouter_api_key: str = ""  # when set, OpenRouter replaces both Gemini and TypeSafe's Jev
     openrouter_model: str = "google/gemini-3.8-flash"
-    # Persona chats only, the bulk of the tokens. OpenRouter rate limits are per model, so a different model here
-    # also gets its own requests-per-minute budget.
+    # Persona chats only, the bulk of the tokens. Comma-separate several models to rotate pairs across them:
+    # OpenRouter rate limits are per model, so each one adds its own requests-per-minute budget.
     openrouter_chat_model: str = "google/gemini-3.8-flash"
+    # Jev stand-in for scoring and the pair judge, comma-separated to rotate the same way. Empty = openrouter_model.
+    openrouter_jev_model: str = ""
     openrouter_rpm: int = 0  # per-model requests per minute; 0 = unlimited (new OpenRouter accounts get 20)
     openrouter_jev_reasoning: str = "low"  # reasoning effort for the Jev stand-in (scoring and pair judge)
     ticketmaster_api_key: str = ""
@@ -80,8 +82,8 @@ class Settings(BaseSettings):
     def validate_max_concurrent_conversations(cls, v: int) -> int:
         if v < 1:
             raise ValueError("max_concurrent_conversations must be at least 1")
-        if v > 32:
-            raise ValueError("max_concurrent_conversations must be at most 32")
+        if v > 256:
+            raise ValueError("max_concurrent_conversations must be at most 256")
         return v
 
     @field_validator("min_group_size")

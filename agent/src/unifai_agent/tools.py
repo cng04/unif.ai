@@ -1,6 +1,7 @@
 """Tools available to a persona agent during an agent-to-agent conversation.
 
-The agent speaks only through send_message; any other text it produces stays private.
+The agent speaks only through send_message; any other text it produces stays private. Its whole profile is
+already in the system prompt, so there are no lookup tools: every turn is one model call.
 """
 
 TOOL_DECLARATIONS: list[dict] = [
@@ -26,29 +27,6 @@ TOOL_DECLARATIONS: list[dict] = [
             "type": "OBJECT",
             "properties": {"reason": {"type": "STRING"}},
             "required": ["reason"],
-        },
-    },
-    {
-        "name": "check_availability",
-        "description": "Look up when and where your human is free.",
-        "parameters": {"type": "OBJECT", "properties": {}},
-    },
-    {
-        "name": "lookup_profile",
-        "description": "Fetch one field from your human's profile (e.g. interests, values, dealbreakers).",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {"field": {"type": "STRING"}},
-            "required": ["field"],
-        },
-    },
-    {
-        "name": "ask_my_human",
-        "description": "Escalate a question your human's profile can't answer.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {"question": {"type": "STRING"}},
-            "required": ["question"],
         },
     },
 ]
