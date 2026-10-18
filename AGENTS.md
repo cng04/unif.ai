@@ -177,7 +177,9 @@ The onboarding bot sends that link once dealbreakers are confirmed (`onboarding/
 `onboarding/.env`; unset means no link is sent).
 
 **Admin** (`/admin`): universes list, universe overview (pipeline strip, members, keywords, run matching),
-groups, and the agent world, under `/admin/universes/{id}`. The agent world (PixiJS, `src/components/visualizer/`)
+groups, add person (`/add`, `components/add-person.tsx`: a live-demo shortcut past SMS onboarding; the notes are
+stored as the person's one interview message, `build_profile` parses them, and the screen shows only public fields
+because an audience may be watching), and the agent world, under `/admin/universes/{id}`. The agent world (PixiJS, `src/components/visualizer/`)
 is one procedurally generated campus rendered from the server's World snapshot (`/admin/api/universes/{id}/world`,
 participants: `/users/{id}/world` at `/u/{id}/world`). Keep its layers separate and pure: `world/select.ts`
 (keywords -> structures), `world/plan.ts` (seeded layout), `world/activity.ts` (what agents do, from data only),

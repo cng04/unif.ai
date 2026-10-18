@@ -277,6 +277,26 @@ export type AdminPair = {
   messages: { speaker_id: string; content: string; created_at: string }[];
 };
 
+/** Public profile fields only: the add-person screen may be on a projector. */
+export type PublicProfile = {
+  name: string;
+  intro?: string;
+  interests?: string[];
+  vibe?: string;
+  looking_for?: string;
+  humor?: string;
+  group_role?: string;
+};
+
+export type ManualPerson = {
+  full_name: string;
+  transcript: string;
+  phone?: string;
+  email?: string;
+  social_links: Record<string, string>;
+  scrape_consent: boolean;
+};
+
 export const adminApi = {
   scores: (id: string) => request<UniverseScores>(`/admin/api/universes/${id}/scores`, { headers: adminHeaders() }),
   /** The World snapshot; with `since` set to the last version, answers `{unchanged: true}` when nothing moved. */
@@ -305,6 +325,16 @@ export const adminApi = {
   pair: (pairId: string) => request<AdminPair>(`/admin/api/pairs/${pairId}`, { headers: adminHeaders() }),
   runMatching: (id: string) =>
     request<{ status: string }>(`/universes/${id}/matching`, { method: "POST", headers: adminHeaders() }),
+  addPerson: (id: string, person: ManualPerson) =>
+    request<{ user_id: string; public: PublicProfile; scraping: string[] }>(`/admin/api/universes/${id}/people`, {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify(person),
+    }),
+  personPublic: (userId: string) =>
+    request<{ public: PublicProfile; scraped: string[] }>(`/admin/api/users/${userId}/public`, { headers: adminHeaders() }),
+  deletePerson: (userId: string) =>
+    request<{ deleted: string }>(`/admin/api/users/${userId}`, { method: "DELETE", headers: adminHeaders() }),
   abortMatching: (id: string) =>
     request<{ status: string }>(`/admin/api/universes/${id}/matching/abort`, { method: "POST", headers: adminHeaders() }),
 };

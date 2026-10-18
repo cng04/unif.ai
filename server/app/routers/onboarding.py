@@ -3,7 +3,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from psycopg import AsyncConnection
-from psycopg.types.json import Jsonb
 from unifai_agent import AgentProfile, Interviewer
 from unifai_agent.prompts import SELF_REPORT_PROMPT
 
@@ -110,10 +109,7 @@ async def build_profile(
         self_report=sources.get("self_report"),
         scraped=sources.get("scraped"),
     )
-    await conn.execute(
-        "UPDATE agent_profiles SET public = %s, private = %s, updated_at = now() WHERE user_id = %s",
-        (Jsonb(profile.public.model_dump()), Jsonb(profile.private.model_dump()), user_id),
-    )
+    await repo.save_profile(conn, profile)
     return profile
 
 

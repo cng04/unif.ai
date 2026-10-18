@@ -79,6 +79,9 @@ async function UniverseScreen({
                 groups →
               </Link>
             )}
+            <Link href={`/admin/universes/${universeId}/add`} className={outline}>
+              + add person
+            </Link>
             <Link href={`/admin/universes/${universeId}/world`} className={outline}>
               agent world →
             </Link>

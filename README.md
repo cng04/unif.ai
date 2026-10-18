@@ -63,7 +63,8 @@ flowchart LR
   - `/join/[code]`: the join page (iMessage while Photon seats last, otherwise ASI:One). Served from the client
     when the server's `JOIN_ON_CLIENT` is on; otherwise the server renders its own HTML version.
   - `/admin/...`: the admin console: universes, universe overview (pipeline strip, members, keywords, run
-    matching), groups, and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
+    matching), groups, **add person** (`/admin/universes/[universeId]/add`: a ~30s in-person interview by Chrome
+    dictation or typing becomes an onboarded agent, for live demos), and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
     `ADMIN_PASSWORD` basic auth in `src/proxy.ts`, and the client forwards the same password to `/admin/api`.
 - **Agent world** (`client/src/components/visualizer/`): one explorable, **procedurally generated campus** (PixiJS,
   32x32 pixel-art isometric tiles). Everything comes from one server snapshot (`GET .../world`, polled every ~4 s
@@ -105,6 +106,7 @@ flowchart LR
 | Client     | Next.js 16.4, React 19.3, Tailwind 4, TypeScript 5, ESLint 9                                      | Participant, join and admin web UI               |
 | 3D graph   | three, @react-three/fiber, @react-three/drei                                                     | Keyword graph on the connections page            |
 | Agent world | pixi.js 8, @pixi/react 8, pixi-filters 6, pathfinding (A*)                                       | WebGL sprite world, glow outline, grid routing   |
+| QR codes   | qrcode                                                                                           | Add-person screen links the new person to their page |
 | Onboarding bot | Node, TypeScript, tsx, `@anthropic-ai/sdk`, `@photon-ai/api`, pg, socket.io-client, zod      | Chat onboarding over iMessage / HTTP             |
 | ASI agent  | Python 3.11+, uagents, httpx                                                                      | ASI:One relay to the onboarding bot              |
 | Server     | Python 3.11-3.14, FastAPI, uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
@@ -240,8 +242,10 @@ the same time, or both bots answer every message; `./run.sh up` refuses to start
 All are read by `server/app/config.py` (from the environment or `server/.env`), and `server/.env.example`
 lists them. No secret has a default, and `.env` is gitignored. The onboarding bot and ASI agent have their own
 `onboarding/.env.example` (including `APP_URL`, the client base for each person's `/u/<id>` link) and
-`asi-agent/.env.example`. The client reads two variables of its own: `API_URL` (server base, default
-`http://localhost:8000`) and `ADMIN_PASSWORD` (gates `/admin` and is forwarded to `/admin/api`).
+`asi-agent/.env.example`. The client reads three variables of its own: `API_URL` (server base, default
+`http://localhost:8000`), `ADMIN_PASSWORD` (gates `/admin` and is forwarded to `/admin/api`), and `APP_URL` (the
+public client base the add-person QR code points at; defaults to the host the admin is browsing, which a phone
+can't reach if it's `localhost`).
 
 | Variable                | Required                       | Purpose / default                                                                  |
 | ----------------------- | ------------------------------ | ---------------------------------------------------------------------------------- |
@@ -359,6 +363,9 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `GET /admin/api/universes/{id}/world?since=` | World snapshot for the agent world: members (onboarding/busy, public fields, top keywords, scores), keywords with crowd sizes, pairs (`running`/`complete`), groups, matching stage; `{unchanged: true}` when `since` matches (basic auth) |
 | `GET /users/{id}/world?since=`          | The same World as that participant may see it: no scores, dealbreakers, flags or rationales; other people's pairs without ids or verdicts |
 | `GET /admin/api/universes?mode=real\|demo\|all` | Universe list filtered by `is_demo` (basic auth) |
+| `POST /admin/api/universes/{id}/people` | Add someone interviewed in person: name, notes, optional phone/email/socials, `scrape_consent`. Builds and saves the profile, returns the public part only (basic auth; 409 while matching) |
+| `GET /admin/api/users/{id}/public`      | Public profile plus which socials have been scraped, for the add-person screen (basic auth) |
+| `DELETE /admin/api/users/{id}`          | Remove a person and everything that cascades from them (basic auth; 409 while matching) |
 | `GET /admin/api/universes/{id}/scores`  | Keyword vectors for the agent world: per member, score per keyword and the keywords flagged as dealbreakers (basic auth; no private text) |
 
 HTML pages (not in `/docs`): `GET /admin`, `POST /admin/universes`, `GET /admin/universes/{id}` (basic auth),

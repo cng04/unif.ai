@@ -76,6 +76,13 @@ async def merge_raw_sources(conn: AsyncConnection, user_id: UUID, patch: dict) -
     )
 
 
+async def save_profile(conn: AsyncConnection, profile: AgentProfile) -> None:
+    await conn.execute(
+        "UPDATE agent_profiles SET public = %s, private = %s, updated_at = now() WHERE user_id = %s",
+        (Jsonb(profile.public.model_dump()), Jsonb(profile.private.model_dump()), profile.user_id),
+    )
+
+
 async def add_social_links(conn: AsyncConnection, user_id: UUID, links: dict[str, str]) -> dict[str, str]:
     """Merge links into the user's social_links (new values win) and return the merged set."""
     row = await (

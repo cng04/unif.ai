@@ -3,18 +3,27 @@
 Everything is derived from what matching stores; there is no separate pipeline-progress or approval state.
 """
 
+import asyncio
+import logging
 import secrets
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from psycopg import AsyncConnection
-from pydantic import BaseModel
+from psycopg.types.json import Jsonb
+from pydantic import BaseModel, Field
+from unifai_agent import Interviewer
 
 from app import repo
-from app.db import get_conn
+from app.config import get_settings
+from app.db import get_conn, pool
+from app.deps import get_interviewer
 from app.matching import runs
 from app.routers.web import invite_url, require_admin
+from app.services import scraper
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/api", dependencies=[Depends(require_admin)], tags=["admin"])
 
@@ -29,6 +38,18 @@ class UniverseCreate(BaseModel):
 
 class UniverseRename(BaseModel):
     name: str
+
+
+class ManualPersonIn(BaseModel):
+    """Someone the admin interviewed in person (a live demo): typed or dictated notes instead of the SMS flow."""
+
+    full_name: str
+    transcript: str
+    phone: str | None = None
+    email: str | None = None
+    social_links: dict[str, str] = Field(default_factory=dict)
+    # The person agreed, out loud, that we may read these links. Without it they're stored but never scraped.
+    scrape_consent: bool = False
 
 
 def universe_out(row: dict) -> dict:
@@ -98,6 +119,100 @@ async def rename_universe(universe_id: UUID, body: UniverseRename, conn: AsyncCo
     if row is None:
         raise HTTPException(404, "universe not found")
     return universe_out(row)
+
+
+async def build_and_save_profile(conn: AsyncConnection, interviewer: Interviewer, user: dict) -> dict:
+    """Profile from the stored transcript and any scraped accounts; returns the public part only."""
+    row = await (await conn.execute("SELECT raw_sources FROM agent_profiles WHERE user_id = %s", (user["id"],))).fetchone()
+    interview = await (
+        await conn.execute(
+            "SELECT role, content FROM onboarding_messages WHERE user_id = %s ORDER BY id", (user["id"],)
+        )
+    ).fetchall()
+    profile = await asyncio.to_thread(
+        interviewer.build_profile,
+        str(user["id"]),
+        user["full_name"],
+        interview=interview,
+        scraped=row["raw_sources"].get("scraped"),
+    )
+    profile.public.name = user["full_name"]
+    await repo.save_profile(conn, profile)
+    return profile.public.model_dump()
+
+
+async def scrape_then_rebuild(user_id: UUID, links: dict[str, str]) -> None:
+    async with pool.connection() as conn:
+        user = await repo.get_user(conn, user_id)
+    scraped = await scraper.scrape_profiles(user["full_name"], links)
+    if not scraped:
+        return
+    async with pool.connection() as conn:
+        try:
+            user = await repo.get_user(conn, user_id)
+        except HTTPException:  # deleted (undo) while the scrape ran
+            return
+        await repo.merge_scraped(conn, user_id, scraped)
+        await build_and_save_profile(conn, get_interviewer(), user)
+
+
+@router.post("/universes/{universe_id}/people", status_code=201)
+async def add_person(
+    universe_id: UUID,
+    body: ManualPersonIn,
+    background: BackgroundTasks,
+    conn: AsyncConnection = Depends(get_conn),
+    interviewer: Interviewer = Depends(get_interviewer),
+) -> dict:
+    """Admin-only insert: the transcript becomes the person's interview and the usual profile builder parses it.
+    Nobody is messaged. Returns the public profile only, since this screen may be shown to an audience."""
+    universe = await repo.get_universe(conn, universe_id)
+    if universe["status"] == "matching":
+        raise HTTPException(409, "matching is running; add people after it finishes")
+    name, transcript = body.full_name.strip()[:120], body.transcript.strip()
+    if not name or not transcript:
+        raise HTTPException(400, "full_name and transcript are required")
+    links = {p: url.strip() for p, url in body.social_links.items() if url and url.strip()}
+    user = await repo.create_user(
+        conn, universe_id, name, (body.email or "").strip() or None, (body.phone or "").strip() or None, links
+    )
+    await conn.execute(
+        "INSERT INTO onboarding_messages (user_id, role, content) VALUES (%s, 'user', %s)", (user["id"], transcript)
+    )
+    await repo.merge_raw_sources(conn, user["id"], {"source": "admin_manual"})
+    public = await build_and_save_profile(conn, interviewer, user)
+    # Onboarded means a non-empty private profile; a short chat may yield nothing private, so mark it explicitly.
+    await conn.execute(
+        "UPDATE agent_profiles SET private = private || %s WHERE user_id = %s AND private = '{}'::jsonb",
+        (Jsonb({"dealbreakers": []}), user["id"]),
+    )
+    await conn.commit()
+    log.info("admin added %s to universe %s (%d chars of notes)", user["id"], universe_id, len(transcript))
+    skip = {p.strip().lower() for p in get_settings().scrape_skip_platforms.split(",")}
+    scraping = sorted(p for p in links if p.lower() not in skip) if body.scrape_consent else []
+    if scraping:
+        background.add_task(scrape_then_rebuild, user["id"], links)
+    return {"user_id": user["id"], "public": public, "scraping": scraping}
+
+
+@router.get("/users/{user_id}/public")
+async def person_public(user_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> dict:
+    """Public profile plus which links have been scraped so far, for the add-person screen to poll."""
+    await repo.get_user(conn, user_id)
+    row = await (
+        await conn.execute("SELECT public, raw_sources FROM agent_profiles WHERE user_id = %s", (user_id,))
+    ).fetchone()
+    return {"public": row["public"], "scraped": sorted((row["raw_sources"].get("scraped") or {}).keys())}
+
+
+@router.delete("/users/{user_id}")
+async def delete_person(user_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> dict:
+    user = await repo.get_user(conn, user_id)
+    universe = await repo.get_universe(conn, user["universe_id"])
+    if universe["status"] == "matching":
+        raise HTTPException(409, "matching is running")
+    await conn.execute("DELETE FROM users WHERE id = %s", (user_id,))
+    return {"deleted": str(user_id)}
 
 
 @router.get("/universes/{universe_id}")

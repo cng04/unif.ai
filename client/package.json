@@ -17,6 +17,7 @@
     "pathfinding": "^0.4.18",
     "pixi-filters": "^6.1.5",
     "pixi.js": "^8.22.0",
+    "qrcode": "^1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "three": "^0.186.1"
@@ -25,6 +26,7 @@
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/pathfinding": "^0.1.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.186.0",

@@ -1,12 +1,20 @@
 """Admin JSON: pipeline counts, unplaced members, group labels and weakest ties, all derived from stored rows."""
 
-import pytest
-from fastapi import HTTPException
-from psycopg import AsyncConnection
+import json
 
+import pytest
+from fastapi import BackgroundTasks, HTTPException
+from psycopg import AsyncConnection
+from unifai_agent import Interviewer
+
+from app import repo
 from app.routers.admin_api import (
+    ManualPersonIn,
     UniverseRename,
     abort_matching,
+    add_person,
+    delete_person,
+    person_public,
     rename_universe,
     universe_detail,
     universe_groups,
@@ -111,3 +119,93 @@ async def test_scores_are_keyword_level_only(test_db_conn: AsyncConnection, test
     private = (await (await conn.execute("SELECT private FROM agent_profiles WHERE user_id = %s", (a,))).fetchone())["private"]
     for text in private.get("dealbreakers", []):
         assert text not in str(out)
+
+
+class FakeBuilderLLM:
+    """Stands in for the profile builder's model: returns one fixed ProfileDraft and records what it was shown."""
+
+    def __init__(self, private: dict):
+        self.private = private
+        self.seen: list[str] = []
+
+    def generate(self, system, history, **kwargs):
+        from unifai_agent.llm import LLMResponse
+
+        self.seen.append(history[-1]["content"])
+        draft = {"public": {"name": "whatever the model says", "interests": ["climbing"]}, "private": self.private}
+        return LLMResponse(text=json.dumps(draft))
+
+
+def person(**overrides) -> ManualPersonIn:
+    return ManualPersonIn(**{"full_name": "  Bob Judge ", "transcript": "I climb, and I hate flaky plans.", **overrides})
+
+
+async def test_add_person_builds_profile_and_returns_only_public(test_db_conn: AsyncConnection, test_universe):
+    conn = test_db_conn
+    llm = FakeBuilderLLM({"dealbreakers": ["flaky plans"]})
+    background = BackgroundTasks()
+    links = {"instagram": "https://instagram.com/bob", "x": " "}
+    out = await add_person(test_universe, person(phone="+15550100", social_links=links), background, conn, Interviewer(llm))
+
+    assert out["public"]["name"] == "Bob Judge" and out["public"]["interests"] == ["climbing"]
+    assert "private" not in out and "flaky" not in json.dumps(out, default=str)
+    assert out["scraping"] == [] and not background.tasks  # no consent, no scrape
+    assert "I climb" in llm.seen[0]
+
+    row = await (
+        await conn.execute(
+            "SELECT u.phone, u.social_links, ap.private, ap.raw_sources FROM users u "
+            "JOIN agent_profiles ap ON ap.user_id = u.id WHERE u.id = %s",
+            (out["user_id"],),
+        )
+    ).fetchone()
+    assert row["phone"] == "+15550100" and row["social_links"] == {"instagram": "https://instagram.com/bob"}
+    assert row["private"]["dealbreakers"] == ["flaky plans"]
+    assert row["raw_sources"]["source"] == "admin_manual"
+    by_name = {m["full_name"]: m for m in (await universe_detail(test_universe, conn))["members"]}
+    assert by_name["Bob Judge"]["status"] == "complete"
+
+
+async def test_add_person_scrapes_only_with_consent_and_counts_as_onboarded(test_db_conn: AsyncConnection, test_universe):
+    conn = test_db_conn
+    background = BackgroundTasks()
+    out = await add_person(
+        test_universe,
+        person(
+            social_links={"linkedin": "https://linkedin.com/in/bob", "instagram": "https://instagram.com/bob"},
+            scrape_consent=True,
+        ),
+        background,
+        conn,
+        Interviewer(FakeBuilderLLM({})),  # nothing private came up in 30 seconds
+    )
+    assert out["scraping"] == ["linkedin"] and len(background.tasks) == 1
+    status = await (
+        await conn.execute(
+            f"SELECT {repo.USER_STATUS_SQL} AS s FROM users u JOIN agent_profiles ap ON ap.user_id = u.id WHERE u.id = %s",
+            (out["user_id"],),
+        )
+    ).fetchone()
+    assert status["s"] == "complete"
+    assert (await person_public(out["user_id"], conn))["scraped"] == []
+
+    await delete_person(out["user_id"], conn)
+    with pytest.raises(HTTPException) as err:
+        await person_public(out["user_id"], conn)
+    assert err.value.status_code == 404
+
+
+async def test_add_person_refuses_while_matching_or_blank(test_db_conn: AsyncConnection, test_universe):
+    conn = test_db_conn
+    await conn.execute("UPDATE universes SET status = 'matching' WHERE id = %s", (test_universe,))
+    await conn.commit()
+    llm = FakeBuilderLLM({})
+    with pytest.raises(HTTPException) as err:
+        await add_person(test_universe, person(), BackgroundTasks(), conn, Interviewer(llm))
+    assert err.value.status_code == 409 and not llm.seen
+
+    await conn.execute("UPDATE universes SET status = 'matched' WHERE id = %s", (test_universe,))
+    await conn.commit()
+    with pytest.raises(HTTPException) as err:
+        await add_person(test_universe, person(transcript="  "), BackgroundTasks(), conn, Interviewer(llm))
+    assert err.value.status_code == 400 and not llm.seen
