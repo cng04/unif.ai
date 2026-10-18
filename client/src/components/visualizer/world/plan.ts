@@ -12,6 +12,7 @@
 import {
   hash, rng, type Activity, type Dir, type Furniture, type FurnitureKind, type Spot,
 } from "./geometry";
+import { MATCH_MIN, termScore } from "./match";
 import { SHARED, SIZES, type Preset, type Tier, type Variant } from "./presets";
 import type { Selection, Structure } from "./select";
 
@@ -116,7 +117,7 @@ export function planWorld(selection: Selection, seed: number): WorldPlan {
       x: reserved.x + Math.floor((lw - zw) / 2), y: reserved.y + Math.floor((lh - zh) / 2), w: zw, h: zh,
       floor: [0, 0], entrance: { x: 0, y: 0 }, structure: s,
     };
-    const variants = s.presets.map((p) => pickVariant(p, seed));
+    const variants = s.presets.map((p) => pickVariant(p, seed, s.keywords));
     zone.floor = variants[0].floor;
     zone.variants = variants.map((v) => v.name);
     zone.entrance = entranceFacing(zone, cx, cy);
@@ -197,8 +198,18 @@ export function planWorld(selection: Selection, seed: number): WorldPlan {
 
 // ---- structure interiors ----
 
-function pickVariant(preset: Preset, seed: number): Variant {
-  return preset.variants[hash(`${seed}|variant|${preset.id}`) % preset.variants.length];
+/** The variant drawn for the structure's own keywords (strongest match), else a seeded pick. */
+function pickVariant(preset: Preset, seed: number, keywords: string[]): Variant {
+  let best: Variant | null = null;
+  let top = 0;
+  for (const variant of preset.variants) {
+    const score = Math.max(0, ...keywords.flatMap((k) => (variant.terms ?? []).map((t) => termScore(k, t))));
+    if (score >= MATCH_MIN && score > top) {
+      best = variant;
+      top = score;
+    }
+  }
+  return best ?? preset.variants[hash(`${seed}|variant|${preset.id}`) % preset.variants.length];
 }
 
 function furnish(

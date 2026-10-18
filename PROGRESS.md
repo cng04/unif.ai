@@ -280,3 +280,4 @@ Add a line here for each change merged to `main`.
 - 2026-10-17: Docs audit: README is now the canonical overview (status table, architecture, env vars, API, DB,
   testing, deployment gaps, roadmap); AGENTS.md is the agent operating guide (commands, ownership, rules);
   `.env.example` lists every setting. Closes #39.
+- World: per-keyword room variants (Bakery, Cocktail bar, Poetry nook, Chess club, Trailhead, ...) chosen from a structure's keywords; participant `world` tab added. `catalog.test.ts` covers all 31 keywords seen so far.

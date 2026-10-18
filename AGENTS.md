@@ -157,7 +157,7 @@ reverse) explains a block. Availability slots are stored in `agent_profiles.avai
 ## Web app (`client/`)
 
 Mobile-first. People reach it through a personal link from their agent: `/u/{user_id}` redirects to
-`/u/{user_id}/connections`. Tabs are `connections` (ego graph), `agent` (the interview chat, continued),
+`/u/{user_id}/connections`. Tabs are `connections` (ego graph), `agent` (the interview chat, continued), `world` (the shared agent world),
 and `you` (own profile plus group). `/u/{user_id}/pairs/{pair_id}` shows one agent-to-agent conversation.
 Pages are server components that call the API through `src/lib/api.ts` (`API_URL`, default
 `http://localhost:8000`), so the browser never talks to FastAPI directly. Design tokens mirror the Paper
@@ -188,7 +188,7 @@ is one procedurally generated campus rendered from the server's World snapshot (
 participants: `/users/{id}/world` at `/u/{id}/world`). Keep its layers separate and pure: `world/select.ts`
 (keywords -> structures), `world/plan.ts` (seeded layout), `world/activity.ts` (what agents do, from data only),
 then the Pixi renderer (`scenery.ts`, `engine.ts`, `agent.ts`). Presets live in `world/presets.ts`; add a theme there
-(keyword terms, variants, furniture, activities) rather than special-casing code. Never show activity the data
+(keyword terms, variants, furniture, activities) rather than special-casing code; a variant with `terms` is the room drawn for those keywords (`catalog.test.ts` checks every keyword seen so far has one). Never show activity the data
 doesn't contain: a chat is live only while its pair is `running`; replays are always labelled. The seed is the
 universe id plus its keyword set; new members must not change the layout (tests enforce it). Overlays follow the
 Paper "World visualizer" page; `character.ts` is the Pixi-free sprite painter shared by the canvas and the avatar.

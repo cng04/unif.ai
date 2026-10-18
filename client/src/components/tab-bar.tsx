@@ -7,6 +7,7 @@ const tabs = [
   { segment: "connections", label: "connections" },
   { segment: "agent", label: "agent" },
   { segment: "you", label: "you" },
+  { segment: "world", label: "world" },
 ] as const;
 
 export function TabBar() {
@@ -21,7 +22,7 @@ export function TabBar() {
       {index >= 0 && (
         <span
           aria-hidden
-          className="absolute inset-y-1 left-1 w-[calc((100%-8px)/3)] rounded-full bg-paper transition-transform duration-300 ease-[cubic-bezier(0.3,1.3,0.5,1)]"
+          className="absolute inset-y-1 left-1 w-[calc((100%-8px)/4)] rounded-full bg-paper transition-transform duration-300 ease-[cubic-bezier(0.3,1.3,0.5,1)]"
           style={{ transform: `translateX(${index * 100}%)` }}
         />
       )}

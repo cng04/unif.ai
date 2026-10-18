@@ -19,7 +19,9 @@ export type FurnitureSlot = {
   from?: Tier;
 };
 
-export type Variant = { name: string; floor: [number, number]; furniture: FurnitureSlot[] };
+/** `terms` ties a variant to the keywords it was drawn for: a structure built for "baking" gets the Bakery, not a
+ * seeded pick. Variants without terms are only ever chosen by the seed. */
+export type Variant = { name: string; floor: [number, number]; furniture: FurnitureSlot[]; terms?: string[] };
 
 export type Preset = {
   id: string;
@@ -48,6 +50,7 @@ const EMBER: [number, number] = [0xf0ddd3, 0xe9d3c7];
 const STONE: [number, number] = [0xe3e7ec, 0xdbe0e6];
 
 const one = (name: string, floor: [number, number], furniture: FurnitureSlot[]): Variant[] => [{ name, floor, furniture }];
+const v = (name: string, terms: string[], floor: [number, number], furniture: FurnitureSlot[]): Variant => ({ name, floor, furniture, terms });
 
 export const PRESETS: Preset[] = [
   {
@@ -73,23 +76,27 @@ export const PRESETS: Preset[] = [
       "diner", "bakery", "chef", "foodie", "restaurant", "restaurants", "supper", "dinner", "eat", "ramen", "sushi",
       "pizza", "taco", "bbq", "tea", "wine", "beer", "cocktail", "cocktails"],
     variants: [
-      { name: "Coffee shop", floor: OCHRE, furniture: [
+      { name: "Coffee shop", terms: ["coffee", "brunch", "long breakfasts", "breakfast", "tea"], floor: OCHRE, furniture: [
         { kind: "bar", w: 3, place: "edge" }, { kind: "counter", place: "edge" },
         { kind: "table", w: 2, h: 2, place: "center" }, { kind: "plant", place: "scatter", from: "M" },
         { kind: "fridge", place: "edge", from: "L" },
       ] },
-      { name: "Home kitchen", floor: GLACIER, furniture: [
+      { name: "Home kitchen", terms: ["cooking", "kitchen", "chef", "foodie"], floor: GLACIER, furniture: [
         { kind: "fridge", place: "edge" }, { kind: "stove", w: 2, place: "edge" }, { kind: "counter", place: "edge" },
         { kind: "table", w: 2, h: 2, place: "center" }, { kind: "bar", w: 2, place: "edge", from: "M" },
       ] },
-      { name: "Bakery", floor: EMBER, furniture: [
+      { name: "Bakery", terms: ["baking", "bake", "bakery"], floor: EMBER, furniture: [
         { kind: "counter", w: 2, place: "edge" }, { kind: "stove", w: 2, place: "edge" },
         { kind: "table", w: 2, h: 2, place: "center" }, { kind: "plant", place: "scatter", from: "M" },
       ] },
-      { name: "Retro diner", floor: STONE, furniture: [
+      { name: "Retro diner", terms: ["diner", "pizza", "taco", "bbq", "ramen", "sushi"], floor: STONE, furniture: [
         { kind: "bar", w: 3, place: "edge" }, { kind: "fridge", place: "edge" },
         { kind: "table", w: 2, h: 2, place: "center" }, { kind: "counter", place: "edge", from: "M" },
       ] },
+      v("Cocktail bar", ["cocktails", "cocktail", "wine", "beer"], PERI, [
+        { kind: "bar", w: 3, place: "edge" }, { kind: "bar", w: 2, place: "edge" },
+        { kind: "table", w: 2, h: 2, place: "center" }, { kind: "lamp", place: "scatter", from: "M" },
+      ]),
     ],
     activities: ["cook", "drink"],
     group: { activity: "drink", pose: "sit" },
@@ -102,11 +109,11 @@ export const PRESETS: Preset[] = [
       "rave", "karaoke", "night out", "late night", "late nights", "edm", "techno", "events", "volunteering",
       "volunteer", "hosting", "potluck"],
     variants: [
-      { name: "Dance hall", floor: PERI, furniture: [
+      { name: "Dance hall", terms: ["late nights", "late night", "dance", "club", "nightlife", "karaoke"], floor: PERI, furniture: [
         { kind: "dj", w: 3, place: "edge" }, { kind: "speaker", place: "edge" },
         { kind: "discofloor", w: 4, h: 3, place: "center" }, { kind: "speaker", place: "edge", from: "M" },
       ] },
-      { name: "Banquet hall", floor: WARM, furniture: [
+      { name: "Banquet hall", terms: ["dinner parties", "potluck", "hosting", "party"], floor: WARM, furniture: [
         { kind: "bigtable", w: 2, h: 2, place: "center" }, { kind: "speaker", place: "edge" },
         { kind: "table", w: 2, h: 2, place: "center", from: "L" }, { kind: "plant", place: "scatter" },
       ] },
@@ -120,11 +127,18 @@ export const PRESETS: Preset[] = [
     name: "Music Studio",
     terms: ["music", "live music", "guitar", "piano", "sing", "singing", "songwriting", "band", "concert",
       "concerts", "jazz", "vinyl", "song", "drum", "drums", "dj", "choir", "orchestra"],
-    variants: one("Studio", OCHRE, [
-      { kind: "amp", place: "edge" }, { kind: "drums", w: 2, place: "edge" },
-      { kind: "piano", w: 2, place: "edge", from: "M" }, { kind: "rug", w: 3, h: 2, place: "center" },
-      { kind: "speaker", place: "edge", from: "L" },
-    ]),
+    variants: [
+      v("Live room", ["live music", "concert", "band", "drums"], OCHRE, [
+        { kind: "amp", place: "edge" }, { kind: "drums", w: 2, place: "edge" },
+        { kind: "piano", w: 2, place: "edge", from: "M" }, { kind: "rug", w: 3, h: 2, place: "center" },
+        { kind: "speaker", place: "edge", from: "L" },
+      ]),
+      v("Songwriting den", ["songwriting", "guitar", "piano", "singing"], WARM, [
+        { kind: "amp", place: "edge" }, { kind: "piano", w: 2, place: "edge" },
+        { kind: "rug", w: 3, h: 2, place: "center" }, { kind: "bookshelf", place: "edge", from: "M" },
+        { kind: "lamp", place: "scatter", from: "M" },
+      ]),
+    ],
     activities: ["guitar", "drums", "keys"],
     group: { activity: "guitar", pose: "act" },
     near: ["hall", "media"],
@@ -134,10 +148,17 @@ export const PRESETS: Preset[] = [
     name: "Art Studio",
     terms: ["art", "arts", "paint", "painting", "draw", "drawing", "sketch", "sketching", "pottery", "ceramics",
       "sculpture", "museum", "museums", "gallery", "galleries", "illustration"],
-    variants: one("Studio", WARM, [
-      { kind: "easel", place: "edge" }, { kind: "easel", place: "edge" }, { kind: "bigtable", w: 2, h: 2, place: "center" },
-      { kind: "easel", place: "edge", from: "M" }, { kind: "plant", place: "scatter", from: "M" },
-    ]),
+    variants: [
+      v("Painting studio", ["painting", "drawing", "art", "illustration", "pottery"], WARM, [
+        { kind: "easel", place: "edge" }, { kind: "easel", place: "edge" }, { kind: "bigtable", w: 2, h: 2, place: "center" },
+        { kind: "easel", place: "edge", from: "M" }, { kind: "plant", place: "scatter", from: "M" },
+      ]),
+      v("Gallery", ["museums", "museum", "gallery", "sculpture"], PAPER, [
+        { kind: "easel", place: "edge" }, { kind: "bench", w: 2, place: "center" },
+        { kind: "easel", place: "edge", from: "M" }, { kind: "plant", place: "scatter", from: "M" },
+        { kind: "lamp", place: "scatter", from: "L" },
+      ]),
+    ],
     activities: ["read", "type"],
     group: { activity: "read", pose: "sit" },
     near: ["media", "maker"],
@@ -173,10 +194,16 @@ export const PRESETS: Preset[] = [
     name: "Tabletop Game Room",
     terms: ["board game", "board games", "boardgames", "chess", "puzzle", "puzzles", "trivia", "dnd", "d&d",
       "tabletop", "cards", "card games", "role-playing"],
-    variants: one("Game room", WARM, [
-      { kind: "table", w: 2, h: 2, place: "center" }, { kind: "bookshelf", place: "edge" },
-      { kind: "table", w: 2, h: 2, place: "center", from: "L" },
-    ]),
+    variants: [
+      v("Game room", ["board games", "puzzles", "trivia", "dnd", "tabletop", "cards"], WARM, [
+        { kind: "table", w: 2, h: 2, place: "center" }, { kind: "bookshelf", place: "edge" },
+        { kind: "table", w: 2, h: 2, place: "center", from: "L" },
+      ]),
+      v("Chess club", ["chess"], PAPER, [
+        { kind: "table", w: 2, h: 2, place: "center" }, { kind: "bench", w: 2, place: "edge" },
+        { kind: "lamp", place: "scatter", from: "M" }, { kind: "table", w: 2, h: 2, place: "center", from: "L" },
+      ]),
+    ],
     activities: ["game"],
     group: { activity: "game", pose: "sit" },
     near: ["arcade", "cafe", "lounge"],
@@ -199,11 +226,18 @@ export const PRESETS: Preset[] = [
     name: "Library",
     terms: ["read", "reading", "book", "books", "writing", "write", "poetry", "literature", "history",
       "philosophy", "languages", "language", "learning", "study"],
-    variants: one("Reading room", PAPER, [
-      { kind: "bookshelf", w: 2, place: "edge" }, { kind: "desk", w: 2, place: "edge" },
-      { kind: "bookshelf", w: 2, place: "edge", from: "M" }, { kind: "rug", w: 3, h: 2, place: "center" },
-      { kind: "bigtable", w: 2, h: 2, place: "center", from: "L" },
-    ]),
+    variants: [
+      v("Reading room", ["reading", "books", "literature", "history", "study"], PAPER, [
+        { kind: "bookshelf", w: 2, place: "edge" }, { kind: "desk", w: 2, place: "edge" },
+        { kind: "bookshelf", w: 2, place: "edge", from: "M" }, { kind: "rug", w: 3, h: 2, place: "center" },
+        { kind: "bigtable", w: 2, h: 2, place: "center", from: "L" },
+      ]),
+      v("Poetry nook", ["poetry", "writing", "write", "philosophy"], WARM, [
+        { kind: "bookshelf", w: 2, place: "edge" }, { kind: "couch", w: 2, place: "edge" },
+        { kind: "rug", w: 3, h: 2, place: "center" }, { kind: "lamp", place: "scatter" },
+        { kind: "plant", place: "scatter", from: "M" },
+      ]),
+    ],
     activities: ["read", "type"],
     group: { activity: "read", pose: "sit" },
     near: ["science", "computer"],
@@ -213,10 +247,16 @@ export const PRESETS: Preset[] = [
     name: "Computer Lab",
     terms: ["code", "coding", "program", "programming", "tech", "startup", "startups", "ai", "hackathon",
       "software", "data", "engineering", "computers"],
-    variants: one("Lab", STONE, [
-      { kind: "desk", w: 2, place: "edge" }, { kind: "desk", w: 2, place: "edge" },
-      { kind: "desk", w: 2, place: "edge", from: "M" }, { kind: "bigtable", w: 2, h: 2, place: "center", from: "M" },
-    ]),
+    variants: [
+      v("Coding lab", ["coding", "programming", "software", "ai", "data"], STONE, [
+        { kind: "desk", w: 2, place: "edge" }, { kind: "desk", w: 2, place: "edge" },
+        { kind: "desk", w: 2, place: "edge", from: "M" }, { kind: "bigtable", w: 2, h: 2, place: "center", from: "M" },
+      ]),
+      v("Startup garage", ["startups", "startup", "hackathon", "tech"], PERI, [
+        { kind: "desk", w: 2, place: "edge" }, { kind: "bigtable", w: 2, h: 2, place: "center" },
+        { kind: "workbench", place: "edge", from: "M" }, { kind: "desk", w: 2, place: "edge", from: "M" },
+      ]),
+    ],
     activities: ["type"],
     group: { activity: "type", pose: "sit" },
     near: ["science", "arcade", "maker"],
@@ -273,10 +313,16 @@ export const PRESETS: Preset[] = [
       "football", "basketball", "tennis", "volleyball", "cycling", "bike", "swim", "swimming", "marathon",
       "crossfit", "martial", "boxing", "pickleball", "training", "competition", "competitive", "athletics",
       "athlete"],
-    variants: one("Gym & track", EMBER, [
-      { kind: "treadmill", place: "edge" }, { kind: "treadmill", place: "edge" }, { kind: "rack", w: 2, place: "edge" },
-      { kind: "treadmill", place: "edge", from: "M" }, { kind: "mat", w: 2, h: 2, place: "center", from: "L" },
-    ]),
+    variants: [
+      v("Track", ["running", "marathon", "cycling", "athletics"], EMBER, [
+        { kind: "treadmill", place: "edge" }, { kind: "treadmill", place: "edge" }, { kind: "rack", w: 2, place: "edge" },
+        { kind: "treadmill", place: "edge", from: "M" }, { kind: "mat", w: 2, h: 2, place: "center", from: "L" },
+      ]),
+      v("Training gym", ["training", "competition", "lifting", "workout", "fitness", "gym"], STONE, [
+        { kind: "rack", w: 2, place: "edge" }, { kind: "rack", w: 2, place: "edge" },
+        { kind: "mat", w: 2, h: 2, place: "center" }, { kind: "treadmill", place: "edge", from: "M" },
+      ]),
+    ],
     activities: ["run", "lift"],
     group: { activity: "lift", pose: "act" },
     near: ["climbing", "wellness"],
@@ -312,10 +358,16 @@ export const PRESETS: Preset[] = [
     terms: ["hike", "hiking", "trail", "trails", "camp", "camping", "outdoor", "outdoors", "nature", "surf",
       "surfing", "ski", "skiing", "snowboard", "kayak", "backpacking", "mountain", "mountains", "national park",
       "travel", "travelling", "traveling", "adventure", "adventures", "road trips", "geography"],
-    variants: one("Basecamp", LICHEN, [
-      { kind: "tent", w: 2, h: 2, place: "center" }, { kind: "bench", w: 2, place: "edge" },
-      { kind: "telescope", place: "edge", from: "M" }, { kind: "tree", place: "scatter", from: "M" },
-    ]),
+    variants: [
+      v("Campsite", ["camping", "camp", "backpacking", "outdoors"], LICHEN, [
+        { kind: "tent", w: 2, h: 2, place: "center" }, { kind: "bench", w: 2, place: "edge" },
+        { kind: "telescope", place: "edge", from: "M" }, { kind: "tree", place: "scatter", from: "M" },
+      ]),
+      v("Trailhead", ["hiking", "trail", "mountains", "nature", "adventure", "travel"], GLACIER, [
+        { kind: "signpost", place: "edge" }, { kind: "bench", w: 2, place: "edge" },
+        { kind: "tree", place: "scatter" }, { kind: "telescope", place: "edge", from: "M" },
+      ]),
+    ],
     activities: ["chill", "read"],
     group: { activity: "chill", pose: "sit" },
     near: ["climbing", "animals", "garden"],
