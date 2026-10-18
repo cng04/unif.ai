@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     openrouter_model: str = "deepseek/deepseek-v4.1-flash"
     # Persona chats only, the bulk of the tokens. Comma-separate several models to rotate pairs across them:
     # OpenRouter rate limits are per model, so each one adds its own requests-per-minute budget.
-    openrouter_chat_model: str = "deepseek/deepseek-v4.1-flash"
+    openrouter_chat_model: str = "openai/gpt-oss-20b,~deepseek/deepseek-v4-flash-latest,z-ai/glm-5.3-flash"
     openrouter_chat_max_tokens: int = 512  # 1-3 sentence turns; keeps OpenRouter in-flight credit reservation low
     # Native Jev System One models on OpenRouter. Comma-separate versions to rotate requests across them.
     openrouter_jev_model: str = "~typesafe/jev-latest,typesafe/jev-1.14,typesafe/jev-1.13"
