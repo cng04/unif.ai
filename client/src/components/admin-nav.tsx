@@ -23,6 +23,7 @@ export function AdminNav() {
     ...(universeId
       ? [
           { href: `/admin/universes/${universeId}`, label: "overview", on: path === `/admin/universes/${universeId}`, nested: true },
+          { href: `/admin/universes/${universeId}/graph`, label: "pool graph", on: path.endsWith("/graph"), nested: true },
           { href: `/admin/universes/${universeId}/groups`, label: "groups", on: path.endsWith("/groups"), nested: true },
           { href: `/admin/universes/${universeId}/world`, label: "world", on: path.endsWith("/world"), nested: true },
         ]
