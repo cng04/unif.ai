@@ -2,6 +2,7 @@
 
 import logging
 import random
+from collections.abc import Callable
 
 from unifai_agent import AgentProfile, Judge, LLM, PersonaAgent, Transcript, Verdict, run_conversation
 
@@ -17,7 +18,12 @@ def _temperature_for_chat(llm: LLM) -> float | None:
 
 
 def simulate_pair(
-    llm: LLM, judge: Judge, a: AgentProfile, b: AgentProfile, max_turns: int
+    llm: LLM,
+    judge: Judge,
+    a: AgentProfile,
+    b: AgentProfile,
+    max_turns: int,
+    on_message: Callable[[str, str], None] | None = None,
 ) -> tuple[Transcript, Verdict]:
     try:
         temperature = _temperature_for_chat(llm)
@@ -32,6 +38,7 @@ def simulate_pair(
             PersonaAgent(a, llm, temperature_override=temperature),
             PersonaAgent(b, llm, temperature_override=temperature),
             max_turns=max_turns,
+            on_message=on_message,
         )
         verdict = judge.evaluate(a, b, transcript)
         return transcript, verdict

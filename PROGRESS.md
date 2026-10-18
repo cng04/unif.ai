@@ -135,6 +135,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | 46 | [ ] Fake model mode (`FAKE_LLM=1`) that returns canned answers, so teammates can run the whole flow without a key or spending quota. It also works as a smoke test. | `agent/llm.py`, `server/app/deps.py` | |
 | 47 | [ ] `Makefile`: `db`, `db-reset`, `server`, `client`, `simulate`, `test`. | repo root | |
 | 48 | [ ] Generate TypeScript types from the API (`openapi-typescript http://localhost:8000/openapi.json`) so backend changes break the client build instead of breaking at demo time. | `client/` | |
+| 54 | [x] **Live admin chat stream.** Persist every agent turn as it happens and multiplex all running conversations over one admin-only SSE connection, replacing overview polling during matching. | `agent/`, `server/`, `client/` | Cursor |
 | 12 | [x] Removed `end_conversation`; every pair now runs the configured fixed number of turns. | `agent/persona.py`, `tools.py` | Cursor |
 | 28 | [x] ~~Ticketmaster: pass the group's most common city so events are local.~~ Done with group plans: a search area from members' `area`. | `plans.py` | |
 | 50 | [x] **Plan voting.** "i'm in / can't" per plan, per-member status, and "goes ahead at N yeses" from the design. Needs a table and endpoints. Built as an "i'm in" toggle (taking it back is the "can't"); a majority locks the plan. | `db/`, `routers/`, client | jpolina |
@@ -203,6 +204,9 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-18: Live admin chat stream (#54): each public agent turn is committed while its pair is still
+  `running`; one resumable, admin-only SSE connection multiplexes every pair into live conversation cards on the
+  universe overview. The overview refreshes once when matching ends instead of polling it every 10 seconds.
 - 2026-10-18: Admin "add person" page (#53) for 2-minute demos: `POST /admin/api/universes/{id}/people` stores the
   dictated or typed notes as the person's interview, runs `Interviewer.build_profile`, marks them onboarded and returns
   only the public profile. Also `GET /admin/api/users/{id}/public` (scrape progress) and `DELETE /admin/api/users/{id}`

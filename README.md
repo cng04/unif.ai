@@ -63,7 +63,8 @@ flowchart LR
   - `/join/[code]`: the join page (iMessage while Photon seats last, otherwise ASI:One). Served from the client
     when the server's `JOIN_ON_CLIENT` is on; otherwise the server renders its own HTML version.
   - `/admin/...`: the admin console: universes, universe overview (pipeline strip, members, keywords, run
-    matching), groups, **add person** (`/admin/universes/[universeId]/add`: a ~30s in-person interview by Chrome
+    matching, and one live stream of every agent chat), groups, **add person**
+    (`/admin/universes/[universeId]/add`: a ~30s in-person interview by Chrome
     dictation or typing becomes an onboarded agent, for live demos), and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
     `ADMIN_PASSWORD` basic auth in `src/proxy.ts`, and the client forwards the same password to `/admin/api`.
 - **Agent world** (`client/src/components/visualizer/`): one explorable, **procedurally generated campus** (PixiJS,
@@ -349,6 +350,7 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `GET /users/{id}/profile`               | Read the profile (includes `private`; see gaps)                      |
 | `POST /universes/{id}/matching`         | Start matching (202; 409 if running; 503 without a model key)        |
 | `POST /admin/api/universes/{id}/matching/abort` | Admin only: stop a run, drop its partial pairs and groups, back to `onboarding` (409 if not matching) |
+| `GET /admin/api/universes/{id}/chats/stream` | Admin-only SSE stream of every public agent message in the current run; resumable with `Last-Event-ID`, never includes private notes |
 | `GET /universes/{id}/graph`             | 3D projected keyword scores per user, with group id                  |
 | `GET /universes/{id}/pairs`             | Judged pairs with scores and rationale                               |
 | `GET /pairs/{id}/messages`              | Pair transcript (messages only; private notes are hidden)            |

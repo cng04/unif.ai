@@ -51,6 +51,16 @@ def test_agents_alternate_and_keep_notes_private():
     assert b.history[-1] == {"role": "assistant", "content": "same here"}
 
 
+def test_message_callback_receives_each_turn_as_it_happens():
+    seen = []
+    a = PersonaAgent(profile("a", "Cynthia"), ScriptedLLM([say("hi"), say("later")]))
+    b = PersonaAgent(profile("b", "Sam"), ScriptedLLM([say("hello")]))
+
+    transcript = run_conversation(a, b, max_turns=3, on_message=lambda speaker, text: seen.append((speaker, text)))
+
+    assert seen == transcript.messages == [("a", "hi"), ("b", "hello"), ("a", "later")]
+
+
 def test_plain_text_reply_is_nudged_back_to_send_message():
     llm = ScriptedLLM([LLMResponse(text="thinking out loud"), say("I'm Cynthia")])
     agent = PersonaAgent(profile("a", "Cynthia"), llm)

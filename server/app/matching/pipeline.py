@@ -33,6 +33,9 @@ from app.matching.scoring import (
 log = logging.getLogger(__name__)
 
 PairKey = tuple[str, str]
+LiveMessage = tuple[UUID, str, str]
+MessageQueueItem = LiveMessage | asyncio.Future[None] | None
+LIVE_WRITE_BATCH_SECONDS = 0.02
 
 _plan_tasks: set[asyncio.Task] = set()
 
@@ -133,14 +136,21 @@ async def run_matching(universe_id: UUID) -> None:
                     for model in chat_llms
                 ),
             )
+            message_queue: asyncio.Queue[MessageQueueItem] = asyncio.Queue()
+            message_writer = asyncio.create_task(write_live_messages(message_queue))
 
             async def run_and_save_pair(n: int, i: int, j: int) -> None:
                 key = pair_key(ids[i], ids[j])
                 async with semaphore:
                     async with db_lock:
-                        await start_pair(conn, universe_id, key)
+                        pair_id = await start_pair(conn, universe_id, key)
+                    loop = asyncio.get_running_loop()
+
+                    def on_message(speaker_id: str, text: str) -> None:
+                        loop.call_soon_threadsafe(message_queue.put_nowait, (pair_id, speaker_id, text))
+
                     try:
-                        transcript, verdict = await asyncio.get_running_loop().run_in_executor(
+                        transcript, verdict = await loop.run_in_executor(
                             executor,
                             simulate_pair,
                             chat_llms[n % len(chat_llms)],
@@ -148,18 +158,25 @@ async def run_matching(universe_id: UUID) -> None:
                             profiles[i],
                             profiles[j],
                             settings.max_conversation_turns,
+                            on_message,
                         )
                     except Exception:
+                        await flush_live_messages(message_queue, message_writer)
                         log.exception("pair %s/%s failed", ids[i], ids[j])
                         failed_conversations.append((ids[i], ids[j]))
                         async with db_lock:
                             await drop_running_pair(conn, universe_id, key)
                         return
+                    await flush_live_messages(message_queue, message_writer)
                 async with db_lock:
-                    await save_pair(conn, universe_id, key, transcript, verdict)
+                    await save_pair(conn, universe_id, key, transcript, verdict, messages_saved_live=True)
                 verdicts[key] = verdict
 
-            await asyncio.gather(*(run_and_save_pair(n, i, j) for n, (i, j) in enumerate(candidates)))
+            try:
+                await asyncio.gather(*(run_and_save_pair(n, i, j) for n, (i, j) in enumerate(candidates)))
+            finally:
+                message_queue.put_nowait(None)
+                await message_writer
             if failed_conversations:
                 log.warning("Conversations failed for %d pairs", len(failed_conversations))
             log.info("Completed %d agent conversations (took %.2fs)", len(verdicts), time.time() - stage_start)
@@ -262,16 +279,69 @@ async def save_signals(
     await conn.commit()
 
 
-async def start_pair(conn: AsyncConnection, universe_id: UUID, key: PairKey) -> None:
+async def write_live_messages(queue: asyncio.Queue[MessageQueueItem]) -> None:
+    """Serialize live transcript writes on one connection so many model threads cannot exhaust the DB pool."""
+    async with pool.connection() as conn:
+        while True:
+            batch = [await queue.get()]
+            # Turns tend to finish in waves. A tiny debounce turns dozens of remote commits into one without
+            # adding perceptible latency to the browser stream.
+            await asyncio.sleep(LIVE_WRITE_BATCH_SECONDS)
+            while True:
+                try:
+                    batch.append(queue.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
+
+            messages = [item for item in batch if isinstance(item, tuple)]
+            barriers = [item for item in batch if isinstance(item, asyncio.Future)]
+            if messages:
+                await conn.execute(
+                    "INSERT INTO pair_messages (pair_id, speaker_id, kind, content) "
+                    "SELECT unnest(%s::uuid[]), unnest(%s::uuid[]), 'message', unnest(%s::text[])",
+                    (
+                        [item[0] for item in messages],
+                        [item[1] for item in messages],
+                        [item[2] for item in messages],
+                    ),
+                )
+                await conn.commit()
+            for barrier in barriers:
+                if not barrier.done():
+                    barrier.set_result(None)
+            if None in batch:
+                return
+
+
+async def flush_live_messages(
+    queue: asyncio.Queue[MessageQueueItem], writer: asyncio.Task[None]
+) -> None:
+    """Wait until every message queued before this call is committed, surfacing a failed writer."""
+    barrier = asyncio.get_running_loop().create_future()
+    queue.put_nowait(barrier)
+    done, _ = await asyncio.wait({barrier, writer}, return_when=asyncio.FIRST_COMPLETED)
+    if writer in done:
+        await writer
+    await barrier
+
+
+async def start_pair(conn: AsyncConnection, universe_id: UUID, key: PairKey) -> UUID:
     """A chat has begun: the pair exists, with no verdict or transcript yet."""
-    await conn.execute(
-        """
-        INSERT INTO pairs (universe_id, user_a, user_b, status) VALUES (%s, %s, %s, 'running')
-        ON CONFLICT (universe_id, user_a, user_b) DO NOTHING
-        """,
-        (universe_id, *key),
-    )
+    row = await (
+        await conn.execute(
+            """
+            INSERT INTO pairs (universe_id, user_a, user_b, status) VALUES (%s, %s, %s, 'running')
+            ON CONFLICT (universe_id, user_a, user_b) DO UPDATE SET
+                status = 'running', completed_at = NULL, vibe_score = NULL, dealbreaker_flags = '[]'::jsonb,
+                logistics_fit = NULL, judge_rationale = NULL, end_reason = NULL
+            RETURNING id
+            """,
+            (universe_id, *key),
+        )
+    ).fetchone()
+    await conn.execute("DELETE FROM pair_messages WHERE pair_id = %s", (row["id"],))
     await conn.commit()
+    return row["id"]
 
 
 async def drop_running_pair(conn: AsyncConnection, universe_id: UUID, key: PairKey) -> None:
@@ -284,7 +354,12 @@ async def drop_running_pair(conn: AsyncConnection, universe_id: UUID, key: PairK
 
 
 async def save_pair(
-    conn: AsyncConnection, universe_id: UUID, key: PairKey, transcript: Transcript, verdict: Verdict
+    conn: AsyncConnection,
+    universe_id: UUID,
+    key: PairKey,
+    transcript: Transcript,
+    verdict: Verdict,
+    messages_saved_live: bool = False,
 ) -> None:
     row = await (
         await conn.execute(
@@ -304,8 +379,12 @@ async def save_pair(
             ),
         )
     ).fetchone()
-    await conn.execute("DELETE FROM pair_messages WHERE pair_id = %s", (row["id"],))
-    rows = [(uid, "message", text) for uid, text in transcript.messages]
+    await conn.execute(
+        "DELETE FROM pair_messages WHERE pair_id = %s"
+        + (" AND kind = 'note'" if messages_saved_live else ""),
+        (row["id"],),
+    )
+    rows = [] if messages_saved_live else [(uid, "message", text) for uid, text in transcript.messages]
     rows += [(uid, "note", note) for uid, notes in transcript.notes.items() for note in notes]
     if rows:
         await conn.execute(

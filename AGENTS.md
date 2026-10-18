@@ -243,8 +243,10 @@ from stored rows; there is no stored progress or approval state. The older serve
   texted their line; without the keys it logs. Every send carries an idempotency key (`matched:{group}:{user}`,
   `plan-locked:{event}:{user}`), so re-runs never double-text.
 - `GET /pairs/{id}/messages` returns only `kind = 'message'` rows; agents' private `note` rows are never exposed.
-- Pairs have a `status`: the pipeline inserts `running` when a chat starts and sets `complete` (with the verdict
-  and transcript) when it's judged. Anything that reads judged pairs must filter `status = 'complete'`.
+- Pairs have a `status`: the pipeline inserts `running` when a chat starts, appends each public message to
+  `pair_messages` as it happens, then sets `complete` with the verdict and private notes when it's judged.
+  The admin overview multiplexes those messages over one SSE connection. Anything that reads judged pairs must
+  filter `status = 'complete'`.
   `universes.matching_stage` (keywords / scoring / chats / groups) is set during a run and cleared when it ends.
 - `universes.is_demo` marks seeded fixtures and synthetic universes; keep demo and real data apart in lists.
 - World snapshot (`server/app/routers/world.py`): the participant view must never carry keyword scores,

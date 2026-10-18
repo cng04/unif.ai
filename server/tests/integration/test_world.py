@@ -108,18 +108,28 @@ async def test_since_short_circuits_until_something_changes(test_db_conn, test_u
 async def test_chat_is_running_then_complete(test_db_conn, test_universe, world):
     conn = test_db_conn
     key = tuple(sorted([str(world["cyn"]), str(world["ari"])]))
-    await start_pair(conn, test_universe, key)
+    pair_id = await start_pair(conn, test_universe, key)
     live = await build_world(conn, test_universe)
     running = [p for p in live["pairs"] if p["status"] == "running"]
     assert len(running) == 1 and running[0]["vibe"] is None and running[0]["completed_at"] is None
 
     transcript = Transcript(messages=[(key[0], "hi"), (key[1], "hey")], notes={key[0]: ["private note"]}, end_reason="done")
+    await conn.execute(
+        "INSERT INTO pair_messages (pair_id, speaker_id, kind, content) "
+        "VALUES (%s, %s, 'message', 'hi'), (%s, %s, 'message', 'hey')",
+        (pair_id, key[0], pair_id, key[1]),
+    )
+    await conn.commit()
     verdict = Verdict(vibe_score=7.0, dealbreaker_conflicts=[], logistics_fit="workable", rationale="fine")
-    await save_pair(conn, test_universe, key, transcript, verdict)
+    await save_pair(conn, test_universe, key, transcript, verdict, messages_saved_live=True)
     done = await build_world(conn, test_universe)
     pair = next(p for p in done["pairs"] if {str(p["a"]), str(p["b"])} == set(key))
     assert pair["status"] == "complete" and pair["completed_at"] is not None and pair["vibe"] == 7.0
     assert "private note" not in str(done)
+    kinds = await (
+        await conn.execute("SELECT kind, count(*) AS n FROM pair_messages WHERE pair_id = %s GROUP BY kind", (pair_id,))
+    ).fetchall()
+    assert {row["kind"]: row["n"] for row in kinds} == {"message": 2, "note": 1}
 
 
 async def test_failed_chat_leaves_no_live_placeholder(test_db_conn, test_universe, world):

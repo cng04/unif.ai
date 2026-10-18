@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from unifai_agent.persona import PersonaAgent
@@ -16,7 +17,12 @@ class Transcript:
         return "\n".join(f"{names.get(uid, uid)}: {text}" for uid, text in self.messages)
 
 
-def run_conversation(a: PersonaAgent, b: PersonaAgent, max_turns: int = 6) -> Transcript:
+def run_conversation(
+    a: PersonaAgent,
+    b: PersonaAgent,
+    max_turns: int = 6,
+    on_message: Callable[[str, str], None] | None = None,
+) -> Transcript:
     agents = [a, b]
     transcript = Transcript()
     pair = f"{a.profile.public.name} x {b.profile.public.name}"
@@ -28,6 +34,8 @@ def run_conversation(a: PersonaAgent, b: PersonaAgent, max_turns: int = 6) -> Tr
         if result.message:
             log.info("[%s] %s: %s", pair, speaker.profile.public.name, result.message)
             transcript.messages.append((speaker.user_id, result.message))
+            if on_message is not None:
+                on_message(speaker.user_id, result.message)
             speaker.history.append({"role": "assistant", "content": result.message})
             listener.history.append({"role": "user", "content": result.message})
 
