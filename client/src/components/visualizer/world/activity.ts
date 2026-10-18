@@ -3,9 +3,10 @@
 // - Pipeline stage comes from the universe status and the stage the server records during a run.
 // - A chat is "live" only while the server has its pair as `running`; "completed" for a while after it's judged;
 //   "historical" after that. Completed chats can be re-enacted, always labelled as such.
-// - Each agent gets one intent: wait at the spawn plaza (not scored yet; thinking while busy with the
-//   interviewer), meet their partner for a live chat, sit with their group, sit on a square bench (unplaced
-//   once groups exist), or wander between their home structures.
+// - Each agent gets one intent: mill around the square while a run is still reading keywords and nobody
+//   is scored yet, wait at the spawn plaza (a newcomer who is not scored yet; thinking while the interview,
+//   keywords, or scoring is running), meet their partner for a live chat, sit with their group, sit on a
+//   square bench (unplaced once groups exist), or wander between their home structures.
 
 import { circleSeats, type Spot } from "./geometry";
 import { tileKey, type WorldPlan } from "./plan";
@@ -110,11 +111,16 @@ export function deriveActivity(snapshot: WorldSnapshot, selection: Selection, pl
     live.push(key);
   }
 
-  // Everyone else.
+  // Everyone else. A run that has not scored anyone yet used to freeze the whole cast at the spawn plaza
+  // until keyword extraction finished. They mill through the square (and any home they already have) instead.
+  const waitingOnKeywords = (stage === "keywords" || stage === "scoring") && snapshot.members.every((m) => !m.scored);
   const benches = plan.benches.filter(isFree);
   for (const m of snapshot.members) {
     if (intents[m.id]) continue;
-    if (!m.scored) intents[m.id] = { kind: "spawn", thinking: m.busy || stage === "scoring" };
+    if (!m.scored && waitingOnKeywords) {
+      const homes = selection.homes[m.id] ?? [];
+      intents[m.id] = { kind: "wander", zones: homes.length ? [...homes, "square"] : ["square"] };
+    } else if (!m.scored) intents[m.id] = { kind: "spawn", thinking: m.busy || stage === "keywords" || stage === "scoring" };
     else if (snapshot.groups.length && !grouped.has(m.id)) {
       const spot = benches.shift() ?? null;
       if (spot) claim(spot);

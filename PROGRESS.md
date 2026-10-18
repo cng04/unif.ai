@@ -204,6 +204,8 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-18: While matching is still reading keywords and nobody has a score yet, agents mill around the
+  square instead of standing still at the spawn plaza.
 - 2026-10-18: The admin world applies each public chat turn as it is saved, so a reply that lands in about a
   second shows on that sprite. The snapshot poll still places the pairs.
 - 2026-10-18: The admin agent world can start or abort matching. Sprites update from the same snapshot poll,

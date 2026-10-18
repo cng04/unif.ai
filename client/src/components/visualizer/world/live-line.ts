@@ -27,7 +27,11 @@ export function mergeLiveTurn(snapshot: WorldSnapshot, turn: LiveTurn): WorldSna
 
 /** Keep lines the stream already showed when a snapshot fetched earlier arrives late. */
 export function keepNewerLines(current: WorldSnapshot, next: WorldSnapshot): WorldSnapshot {
-  const shown = new Map(current.pairs.flatMap((p) => (p.id && p.line?.id != null ? [[p.id, p.line] as const] : [])));
+  const shown = new Map<string, { id: number; speaker_id: string; content: string }>();
+  for (const p of current.pairs) {
+    const id = p.line?.id;
+    if (p.id && p.line && id != null) shown.set(p.id, { id, speaker_id: p.line.speaker_id, content: p.line.content });
+  }
   let changed = false;
   const pairs = next.pairs.map((p) => {
     const live = p.id ? shown.get(p.id) : undefined;

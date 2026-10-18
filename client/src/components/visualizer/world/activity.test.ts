@@ -90,6 +90,21 @@ describe("a run in progress", () => {
     expect(others.every((i) => i.kind === "wander")).toBe(true);
   });
 
+  it("mills around the square while keywords are still being read", () => {
+    const waiting: WorldSnapshot = {
+      ...uiDemo,
+      universe: { ...uiDemo.universe, status: "matching", stage: "keywords" },
+      groups: [],
+      pairs: [],
+      keywords: [],
+      members: uiDemo.members.map((m) => ({ ...m, scored: false, top_keywords: [] })),
+    };
+    const s = build(waiting);
+    const intents = Object.values(deriveActivity(waiting, s.selection, s.plan, NOW).intents);
+    expect(intents.length).toBe(waiting.members.length);
+    expect(intents.every((i) => i.kind === "wander" && i.zones.includes("square"))).toBe(true);
+  });
+
   it("keeps unscored newcomers at the spawn plaza, thinking while scoring runs", () => {
     const scoring: WorldSnapshot = {
       ...running,
