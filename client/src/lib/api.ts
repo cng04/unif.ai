@@ -43,8 +43,23 @@ export type Group = {
   id: string;
   group_score: number | null;
   rationale: string | null;
+  /** The event search runs after matching: "pending" until it finishes, "none" if it found nothing. */
+  plans_status: "pending" | "ready" | "none";
+  plans_summary: string | null;
   members: Member[];
-  events: { name: string; url: string | null; venue: string | null; starts_at: string | null }[];
+  /** Up to 3 plans, best first. time_label is the venue's local time, e.g. "sat 25 · 10:00". */
+  events: Plan[];
+};
+
+export type Plan = {
+  name: string;
+  url: string | null;
+  venue: string | null;
+  starts_at: string | null;
+  time_label: string | null;
+  price: string | null;
+  reason: string | null;
+  source: string;
 };
 
 export type Connections = {

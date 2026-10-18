@@ -141,22 +141,44 @@ def seed(conn: psycopg.Connection) -> dict[str, str]:
         )
 
     # Group scores are the group judge's 1-10 integer. Everyone not listed here is a leftover (unplaced).
-    for members, score, rationale, event in [
-        (GROUP, 8, "Climbers who like a slow breakfast after.", ("Bouldering + breakfast", "Mission Cliffs")),
-        (OTHER_GROUPS[0], 7, "Board-game regulars; two planners keep it moving.", ("Board game night", "Victory Point Cafe")),
-        (OTHER_GROUPS[1], 9, "Early risers who'd rather hike than brunch.", None),
-        (OTHER_GROUPS[2], 6, "Live-music crowd; logistics are workable, not great.", ("Night market + live set", "SoMa StrEat Food Park")),
+    # Plans are (name, venue, price, reason, source), best first; a group with none shows "no plans".
+    for members, score, rationale, plans in [
+        (GROUP, 8, "Climbers who like a slow breakfast after.", [
+            ("Bouldering + breakfast", "Mission Cliffs", "$$", "Four of you climb, and everyone is free weekend mornings.", "meetup"),
+            ("Sunset walk, Bernal Hill", "Bernal Heights Park", "free", "An easy way for all of you to meet first.", "local guide"),
+            ("Taco crawl, 24th St", "24th St", "$$", "Three of you listed tacos.", "eventbrite"),
+        ]),
+        (OTHER_GROUPS[0], 7, "Board-game regulars; two planners keep it moving.", [
+            ("Board game night", "Victory Point Cafe", "$", "All of you play board games.", "meetup"),
+        ]),
+        (OTHER_GROUPS[1], 9, "Early risers who'd rather hike than brunch.", []),
+        (OTHER_GROUPS[2], 6, "Live-music crowd; logistics are workable, not great.", [
+            ("Night market + live set", "SoMa StrEat Food Park", "$$", "Most of you go to live shows.", "eventbrite"),
+        ]),
     ]:
         group = conn.execute(
-            "INSERT INTO groups (universe_id, group_score, rationale) VALUES (%s, %s, %s) RETURNING id",
-            (universe, score, rationale),
+            """
+            INSERT INTO groups (universe_id, group_score, rationale, plans_status, plans_summary)
+            VALUES (%s, %s, %s, %s, %s) RETURNING id
+            """,
+            (
+                universe, score, rationale, "ready" if plans else "none",
+                "Picked for when you're all free (weekend daytimes), at $$ or under." if plans else None,
+            ),
         ).fetchone()["id"]
         for name in members:
             conn.execute("INSERT INTO group_members (group_id, user_id) VALUES (%s, %s)", (group, ids[name]))
-        if event:
+        for rank, (name, venue, price, reason, source) in enumerate(plans, 1):
+            starts_at = now + timedelta(days=rng.randint(4, 12))
             conn.execute(
-                "INSERT INTO events (group_id, name, venue, starts_at) VALUES (%s, %s, %s, %s)",
-                (group, *event, now + timedelta(days=rng.randint(4, 12))),
+                """
+                INSERT INTO events (group_id, source, name, venue, starts_at, time_label, price, reason, rank)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    group, source, name, venue, starts_at,
+                    f"{starts_at:%a}".lower() + f" {starts_at.day} · {starts_at:%H:%M}", price, reason, rank,
+                ),
             )
     for role, text in INTERVIEW:
         conn.execute(

@@ -1,13 +1,14 @@
 from uuid import UUID
 
 import numpy as np
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from psycopg import AsyncConnection
 
 from app import repo
 from app.config import get_settings
 from app.db import get_conn
 from app.matching import runs
+from app.matching.plans import plan_group
 from app.matching.projection import project_3d
 from app.schemas import GraphPoint, Group, Pair
 
@@ -72,3 +73,15 @@ async def list_groups(universe_id: UUID, conn: AsyncConnection = Depends(get_con
         await conn.execute("SELECT * FROM groups WHERE universe_id = %s ORDER BY created_at", (universe_id,))
     ).fetchall()
     return [Group(**await repo.load_group(conn, g)) for g in groups]
+
+
+# Re-runs the event search for one group without re-matching or re-notifying. Admin-only once auth exists.
+@router.post("/groups/{group_id}/plans", status_code=202)
+async def refresh_plans(group_id: UUID, background: BackgroundTasks, conn: AsyncConnection = Depends(get_conn)):
+    row = await (await conn.execute("SELECT id FROM groups WHERE id = %s", (group_id,))).fetchone()
+    if not row:
+        raise HTTPException(404, "group not found")
+    await conn.execute("UPDATE groups SET plans_status = 'pending' WHERE id = %s", (group_id,))
+    await conn.commit()
+    background.add_task(plan_group, group_id, notify=False)
+    return {"status": "pending"}

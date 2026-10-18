@@ -1,18 +1,17 @@
 """Admin-triggered matching:
 keywords -> scores -> hard filter -> top-M ranking -> agent chats + judge -> CP-SAT groups -> group judge
--> events -> notifications."""
+-> matched; then, in the background, plans (events) and notifications per group."""
 
 import asyncio
 import logging
 import time
-from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID
 
 import numpy as np
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
-from unifai_agent import AgentProfile, GroupVerdict, Transcript, Verdict
+from unifai_agent import GroupVerdict, Transcript, Verdict
 
 from app import repo
 from app.config import get_settings
@@ -21,6 +20,7 @@ from app.deps import get_chat_llms, get_jevs, get_judges, get_llm
 from app.matching.groups import build_groups, review_group
 from app.matching.keywords import Keyword, extract_keywords
 from app.matching.pairing import simulate_pair
+from app.matching.plans import plan_groups
 from app.matching.scoring import (
     PersonSignals,
     Signals,
@@ -29,11 +29,12 @@ from app.matching.scoring import (
     score_person,
     to_signals,
 )
-from app.services import photon, ticketmaster
 
 log = logging.getLogger(__name__)
 
 PairKey = tuple[str, str]
+
+_plan_tasks: set[asyncio.Task] = set()
 
 
 def pair_key(a: str, b: str) -> PairKey:
@@ -53,6 +54,7 @@ async def run_matching(universe_id: UUID) -> None:
 
     log.info("Starting matching for universe %s", universe_id)
     pipeline_start = time.time()
+    group_ids: list[UUID] = []
 
     async with pool.connection() as conn:
         await repo.set_universe_status(conn, universe_id, "matching")
@@ -160,30 +162,20 @@ async def run_matching(universe_id: UUID) -> None:
                 return
             log.info("Formed %d groups (took %.2fs)", len(groups), time.time() - stage_start)
 
-            # Stage 8: Group review and events
+            # Stage 8: Group review
             stage_start = time.time()
             by_id = {p.user_id: p for p in profiles}
             reviewed = await asyncio.gather(
                 *(limited(review_group, judges[0], g, by_id, verdicts, settings.min_group_size) for g in groups)
             )
 
-            for members, group_verdict in reviewed:
-                group_profiles = [by_id[m] for m in members]
-                group_id = await save_group(conn, universe_id, members, group_verdict)
-                events = await ticketmaster.find_events(shared_interests(group_profiles))
-                await save_events(conn, group_id, events)
-                users = await (
-                    await conn.execute("SELECT full_name, phone FROM users WHERE id = ANY(%s::uuid[])", (members,))
-                ).fetchall()
-                try:
-                    await photon.notify_group(users, events)
-                except Exception:
-                    log.exception("notifying group %s failed", group_id)
-            log.info("Reviewed groups and found events (took %.2fs)", time.time() - stage_start)
+            saved = [await save_group(conn, universe_id, members, v) for members, v in reviewed]
+            log.info("Reviewed and saved %d groups (took %.2fs)", len(saved), time.time() - stage_start)
 
             await repo.set_universe_status(conn, universe_id, "matched")
             total_time = time.time() - pipeline_start
             log.info("Matching completed for universe %s in %.2fs", universe_id, total_time)
+            group_ids = saved
         except asyncio.CancelledError:
             log.warning("matching cancelled for universe %s", universe_id)
             raise
@@ -194,10 +186,13 @@ async def run_matching(universe_id: UUID) -> None:
         finally:
             executor.shutdown(wait=False, cancel_futures=True)
 
-
-def shared_interests(profiles: list[AgentProfile], top: int = 3) -> list[str]:
-    counts = Counter(i.lower() for p in profiles for i in p.public.interests)
-    return [interest for interest, _ in counts.most_common(top)]
+    # Stage 9: plans take minutes per group (web search), so they run after the universe shows as matched, outside
+    # the pipeline's connection, and as their own task: the matching run (which an admin can abort) ends here.
+    # Groups show "finding plans" until each one is done.
+    if group_ids:
+        task = asyncio.create_task(plan_groups(group_ids))
+        _plan_tasks.add(task)  # keep a reference so the task isn't garbage-collected mid-run
+        task.add_done_callback(_plan_tasks.discard)
 
 
 async def clear_results(conn: AsyncConnection, universe_id: UUID) -> None:
@@ -279,12 +274,3 @@ async def save_group(conn: AsyncConnection, universe_id: UUID, members: list[str
         )
     await conn.commit()
     return row["id"]
-
-
-async def save_events(conn: AsyncConnection, group_id: UUID, events: list[ticketmaster.Event]) -> None:
-    async with conn.cursor() as cur:
-        await cur.executemany(
-            "INSERT INTO events (group_id, external_id, name, url, venue, starts_at) VALUES (%s, %s, %s, %s, %s, %s)",
-            [(group_id, e.external_id, e.name, e.url, e.venue, e.starts_at) for e in events],
-        )
-    await conn.commit()

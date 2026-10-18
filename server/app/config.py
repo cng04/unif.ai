@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     openrouter_rpm: int = 0  # per-model requests per minute; 0 = unlimited (new OpenRouter accounts get 20)
     openrouter_jev_reasoning: str = "low"  # reasoning effort for the Jev stand-in (scoring and pair judge)
     ticketmaster_api_key: str = ""
-    # Links are always stored; they're only scraped when this is on (costs Browser Use credit).
+    # Links are always stored; they're only scraped when this is on (costs Browser Use credit). It also turns on
+    # the Browser Use event search for group plans; without it, plans come from Ticketmaster only.
     scrape_enabled: bool = False
     browser_use_api_key: str = ""
     # Cheap, fast model and a hard per-link spend cap; login-walled sites are skipped.
@@ -30,6 +31,12 @@ class Settings(BaseSettings):
     scrape_max_cost_usd: float = 0.05
     scrape_timeout_s: float = 180
     scrape_skip_platforms: str = "instagram,tiktok,facebook"
+    # Group plans: one Browser Use search per group over the next plans_days_ahead days.
+    plans_max_cost_usd: float = 0.30
+    plans_timeout_s: float = 300
+    plans_days_ahead: int = 14
+    plans_candidates: int = 6
+    plans_concurrency: int = 4
     photon_api_key: str = ""
     photon_project_id: str = ""
     # Shared-line seats on your Photon plan (Free: 10, Pro: 100). At the limit, joins go to ASI:One.
