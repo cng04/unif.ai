@@ -265,9 +265,12 @@ export class WorldEngine {
     const room = ROOM_BY_ID[brain.home];
     const inRoom = sprite.floor === room.floor && sprite.gx >= room.x0 && sprite.gx <= room.x1;
     const roll = this.random();
-    const unscored = !this.data!.agents.find((a) => a.id === sprite.id)?.scored;
-    const thinkChance = unscored && this.data!.universe.status === "matching" ? 0.45 : 0.2;
-    if (inRoom && sprite.arrived && thinkingAllowed && roll < thinkChance) {
+    const agent = this.data!.agents.find((a) => a.id === sprite.id);
+    // Waiting on a model: still in the interviewer chat, or not scored yet while matching runs.
+    const busyModel =
+      agent?.onboarding === "chatting" || (!agent?.scored && this.data!.universe.status === "matching");
+    const thinkChance = busyModel ? 0.5 : 0.2;
+    if (inRoom && sprite.arrived && (thinkingAllowed || busyModel) && roll < thinkChance) {
       sprite.setState("THINKING");
       brain.nextAt = this.simT + 2.5 + this.random() * 2.5;
       return;

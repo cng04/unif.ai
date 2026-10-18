@@ -8,6 +8,11 @@ import { newSession, saveProfile, type Session } from "./store.ts";
 export type Say = (...bubbles: string[]) => Promise<void>;
 
 const SCRAPE_ENABLED = /^(1|true|yes)$/i.test(process.env.SCRAPE_ENABLED ?? "");
+// The web app (client/), where people watch their connections form. Unset: no link is sent.
+const APP_URL = process.env.APP_URL?.replace(/\/+$/, "");
+
+/** The member's personal page in the web app, once they have a server-side user. */
+const appLink = (s: Session) => (APP_URL && s.userId ? `${APP_URL}/u/${s.userId}` : undefined);
 
 const YES = /^\s*(y|yes|yep|yeah|yup|looks good|lgtm|good|perfect|correct|confirm(ed)?|that'?s right|all good|👍)\W*$/i;
 const NONE = /^\s*(none|no|nope|nah|nothing|n\/a)\W*$/i;
@@ -142,7 +147,7 @@ export async function handle(s: Session, text: string, say: Say): Promise<Sessio
           });
         }
         s.stage = "done";
-        await say(...copy.DONE(s.pool?.name));
+        await say(...copy.DONE(s.pool?.name, appLink(s)));
         return s;
       }
       // Anything else is an edit to the dealbreaker list.
@@ -156,7 +161,7 @@ export async function handle(s: Session, text: string, say: Say): Promise<Sessio
     }
 
     case "done":
-      await say(copy.ALREADY_DONE);
+      await say(copy.ALREADY_DONE(appLink(s)));
       return s;
   }
 }

@@ -36,6 +36,17 @@ def test_tool_calls_are_parsed_and_declarations_converted_to_json_schema():
     send = next(t["function"] for t in body["tools"] if t["function"]["name"] == "send_message")
     assert send["parameters"]["type"] == "object"
     assert send["parameters"]["properties"]["text"]["type"] == "string"
+    assert "tool_choice" not in body
+
+
+def test_require_tool_forces_a_tool_call():
+    llm, requests = llm_returning(
+        {"tool_calls": [{"function": {"name": "send_message", "arguments": json.dumps({"text": "hi"})}}]}
+    )
+
+    llm.generate("sys", [{"role": "user", "content": "hello"}], tools=TOOL_DECLARATIONS, require_tool=True)
+
+    assert requests[0]["tool_choice"] == "required"
 
 
 def test_response_model_requests_json_schema_and_returns_text():

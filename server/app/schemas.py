@@ -125,6 +125,35 @@ class Connections(BaseModel):
     edges: list[Edge]
 
 
+class UserGraphNode(BaseModel):
+    """A person in the 3D view. Only you, your group, and your judged matches are named (pool: name is None)."""
+
+    user_id: UUID
+    name: str | None
+    kind: Literal["me", "group", "match", "pool"]
+    pair_id: UUID | None = None  # your pair with them, if your agents met
+    vibe_score: float | None = None
+    conflict: bool = False
+    x: float
+    y: float
+    z: float
+
+
+class UserGraphLink(BaseModel):
+    """A judged pair. Scores are only exposed on your own pairs, via the node."""
+
+    a: UUID
+    b: UUID
+    mine: bool
+
+
+class UserGraph(BaseModel):
+    keywords: list[str]  # names only, for the axis picker
+    axes: list[str] | None  # None = PCA of all keyword scores
+    nodes: list[UserGraphNode]
+    links: list[UserGraphLink]
+
+
 class PairMessage(BaseModel):
     speaker_id: UUID
     content: str

@@ -22,6 +22,7 @@ KEYWORDS = ["climbing", "long breakfasts", "board games", "live music", "hiking"
 NAMES = ["Cyn", "Maya", "Jonah", "Priya", "Theo", "Sam", "Lena", "Ari", "Noor", "Felix", "Ines", "Kai",
          "Rosa", "Dev", "June", "Omar", "Wren", "Hugo", "Tess", "Ezra", "Lila", "Bo", "Mina", "Abe"]
 GROUP = ["Cyn", "Maya", "Jonah", "Priya", "Theo"]
+OTHER_GROUPS = [["Noor", "Felix", "Ines", "Kai", "Rosa"], ["Dev", "June", "Omar", "Wren", "Hugo"], ["Tess", "Ezra", "Lila", "Bo"]]
 # Cyn's judged pairs: (other, vibe 1-10, logistics, dealbreaker flags)
 CYN_PAIRS = [("Maya", 9.1, "strong", []), ("Jonah", 8.6, "strong", []), ("Priya", 8.2, "strong", []),
              ("Theo", 7.9, "workable", []), ("Sam", 6.4, "strong", []), ("Lena", 5.8, "workable", []),
@@ -117,6 +118,11 @@ def seed(conn: psycopg.Connection) -> dict[str, str]:
     pair_ids = {other: pair("Cyn", other, vibe, fit, flags)["id"] for other, vibe, fit, flags in CYN_PAIRS}
     for a, b in [("Maya", "Jonah"), ("Jonah", "Theo"), ("Theo", "Priya"), ("Priya", "Maya"), ("Maya", "Theo")]:
         pair(a, b, round(7 + rng.random() * 2, 1), "strong", [])
+    for members in OTHER_GROUPS:
+        for i, a in enumerate(members):
+            for b in members[i + 1 :]:
+                if rng.random() < 0.7:
+                    pair(a, b, round(6 + rng.random() * 4, 1), rng.choice(["strong", "workable"]), [])
     rest = NAMES[5:]
     for _ in range(30):  # background pairs among everyone else
         a, b = rng.sample(rest, 2)
@@ -134,16 +140,24 @@ def seed(conn: psycopg.Connection) -> dict[str, str]:
             (pair_ids[other], ids["Cyn"]),
         )
 
-    group = conn.execute(
-        "INSERT INTO groups (universe_id, group_score, rationale) VALUES (%s, 0.84, 'Climbers who like a slow breakfast after.') RETURNING id",
-        (universe,),
-    ).fetchone()["id"]
-    for name in GROUP:
-        conn.execute("INSERT INTO group_members (group_id, user_id) VALUES (%s, %s)", (group, ids[name]))
-    conn.execute(
-        "INSERT INTO events (group_id, name, venue, starts_at) VALUES (%s, 'Bouldering + breakfast', 'Mission Cliffs', %s)",
-        (group, now + timedelta(days=8)),
-    )
+    # Group scores are the group judge's 1-10 integer. Everyone not listed here is a leftover (unplaced).
+    for members, score, rationale, event in [
+        (GROUP, 8, "Climbers who like a slow breakfast after.", ("Bouldering + breakfast", "Mission Cliffs")),
+        (OTHER_GROUPS[0], 7, "Board-game regulars; two planners keep it moving.", ("Board game night", "Victory Point Cafe")),
+        (OTHER_GROUPS[1], 9, "Early risers who'd rather hike than brunch.", None),
+        (OTHER_GROUPS[2], 6, "Live-music crowd; logistics are workable, not great.", ("Night market + live set", "SoMa StrEat Food Park")),
+    ]:
+        group = conn.execute(
+            "INSERT INTO groups (universe_id, group_score, rationale) VALUES (%s, %s, %s) RETURNING id",
+            (universe, score, rationale),
+        ).fetchone()["id"]
+        for name in members:
+            conn.execute("INSERT INTO group_members (group_id, user_id) VALUES (%s, %s)", (group, ids[name]))
+        if event:
+            conn.execute(
+                "INSERT INTO events (group_id, name, venue, starts_at) VALUES (%s, %s, %s, %s)",
+                (group, *event, now + timedelta(days=rng.randint(4, 12))),
+            )
     for role, text in INTERVIEW:
         conn.execute(
             "INSERT INTO onboarding_messages (user_id, role, content) VALUES (%s, %s, %s)", (ids["Cyn"], role, text)

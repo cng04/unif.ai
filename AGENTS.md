@@ -121,7 +121,8 @@ synthetic benchmark with 5 judged edges per person, the edge weight kept inside 
 people, 27% at 100, and 3% at 200 (about what random grouping keeps). Everyone was still placed in a
 valid group. A greedy warm start is the planned fix.
 
-`projection.py` reduces the k-dim keyword scores to 3D for the playground view (`GET /universes/{id}/graph`).
+`projection.py` reduces the k-dim keyword scores to 3D (PCA) for `GET /universes/{id}/graph` and the web app's 3D view
+(`GET /users/{id}/graph`).
 
 ### Why two people matched
 
@@ -150,9 +151,28 @@ Pages are server components that call the API through `src/lib/api.ts` (`API_URL
 `http://localhost:8000`), so the browser never talks to FastAPI directly. Design tokens mirror the Paper
 file and live in `src/app/globals.css`. There is no auth yet: the user id in the URL is the only identity.
 
-The app reads `GET /users/{id}/connections` and `GET /users/{id}/pairs/{pair_id}` (`server/app/routers/me.py`).
+The connections tab defaults to 3D, with a `2d · 3d` toggle (`?view=2d` for the ego graph). Tapping a match opens
+the agent conversation in a drawer (`?pair={pair_id}`, `components/pair-drawer.tsx`) instead of navigating. The 3D view (`components/connections-graph-3d.tsx`, three.js
+via react-three-fiber, loaded lazily) places the whole universe by keyword scores, either PCA or three keywords picked as
+axes (`?axes=a,b,c`).
+
+The app reads `GET /users/{id}/connections`, `GET /users/{id}/graph`, and `GET /users/{id}/pairs/{pair_id}`
+(`server/app/routers/me.py`).
 They name only the user's own pairs and group members, return everyone else as anonymous ids, and never
 return judge rationales, dealbreaker flags, or private profile fields.
+
+The onboarding bot sends that link once dealbreakers are confirmed (`onboarding/src/flow.ts`, `APP_URL` in
+`onboarding/.env`; unset means no link is sent).
+
+**Admin** (`/admin`): universes list, universe overview (pipeline strip, members, keywords, run matching),
+groups, and the agent world (`/world`: PixiJS pixel-art building, `src/components/visualizer/`), under
+`/admin/universes/{id}`. The world reads the public endpoints plus `/admin/api` and passes only public profile
+fields to the browser. It reads
+`/admin/api/*` (`server/app/routers/admin_api.py`). Both the `/admin` pages (`src/proxy.ts`) and the API ask for
+HTTP basic auth with `ADMIN_PASSWORD` when it's set; the client forwards its own `ADMIN_PASSWORD` to the API, so
+set the same value in both. Pipeline stages, group labels (`g-01`...), weakest ties and leftovers are all derived
+from stored rows; there is no stored progress or approval state. The older server-rendered admin
+(`server/app/routers/web.py`) still works, since the Docker stack doesn't deploy the client yet.
 
 ## Conventions
 
@@ -164,7 +184,9 @@ return judge rationales, dealbreaker flags, or private profile fields.
   `typesafe-sdk` client, model `jev_model`, default `jev-latest`). Tests use fakes of both.
   **OpenRouter mode:** if `OPENROUTER_API_KEY` is set, `server/app/deps.py` uses `OpenRouterLLM` for text and
   `OpenRouterJev` for the typed questions (model `openrouter_model`), replacing both Gemini and TypeSafe. One key
-  is enough to run the whole pipeline.
+  is enough to run the whole pipeline. OpenRouter caps each model at about 20 requests per minute, so persona chats
+  (`openrouter_chat_model`) and scoring plus the pair judge (`openrouter_jev_model`) take comma-separated model lists
+  and rotate pairs across them; `openrouter_rpm` paces each model under the cap.
 - Jev works best with literal, single-judgment questions and a state that holds only what the question
   needs. Keep math, counting, and date comparisons in code. See the TypeSafe "jaggedness" docs.
 - Tuning knobs (`keyword_count`, `top_m`, turns, group sizes, `group_solver_seconds`) live in

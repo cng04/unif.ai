@@ -14,9 +14,11 @@ class Settings(BaseSettings):
     jev_model: str = "jev-latest"
     openrouter_api_key: str = ""  # when set, OpenRouter replaces both Gemini and TypeSafe's Jev
     openrouter_model: str = "google/gemini-3.8-flash"
-    # Persona chats only, the bulk of the tokens. OpenRouter rate limits are per model, so a different model here
-    # also gets its own requests-per-minute budget.
+    # Persona chats only, the bulk of the tokens. Comma-separate several models to rotate pairs across them:
+    # OpenRouter rate limits are per model, so each one adds its own requests-per-minute budget.
     openrouter_chat_model: str = "google/gemini-3.8-flash"
+    # Jev stand-in for scoring and the pair judge, comma-separated to rotate the same way. Empty = openrouter_model.
+    openrouter_jev_model: str = ""
     openrouter_rpm: int = 0  # per-model requests per minute; 0 = unlimited (new OpenRouter accounts get 20)
     openrouter_jev_reasoning: str = "low"  # reasoning effort for the Jev stand-in (scoring and pair judge)
     ticketmaster_api_key: str = ""
@@ -33,12 +35,15 @@ class Settings(BaseSettings):
     # Shared-line seats on your Photon plan (Free: 10, Pro: 100). At the limit, joins go to ASI:One.
     photon_seat_limit: int = 10
     # ASI:One onboarding agent: its chat page and @handle, shown on the join page.
-    asi_agent_url: str = ""
+    asi_agent_url: str = "https://agentverse.ai/agents/details/agent1q2m667tk62j0fttv52areu03q3slpeqphuapztr0gm5c7dmlj3jhq3k5k4m/profile"
     asi_agent_handle: str = "@unifyai-onboarding"
     admin_password: str = ""
     client_url: str = "http://localhost:3001"
     # Where /join/<code> is served (this server), used to build invite links.
     public_url: str = "http://localhost:8000"
+    # Redirect /join/<code> to the web app's join page (CLIENT_URL/join/<code>) instead of rendering HTML here.
+    # Needs the client deployed publicly; off by default because the Docker stack doesn't run it.
+    join_on_client: bool = False
 
     keyword_count: int = 20
     top_m: int = 5
@@ -80,8 +85,8 @@ class Settings(BaseSettings):
     def validate_max_concurrent_conversations(cls, v: int) -> int:
         if v < 1:
             raise ValueError("max_concurrent_conversations must be at least 1")
-        if v > 32:
-            raise ValueError("max_concurrent_conversations must be at most 32")
+        if v > 256:
+            raise ValueError("max_concurrent_conversations must be at most 256")
         return v
 
     @field_validator("min_group_size")

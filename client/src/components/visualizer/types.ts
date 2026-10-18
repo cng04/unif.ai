@@ -6,6 +6,8 @@ export type UniverseStatus = "onboarding" | "matching" | "matched";
 export type WorldAgent = {
   id: string;
   name: string;
+  /** Where they are in onboarding; "chatting" agents are still talking to the interviewer. */
+  onboarding: "invited" | "chatting" | "complete";
   interests: string[];
   vibe: string | null;
   lookingFor: string | null;
@@ -27,6 +29,8 @@ export type WorldPair = {
 
 export type WorldGroup = {
   id: string;
+  /** The admin's group name ("g-01"), same as the groups page. */
+  label: string;
   score: number | null;
   rationale: string | null;
   memberIds: string[];

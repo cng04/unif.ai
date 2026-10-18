@@ -31,6 +31,7 @@ class LLM(Protocol):
         tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         response_model: type[BaseModel] | None = None,
+        require_tool: bool = False,
     ) -> LLMResponse: ...
 
     def embed(self, texts: list[str]) -> list[list[float]]: ...
@@ -65,6 +66,7 @@ class GeminiLLM:
         tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         response_model: type[BaseModel] | None = None,
+        require_tool: bool = False,
     ) -> LLMResponse:
         from google.genai import types
 
@@ -80,6 +82,9 @@ class GeminiLLM:
             temperature=temperature,
             tools=[types.Tool(function_declarations=[types.FunctionDeclaration(**t) for t in tools])]
             if tools
+            else None,
+            tool_config=types.ToolConfig(function_calling_config=types.FunctionCallingConfig(mode="ANY"))
+            if tools and require_tool
             else None,
             response_mime_type="application/json" if response_model else None,
             response_schema=response_model,
@@ -133,6 +138,7 @@ class OpenRouterLLM:
         tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7,
         response_model: type[BaseModel] | None = None,
+        require_tool: bool = False,
     ) -> LLMResponse:
         body: dict[str, Any] = {
             "model": self.model,
@@ -153,6 +159,8 @@ class OpenRouterLLM:
                 }
                 for t in tools
             ]
+            if require_tool:
+                body["tool_choice"] = "required"
         if response_model:
             body["response_format"] = {
                 "type": "json_schema",

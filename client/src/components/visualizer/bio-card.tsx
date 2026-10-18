@@ -13,6 +13,12 @@ const STATE_COPY: Record<AgentInfo["state"], string> = {
   ACTIVITY: "busy",
 };
 
+const ONBOARDING_COPY: Record<WorldAgent["onboarding"], string> = {
+  invited: "joined, not started",
+  chatting: "onboarding with interviewer",
+  complete: "onboarded",
+};
+
 export function BioCard({
   agent,
   info,
@@ -36,8 +42,7 @@ export function BioCard({
   const pairs = data.pairs
     .filter((p) => p.a === agent.id || p.b === agent.id)
     .sort((a, b) => (b.vibe ?? 0) - (a.vibe ?? 0));
-  const groupIndex = data.groups.findIndex((g) => g.memberIds.includes(agent.id));
-  const group = groupIndex >= 0 ? data.groups[groupIndex] : null;
+  const group = data.groups.find((g) => g.memberIds.includes(agent.id)) ?? null;
   // Judge output from this agent's chats (already returned by /pairs), not the private profile.
   const flags = [...new Set(pairs.flatMap((p) => p.dealbreakerFlags))];
 
@@ -51,6 +56,12 @@ export function BioCard({
           <h2 className="text-[17px] font-light tracking-label lowercase">{agent.name}</h2>
           <p className="micro text-ink-muted uppercase">
             {info ? `${STATE_COPY[info.state]} · ${info.room} · ${info.floor}` : "…"}
+          </p>
+          <p className="micro text-ink-faint uppercase">
+            {ONBOARDING_COPY[agent.onboarding]} ·{" "}
+            <a href={`/u/${agent.id}`} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+              their page ↗
+            </a>
           </p>
         </div>
         <div className="flex gap-1">
@@ -118,7 +129,7 @@ export function BioCard({
         {group ? (
           <div className="flex flex-col gap-1 text-[12px]">
             <p>
-              group {groupIndex + 1} of {data.groups.length} · score {formatScore(group.score)} · {group.memberIds.length} people
+              {group.label} · {group.score == null ? "unscored" : `${Math.round(group.score)}/10`} · {group.memberIds.length} people
             </p>
             <p className="text-ink-muted">
               with{" "}

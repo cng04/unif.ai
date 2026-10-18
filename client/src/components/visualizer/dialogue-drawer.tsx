@@ -1,6 +1,6 @@
 "use client";
 
-import { Bubble, SpeakerLabel } from "@/components/ui";
+import { Bubble, formatScore, SpeakerLabel } from "@/components/ui";
 import type { WorldAgent, WorldPair } from "./types";
 import type { MessageState } from "./WorldCanvas";
 
@@ -50,7 +50,7 @@ export function DialogueDrawer({
             </span>
           )}
           <span className="micro rounded-full border border-line px-2 py-0.5 uppercase">
-            vibe {pair.vibe == null ? "—" : `${pair.vibe.toFixed(1)}/10`}
+            match {formatScore(pair.vibe)}
           </span>
           {pair.logistics && <span className="micro rounded-full border border-line px-2 py-0.5 uppercase">logistics {pair.logistics}</span>}
           {pair.dealbreakerFlags.map((f) => (

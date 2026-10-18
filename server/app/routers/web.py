@@ -3,6 +3,7 @@
 import json
 import re
 import secrets
+from dataclasses import dataclass
 from datetime import datetime
 from html import escape
 from urllib.parse import parse_qs, quote
@@ -292,6 +293,10 @@ async def universe_for_code(conn: AsyncConnection, code: str) -> dict:
 
 @public.get("/join/{code}", response_class=HTMLResponse)
 async def join_page(code: str, conn: AsyncConnection = Depends(get_conn)):
+    settings = get_settings()
+    if settings.join_on_client:
+        # Invite links and printed QR codes point here; the web app now renders the page.
+        return RedirectResponse(f"{settings.client_url}/join/{quote(code)}", status_code=307)
     universe = await universe_for_code(conn, code)
     if universe["status"] != "onboarding":
         return page("Closed", '<main class="narrow"><h1>This group is closed</h1><p class="muted">It\'s no longer taking new members.</p></main>', 410)
@@ -299,27 +304,36 @@ async def join_page(code: str, conn: AsyncConnection = Depends(get_conn)):
     return join_form(universe, imessage=await photon.imessage_open())
 
 
-@public.post("/join/{code}", response_class=HTMLResponse)
-async def join_submit(code: str, request: Request, conn: AsyncConnection = Depends(get_conn)):
-    universe = await universe_for_code(conn, code)
-    if universe["status"] != "onboarding":
-        return page("Closed", '<main class="narrow"><h1>This group is closed</h1></main>', 410)
+@dataclass
+class JoinOutcome:
+    """Result of a join attempt, shared by the HTML page and the JSON API (routers/invites.py)."""
 
-    form = await form_data(request)
-    name, raw_phone = form.get("name", "")[:120], form.get("phone", "")
+    error: str | None = None  # bad input: show the form again with this message
+    imessage_full: bool = False  # no iMessage seat: send them to ASI:One instead
+    user: dict | None = None
+    phone: str | None = None
+    line: str | None = None  # the shared iMessage number to text; None if Photon couldn't assign one
+
+
+IMESSAGE_FULL = "iMessage spots for this group are full, so please join on ASI:One instead."
+
+
+async def join_pool(conn: AsyncConnection, universe: dict, name: str, raw_phone: str, consent: bool) -> JoinOutcome:
+    """Validate a signup, create (or resume) the member, and assign them an iMessage line."""
+    name = name.strip()[:120]
     if not name:
-        return join_form(universe, "Please enter your name.", name, raw_phone, 400)
-    if form.get("consent") != "yes":
-        return join_form(universe, "Please agree to receive messages so the agent can reach you.", name, raw_phone, 400)
+        return JoinOutcome(error="Please enter your name.")
+    if not consent:
+        return JoinOutcome(error="Please agree to receive messages so the agent can reach you.")
     phone = normalize_phone(raw_phone)
     if phone is None:
-        return join_form(universe, "That phone number doesn't look right. Include your country code, e.g. +44…", name, raw_phone, 400)
+        return JoinOutcome(error="That phone number doesn't look right. Include your country code, e.g. +44…")
 
     # Same number in the same universe resumes the existing member instead of creating another.
     user = await repo.find_user_by_phone(conn, universe["id"], phone)
     created = user is None
     if created and not await photon.imessage_open():
-        return join_form(universe, imessage=False, note="iMessage spots for this group are full, so please join on ASI:One instead.")
+        return JoinOutcome(imessage_full=True)
     if created:
         user = await repo.create_user(conn, universe["id"], name, phone=phone)
     await conn.commit()
@@ -331,7 +345,28 @@ async def join_submit(code: str, request: Request, conn: AsyncConnection = Depen
         if created:
             await conn.execute("DELETE FROM users WHERE id = %s", (user["id"],))
             await conn.commit()
-        return join_form(universe, imessage=False, note="iMessage spots for this group are full, so please join on ASI:One instead.")
+        return JoinOutcome(imessage_full=True)
+    return JoinOutcome(user=user, phone=phone, line=line)
+
+
+def sms_link(line: str) -> str:
+    return f"sms:{line}&body={quote('hi')}"
+
+
+@public.post("/join/{code}", response_class=HTMLResponse)
+async def join_submit(code: str, request: Request, conn: AsyncConnection = Depends(get_conn)):
+    universe = await universe_for_code(conn, code)
+    if universe["status"] != "onboarding":
+        return page("Closed", '<main class="narrow"><h1>This group is closed</h1></main>', 410)
+
+    form = await form_data(request)
+    name, raw_phone = form.get("name", ""), form.get("phone", "")
+    outcome = await join_pool(conn, universe, name, raw_phone, form.get("consent") == "yes")
+    if outcome.error:
+        return join_form(universe, outcome.error, name[:120], raw_phone, 400)
+    if outcome.imessage_full:
+        return join_form(universe, imessage=False, note=IMESSAGE_FULL)
+    user, phone, line = outcome.user, outcome.phone, outcome.line
     if line is None:
         return page(
             "You're in",
@@ -339,7 +374,7 @@ async def join_submit(code: str, request: Request, conn: AsyncConnection = Depen
               <p class="muted">We couldn't set up your iMessage chat just now. We'll text you at
               {escape(phone)} soon. If you're not on iMessage, reply to this invite's sender and we'll sort it out.</p></main>""",
         )
-    sms = f"sms:{line}&body={quote('hi')}"
+    sms = sms_link(line)
     return page(
         "Text us to start",
         f"""<main class="narrow">

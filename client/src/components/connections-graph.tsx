@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Connections } from "@/lib/api";
 import { formatScore } from "./ui";
+import { useOpenPair } from "./use-open-pair";
 
 // Ego layout in real pixels: you in the middle, your group on an inner ring, other judged matches on an
 // outer ellipse, and everyone else in the universe as anonymous pool nodes scattered around the edges.
@@ -79,7 +79,7 @@ export function ConnectionsGraph({ data }: { data: Connections }) {
 
 function Graph({ data, layout }: { data: Connections; layout: Layout }) {
   const { W, H, C } = layout;
-  const router = useRouter();
+  const pairs = useOpenPair();
   const me = data.user.user_id;
   const byUser = new Map(data.connections.map((c) => [c.user_id, c]));
   const groupIds = (data.group?.members ?? []).map((m) => m.user_id).filter((id) => id !== me);
@@ -95,18 +95,20 @@ function Graph({ data, layout }: { data: Connections; layout: Layout }) {
   const inGroup = new Set(groupIds);
   const [hovered, setHovered] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
-  const active = opening ?? hovered;
-  const href = (pairId: string) => `/u/${me}/pairs/${pairId}`;
-  // Light the edge first so a tap visibly "lands", then open the conversation.
+  // The open conversation (drawer, `?pair=`) stays lit.
+  const active = opening ?? hovered ?? pairs.current;
+  // Light the edge first so a tap visibly "lands", then open the conversation in the drawer.
   const open = (pairId: string) => {
     if (opening) return;
     setOpening(pairId);
-    router.prefetch(href(pairId));
-    setTimeout(() => router.push(href(pairId)), 220);
+    setTimeout(() => {
+      pairs.open(pairId);
+      setOpening(null);
+    }, 220);
   };
   const hover = (pairId: string | null) => {
     setHovered(pairId);
-    if (pairId) router.prefetch(href(pairId));
+    if (pairId) pairs.prefetch(pairId);
   };
   const handlers = (pairId: string) => ({
     onPointerEnter: () => hover(pairId),

@@ -41,14 +41,12 @@ def test_agents_alternate_and_keep_notes_private():
     assert b.history == [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hey, I climb too"}]
 
 
-def test_lookup_tool_result_is_fed_back_before_speaking():
-    llm = ScriptedLLM([
-        LLMResponse(tool_calls=[ToolCall("lookup_profile", {"field": "name"})]),
-        say("I'm Cynthia"),
-    ])
+def test_plain_text_reply_is_nudged_back_to_send_message():
+    llm = ScriptedLLM([LLMResponse(text="thinking out loud"), say("I'm Cynthia")])
     agent = PersonaAgent(profile("a", "Cynthia"), llm)
 
     result = agent.respond()
 
     assert result.message == "I'm Cynthia"
     assert not result.ended
+    assert agent.history == []

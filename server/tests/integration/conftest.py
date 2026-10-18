@@ -56,6 +56,7 @@ def mock_llm():
             tools=None,
             temperature=0.7,
             response_model=None,
+            require_tool=False,
         ) -> LLMResponse:
             # Return a simple response for testing
             if response_model:

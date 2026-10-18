@@ -29,7 +29,7 @@ partitions people into groups.
 | Group formation                              | Implemented (CP-SAT). Quality drops past about 100 people.             |
 | Real-world events                            | Partial: Ticketmaster lookup works if a key is set; no city filter.    |
 | Notifications                                | Partial: Photon assigns iMessage lines at join; match messages only log. |
-| Web client                                   | Per-user mobile pages (agent, connections, you, pair detail), plus the organizer agent world `/world/{universeId}` (2.5D pixel art). |
+| Web client                                   | Per-user mobile pages (agent, connections, you, pair detail), plus admin pages under `/admin` (universes, overview, groups, and the 2.5D agent world). |
 | Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`). Everything else not started. |
 
 ## System architecture
@@ -56,10 +56,10 @@ flowchart LR
 ```
 
 - **Frontend (`client/`)** talks only to the server, never the database. It has per-user mobile pages under
-  `/u/[userId]` (agent, connections, you, pair detail) and no login. `/world/[universeId]` is the organizer
+  `/u/[userId]` (agent, connections, you, pair detail) and no login. `/admin/universes/[universeId]/world` is the organizer
   view: a PixiJS building of three floors where agents walk (A*) to rooms matching their public interests, pair
   up to talk, and sit with their CP-SAT group (`client/src/components/visualizer/`). It shows judge rationales
-  for every pair, so `client/src/proxy.ts` puts it behind `ADMIN_PASSWORD` basic auth.
+  for every pair, so it lives under `/admin`, which `client/src/proxy.ts` puts behind `ADMIN_PASSWORD` basic auth.
 - **Onboarding bot (`onboarding/`)** is a TypeScript chat version of onboarding. It runs over iMessage (Photon)
   and a local HTTP channel used by the ASI:One relay (`asi-agent/`, see `asi-agent/SETUP.md`), and writes
   profiles straight to Postgres.
@@ -80,7 +80,7 @@ flowchart LR
 | Agent world | pixi.js 8, @pixi/react 8, pixi-filters 6, pathfinding (A*)                                       | WebGL sprite world, glow outline, grid routing   |
 | Onboarding bot | Node, TypeScript, tsx, `@anthropic-ai/sdk`, `@photon-ai/api`, pg, socket.io-client, zod      | Chat onboarding over iMessage / HTTP             |
 | ASI agent  | Python 3.11+, uagents, httpx                                                                      | ASI:One relay to the onboarding bot              |
-| Server     | Python 3.11-3.14, FastAPI, uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
+| Server     | Python 3.11-3.14, FastAPI (`standard` extra for CLI startup), uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
 | Agent lib  | google-genai, pydantic, httpx, typesafe-sdk                                                       | Gemini calls, schemas, Jev client, OpenRouter    |
 | Models     | Gemini (`gemini-3.8-flash` by default), Jev (`jev-latest`), or OpenRouter (`google/gemini-3.8-flash`) | Text generation; typed scoring and judging       |
 | Database   | Postgres 17 with pgvector and pgcrypto; local image `timescale/timescaledb-ha:pg17`               | Storage. No TimescaleDB-specific features used. |
@@ -96,14 +96,15 @@ unif.ai/
 ├── RUNNING.md                          step-by-step local setup
 ├── excalidraw_mockup_1.excalidraw      original architecture diagram (product intent, not a spec)
 ├── docker-compose.yml, run.sh          full stack (db, server, bot, ASI agent, tunnel); deploy/ has the Dockerfiles
-├── client/                             Next.js app (per-user pages, /world agent world). Has its own AGENTS.md; read it first.
+├── client/                             Next.js app (per-user pages, /admin incl. agent world). Has its own AGENTS.md; read it first.
 ├── onboarding/                         TypeScript chat onboarding bot (iMessage via Photon, HTTP channel)
 ├── asi-agent/                          Python uAgent relay for onboarding from ASI:One (see SETUP.md)
 ├── db/
 │   ├── schema.sql                      full schema (source of truth)
 │   ├── migrations/                     idempotent SQL patches for older databases
-│   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`), 30 fake people with
+│   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`), 40 celebrities with
 │   │                                   profiles and interview transcripts
+│   ├── dev_graph_seed.sql              fake matching output for "LA Hacks Demo" (scores, pairs, chats, groups)
 │   └── docker-compose.yml              local Postgres; runs schema + seed on first boot only
 ├── agent/                              unifai_agent library
 │   ├── src/unifai_agent/
@@ -153,6 +154,8 @@ uv run uvicorn app.main:app --reload     # http://localhost:8000
 
 #    Optional: a fake "UI Demo" universe that looks post-matching; prints a login link for the web app
 uv run python -m scripts.seed_demo
+#    Or fake matching output for the 30-person "LA Hacks Demo" (no LLM credits needed):
+docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_graph_seed.sql
 
 # 3. Client
 cd client && npm install && npm run dev  # http://localhost:3001
@@ -205,7 +208,7 @@ lists them. No secret has a default, and `.env` is gitignored. The onboarding bo
 | `PHOTON_API_KEY`, `PHOTON_PROJECT_ID` | Optional         | Both needed to assign iMessage lines at join. Match notifications only log either way. |
 | `PHOTON_SEAT_LIMIT`     | Optional                       | Shared-line seats on the Photon plan, default 10. At the limit, joins go to ASI:One. |
 | `ASI_AGENT_URL`, `ASI_AGENT_HANDLE` | Optional           | ASI:One agent chat page and handle shown on the join page (handle default `@unifyai-onboarding`). |
-| `ADMIN_PASSWORD`        | Before exposing the server     | HTTP basic auth for `/admin` (any username). Set the same variable for `client/` to protect `/world`. |
+| `ADMIN_PASSWORD`        | Before exposing the server     | HTTP basic auth for `/admin` (any username). Set the same value for `client/`: it gates the Next `/admin` pages and is forwarded to `/admin/api`. |
 | `CLIENT_URL`            | Optional                       | CORS origin. Default `http://localhost:3001`.                                      |
 | `PUBLIC_URL`            | Optional                       | Base for invite links (`/join/<code>`, served by this server). Default `http://localhost:8000`. |
 | `SCRAPE_ENABLED`, `BROWSER_USE_API_KEY` | Optional       | Scrape stored social links with Browser Use Cloud. Default off.                    |
@@ -241,7 +244,7 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
 - **`matching/`**: the pipeline stages described below, orchestrated by `pipeline.run_matching`.
 - **`services/`**: Ticketmaster (httpx), Photon (iMessage line assignment; sending is a stub), Browser Use
   scraper (optional, run as a background task after join).
-- **Authentication and authorization:** only `/admin` (server) and `/world` (client) are protected (basic auth
+- **Authentication and authorization:** only `/admin` (server pages and `/admin/api`, plus the client's `/admin` pages) is protected (basic auth
   with `ADMIN_PASSWORD`; open when unset). Every
   JSON route is public, including private profiles and the `/users/{id}/...` views.
 - **Error handling**: a failed matching run resets the universe to `onboarding`. Within a run, a failed
@@ -311,7 +314,7 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
   (`./run.sh migrate`, also run by `./run.sh up`); `schema.sql` already includes them. There is no migration
   tool or version tracking; that is an open decision.
 - **Persistence**: local data lives in the `pgdata` Docker volume.
-- **Seed data**: the `lahacks` universe with 30 fake people in clusters, with deliberate dealbreaker clashes.
+- **Seed data**: the `lahacks` universe with 40 celebrities (athletes, actors, musicians, politicians, historical figures) in 8 clusters, with deliberate dealbreaker clashes.
 - **Unused**: `agent_profiles.embedding` (vector(768)).
 
 ## Testing
@@ -359,7 +362,7 @@ to be loaded with `schema.sql` by hand.
 | Notifications                   | Line assignment | Match messages only log              | Real match messages via Photon   |                                             |
 | Auth / consent / deletion       |             | `/admin` basic auth                      | All                              | Auth approach; retention policy             |
 | Database / migrations           | Schema+seed | Idempotent SQL patches                   | Migration tool                   | Which tool                                  |
-| Client                          | Per-user pages, agent world (#50) | World not yet checked in a browser | Admin UI, playground (#49) | Login                                       |
+| Client                          | Per-user pages, admin, agent world (#51) | World not yet checked in a browser | Playground (#49)          | Login                                       |
 | Deployment / CI                 | Docker Compose stack | No client image                 | CI, deploy                       | Hosting target                              |
 
 ## Roadmap
