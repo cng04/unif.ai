@@ -164,6 +164,36 @@ class UserGraph(BaseModel):
     placeholder: bool = False
 
 
+class GroupMate(BaseModel):
+    """Someone in your group, as you see them: your agents' score if they met, and their own public intro."""
+
+    user_id: UUID
+    full_name: str
+    is_me: bool
+    pair_id: UUID | None  # your pair, when your agents talked
+    vibe_score: float | None
+    shared_keywords: list[str]  # top keywords you both score high on (none for yourself)
+    intro: str  # their public intro, verbatim; "" if they didn't give one
+
+
+class GroupLink(BaseModel):
+    a: UUID
+    b: UUID
+    vibe_score: float | None
+
+
+class UserGroup(BaseModel):
+    group_id: UUID
+    group_score: float | None  # the group judge's 1-10
+    agents_met: int  # how many agents yours talked to
+    shared_keywords: list[str]  # keywords every member scores high on
+    members: list[GroupMate]
+    links: list[GroupLink]  # judged pairs inside the group
+    plans_status: Literal["pending", "ready", "none"]
+    plans_summary: str | None
+    events: list[EventOut]
+
+
 class PairMessage(BaseModel):
     speaker_id: UUID
     content: str

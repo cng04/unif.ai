@@ -27,6 +27,13 @@ OTHER_GROUPS = [["Noor", "Felix", "Ines", "Kai", "Rosa"], ["Dev", "June", "Omar"
 CYN_PAIRS = [("Maya", 9.1, "strong", []), ("Jonah", 8.6, "strong", []), ("Priya", 8.2, "strong", []),
              ("Theo", 7.9, "workable", []), ("Sam", 6.4, "strong", []), ("Lena", 5.8, "workable", []),
              ("Ari", 4.0, "incompatible", ["late nights"])]
+# Intros are written by each person ("in their own words"); the group screens quote them.
+INTROS = {
+    "Maya": "I want the kind of friends who text 'climbing sat?' and actually mean it.",
+    "Jonah": "I host a tiny supper club and I'll always ask a follow-up question.",
+    "Priya": "New to the city, quietly funny, up for anything before noon.",
+    "Theo": "I bake bread, read a lot, and climb badly without caring.",
+}
 PROFILES = {
     "Cyn": ("A low-key crew for bouldering and slow weekend mornings.", ["climbing", "coffee", "film"]),
     "Maya": ("Friends who text 'climbing sat?' and actually mean it.", ["climbing", "brunch", "planning trips"]),
@@ -82,7 +89,7 @@ def seed(conn: psycopg.Connection) -> dict[str, str]:
             "INSERT INTO agent_profiles (user_id, public, private, availability) VALUES (%s, %s, %s, %s)",
             (
                 ids[name],
-                Jsonb({"name": name, "interests": interests, "vibe": "warm, a bit dry", "looking_for": looking_for}),
+                Jsonb({"name": name, "intro": INTROS.get(name, ""), "interests": interests, "vibe": "warm, a bit dry", "looking_for": looking_for}),
                 Jsonb({"dealbreakers": ["flaky plans"], "values": ["reliability", "curiosity"], "energy": "small groups",
                        "logistics": {"area": "Mission", "budget": "$$", "free": ["weekend_daytime"]}}),
                 ["weekend_daytime"],
@@ -112,7 +119,7 @@ def seed(conn: psycopg.Connection) -> dict[str, str]:
             VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING id
             """,
             (universe, x, y, vibe, fit, Jsonb(flags),
-             f"Chemistry {vibe:.1f}/10; logistics {fit}; dealbreakers: {', '.join(flags) or 'none'}."),
+             f"Chemistry {vibe:.1f}/10 (confidence {0.55 + rng.random() * 0.4:.2f}); logistics {fit}; dealbreakers: {', '.join(flags) or 'none'}."),
         ).fetchone()
 
     pair_ids = {other: pair("Cyn", other, vibe, fit, flags)["id"] for other, vibe, fit, flags in CYN_PAIRS}

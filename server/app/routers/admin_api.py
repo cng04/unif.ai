@@ -3,6 +3,7 @@
 Everything is derived from what matching stores; there is no separate pipeline-progress or approval state.
 """
 
+import re
 import secrets
 from uuid import UUID
 
@@ -252,3 +253,103 @@ async def universe_groups(universe_id: UUID, conn: AsyncConnection = Depends(get
         )
     ).fetchall()
     return {**universe_out(universe), "groups": groups, "leftovers": leftovers if labels else []}
+
+
+CONFIDENCE = re.compile(r"confidence (\d*\.?\d+)")
+
+
+@router.get("/universes/{universe_id}/graph")
+async def universe_graph(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> dict:
+    """Everyone matching produced, for the admin pool graph: groups, judged pairs, and who's unplaced."""
+    universe = await repo.get_universe(conn, universe_id)
+    labels = await group_labels(conn, universe_id)
+    people = await (
+        await conn.execute(
+            f"""
+            SELECT u.id, u.full_name, gm.group_id, {repo.USER_STATUS_SQL} AS status
+            FROM users u LEFT JOIN agent_profiles ap ON ap.user_id = u.id
+            LEFT JOIN group_members gm ON gm.user_id = u.id
+            WHERE u.universe_id = %s ORDER BY u.created_at
+            """,
+            (universe_id,),
+        )
+    ).fetchall()
+    pairs = await (
+        await conn.execute(
+            f"""
+            SELECT p.id, p.user_a AS a, p.user_b AS b, p.vibe_score, p.logistics_fit,
+                   {CONFLICT} AS conflict, p.judge_rationale,
+                   EXISTS (SELECT 1 FROM pair_messages m WHERE m.pair_id = p.id AND m.kind = 'message') AS has_transcript
+            FROM pairs p WHERE p.universe_id = %s ORDER BY p.vibe_score DESC NULLS LAST
+            """,
+            (universe_id,),
+        )
+    ).fetchall()
+
+    def confidence(rationale: str | None) -> float | None:
+        m = CONFIDENCE.search(rationale or "")
+        return float(m.group(1)) if m else None
+
+    return {
+        **universe_out(universe),
+        "groups": [{"id": gid, "label": label} for gid, label in labels.items()],
+        "people": [
+            {
+                "id": p["id"],
+                "full_name": p["full_name"],
+                "group": labels.get(p["group_id"]),
+                # Onboarded but left out by the solver; only meaningful once groups exist.
+                "unplaced": bool(labels) and p["group_id"] is None and p["status"] == "complete",
+            }
+            for p in people
+            if p["group_id"] is not None or p["status"] == "complete"
+        ],
+        "pairs": [
+            {
+                "id": r["id"],
+                "a": r["a"],
+                "b": r["b"],
+                "vibe_score": r["vibe_score"],
+                "logistics_fit": r["logistics_fit"],
+                "conflict": r["conflict"],
+                "confidence": confidence(r["judge_rationale"]),
+                "has_transcript": r["has_transcript"],
+            }
+            for r in pairs
+        ],
+    }
+
+
+@router.get("/pairs/{pair_id}")
+async def pair_detail(pair_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> dict:
+    """One judged pair for the admin edge panel, with the agents' transcript (never the private notes)."""
+    pair = await (
+        await conn.execute(
+            f"""
+            SELECT p.*, {CONFLICT} AS conflict, ua.full_name AS a_name, ub.full_name AS b_name
+            FROM pairs p JOIN users ua ON ua.id = p.user_a JOIN users ub ON ub.id = p.user_b WHERE p.id = %s
+            """,
+            (pair_id,),
+        )
+    ).fetchone()
+    if pair is None:
+        raise HTTPException(404, "pair not found")
+    messages = await (
+        await conn.execute(
+            "SELECT speaker_id, content, created_at FROM pair_messages WHERE pair_id = %s AND kind = 'message' ORDER BY id",
+            (pair_id,),
+        )
+    ).fetchall()
+    m = CONFIDENCE.search(pair["judge_rationale"] or "")
+    return {
+        "id": pair["id"],
+        "a": {"id": pair["user_a"], "full_name": pair["a_name"]},
+        "b": {"id": pair["user_b"], "full_name": pair["b_name"]},
+        "vibe_score": pair["vibe_score"],
+        "logistics_fit": pair["logistics_fit"],
+        "conflict": pair["conflict"],
+        "dealbreaker_flags": pair["dealbreaker_flags"],
+        "confidence": float(m.group(1)) if m else None,
+        "end_reason": pair["end_reason"],
+        "messages": messages,
+    }
