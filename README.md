@@ -25,6 +25,27 @@ Built for LA Hacks.
 5. **Plan.** Each group gets a few ideas for what to do, fitted to when everyone is free. Members tap *i'm in*,
    and when a majority is in, the plan locks and the group gets a text.
 
+```mermaid
+flowchart LR
+    A["Invite link"] --> B["Interview<br/>(iMessage · ASI:One · web)"]
+    B --> C["Your agent<br/>public + private profile"]
+    C --> D["Keywords<br/>themes across the whole group"]
+    D --> E["Scores<br/>each person × each keyword"]
+    E --> F{"Compatible?<br/>dealbreakers · schedules"}
+    F -- no --> X["Skipped"]
+    F -- yes --> G["Agents chat<br/>pair by pair"]
+    G --> H["Judge<br/>chemistry · logistics"]
+    H --> I["Groups of 3–8<br/>optimiser"]
+    I --> J["Plans<br/>fitted to free time"]
+    J --> K{"Majority<br/>'i'm in'?"}
+    K -- yes --> L["Plan locks<br/>group gets a text"]
+    K -- not yet --> J
+
+    W(["The World<br/>live view of every step"]) -.-> D
+    W -.-> G
+    W -.-> I
+```
+
 ## The World
 
 The most visible part: a living map of a universe. It is **generated from the keywords actually present in the
