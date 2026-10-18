@@ -14,7 +14,9 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Always fresh: this is live data (and dev's fetch cache would otherwise replay stale responses).
   const res = await fetch(`${API_URL}${path}`, {
+    cache: "no-store",
     ...init,
     headers: { "content-type": "application/json", ...init?.headers },
   });
@@ -198,6 +200,7 @@ export type UniverseSummary = {
   invite_code: string;
   invite_url: string;
   created_at: string;
+  is_demo: boolean;
 };
 
 export type UniverseListItem = UniverseSummary & { members: number; onboarded: number; groups: number };
@@ -281,7 +284,9 @@ export const adminApi = {
     request<WorldSnapshot | Unchanged>(`/admin/api/universes/${id}/world${since ? `?since=${encodeURIComponent(since)}` : ""}`, {
       headers: adminHeaders(),
     }),
-  universes: () => request<UniverseListItem[]>("/admin/api/universes", { headers: adminHeaders() }),
+  /** Real universes by default; demo ones (seeded fixtures, synthetic people) are listed separately. */
+  universes: (mode: "real" | "demo" | "all" = "real") =>
+    request<UniverseListItem[]>(`/admin/api/universes?mode=${mode}`, { headers: adminHeaders() }),
   createUniverse: (name: string, admin_email: string) =>
     request<UniverseSummary>("/admin/api/universes", {
       method: "POST",

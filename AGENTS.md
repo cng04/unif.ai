@@ -177,13 +177,16 @@ The onboarding bot sends that link once dealbreakers are confirmed (`onboarding/
 `onboarding/.env`; unset means no link is sent).
 
 **Admin** (`/admin`): universes list, universe overview (pipeline strip, members, keywords, run matching),
-groups, and the agent world (`/world`: PixiJS pixel-art building, `src/components/visualizer/`; overlays follow
-the Paper "World visualizer" page, floors the "Warehouse · open floor" artboards, and `character.ts` is the
-Pixi-free sprite painter shared by the canvas and the bio-card avatar), under
-`/admin/universes/{id}`. The world reads the public endpoints plus `/admin/api` (including `/scores`, the keyword
-vectors and keyword-level dealbreaker flags) and passes only public profile fields, keyword vectors and judge output
-to the browser; never `agent_profiles.private` text. Dev builds expose `window.__unifaiWorld.snapshot()` (agent
-states and screen positions) for browser checks. It reads
+groups, and the agent world, under `/admin/universes/{id}`. The agent world (PixiJS, `src/components/visualizer/`)
+is one procedurally generated campus rendered from the server's World snapshot (`/admin/api/universes/{id}/world`,
+participants: `/users/{id}/world` at `/u/{id}/world`). Keep its layers separate and pure: `world/select.ts`
+(keywords -> structures), `world/plan.ts` (seeded layout), `world/activity.ts` (what agents do, from data only),
+then the Pixi renderer (`scenery.ts`, `engine.ts`, `agent.ts`). Presets live in `world/presets.ts`; add a theme there
+(keyword terms, variants, furniture, activities) rather than special-casing code. Never show activity the data
+doesn't contain: a chat is live only while its pair is `running`; replays are always labelled. The seed is the
+universe id plus its keyword set; new members must not change the layout (tests enforce it). Overlays follow the
+Paper "World visualizer" page; `character.ts` is the Pixi-free sprite painter shared by the canvas and the avatar.
+Dev builds expose `window.__unifaiWorld.snapshot()` for `client/scripts/world-check.mjs`. It reads
 `/admin/api/*` (`server/app/routers/admin_api.py`). Both the `/admin` pages (`src/proxy.ts`) and the API ask for
 HTTP basic auth with `ADMIN_PASSWORD` when it's set; the client forwards its own `ADMIN_PASSWORD` to the API, so
 set the same value in both. Pipeline stages, group labels (`g-01`...), weakest ties and leftovers are all derived
