@@ -295,8 +295,8 @@ async def plan_group(group_id: UUID, notify: bool = True) -> None:
 
     if notify and rows:
         try:
-            members = [{"full_name": r["full_name"], "phone": r["phone"]} for r in rows]
-            await photon.notify_group(members, [c for c, _ in plans])
+            members = [{"user_id": r["user_id"], "full_name": r["full_name"], "phone": r["phone"]} for r in rows]
+            await photon.notify_group(group_id, members, [c for c, _ in plans])
         except Exception:
             log.exception("notifying group %s failed", group_id)
 

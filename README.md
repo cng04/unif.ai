@@ -29,7 +29,7 @@ partitions people into groups.
 | Compatibility judging (pair and group)       | Implemented (pair: Jev; group: LLM).                                   |
 | Group formation                              | Implemented (CP-SAT). Quality drops past about 100 people.             |
 | Group plans (events)                         | Partial: 3 plans per group from a Browser Use web search (needs `BROWSER_USE_API_KEY`) or Ticketmaster, fitted to shared free time and budget. Tested live once ($0.18 run). No voting yet. |
-| Notifications                                | Partial: Photon assigns iMessage lines at join and the bot sends each person their `/u/<id>` link; match messages only log. |
+| Notifications                                | Photon assigns iMessage lines at join and the bot sends each person their `/u/<id>` link. With the Photon keys set, members get a text when matched; without them, it only logs. |
 | Web client                                   | Per-user mobile pages (agent, connections with 2D/3D keyword graph, you, pair detail), join page, admin console, 2.5D agent world. |
 | Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`, server and client). Everything else not started. |
 
@@ -52,7 +52,7 @@ flowchart LR
     Agent --> Jev["Jev (TypeSafe)\n(typed scores)"]
     Agent -.->|"OPENROUTER_API_KEY set"| OR["OpenRouter\n(replaces both)"]
     Pipeline --> TM["Ticketmaster\nDiscovery API"]
-    Pipeline --> Photon["Photon\n(line assignment; match messages log only)"]
+    Pipeline --> Photon["Photon\n(line assignment; match texts)"]
     API --> BU["Browser Use\n(optional scrape)"]
 ```
 
@@ -256,7 +256,7 @@ can't reach if it's `localhost`).
 | `GEMINI_API_KEY`        | With `TYPESAFE_API_KEY`        | Gemini for text (interviews, chats, keywords, group judge).                        |
 | `TYPESAFE_API_KEY`      | With `GEMINI_API_KEY`          | Jev for scores, dealbreakers, availability, pair judge.                            |
 | `TICKETMASTER_API_KEY`  | Optional                       | Without it, no events are found.                                                   |
-| `PHOTON_API_KEY`, `PHOTON_PROJECT_ID` | Optional         | Both needed to assign iMessage lines at join. Match notifications only log either way. |
+| `PHOTON_API_KEY`, `PHOTON_PROJECT_ID` | Optional         | Both needed to assign iMessage lines at join and to text members when matched (otherwise that only logs). Only reaches people who have texted their line. |
 | `PHOTON_SEAT_LIMIT`     | Optional                       | Shared-line seats on the Photon plan, default 10. At the limit, joins go to ASI:One. |
 | `ASI_AGENT_URL`, `ASI_AGENT_HANDLE` | Optional           | ASI:One agent chat page and handle shown on the join page (defaults: the team's Agentverse page, `@unifyai-onboarding`). |
 | `ADMIN_PASSWORD`        | Before exposing the server     | HTTP basic auth (any username) for the server's `/admin` pages and `/admin/api`. Set the same value in the client. |
@@ -300,7 +300,7 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
   `get_conn`.
 - **`deps.py`**: builds the cached `LLM`, `Jev`, `Interviewer` and `Judge`, choosing OpenRouter when its key is set.
 - **`matching/`**: the pipeline stages described below, orchestrated by `pipeline.run_matching`.
-- **`services/`**: Ticketmaster (httpx), Photon (iMessage line assignment; sending is a stub), Browser Use
+- **`services/`**: Ticketmaster (httpx), Photon (iMessage line assignment and texts), Browser Use
   scraper (optional, run as a background task after join), Browser Use event search for group plans (optional).
 - **Authentication and authorization:** only `/admin` and `/admin/api` are protected (basic auth with
   `ADMIN_PASSWORD`; open when unset). Every other JSON route is public, including private profiles, all pairs
@@ -410,7 +410,7 @@ cd onboarding && npm test
 ```
 
 - **Unit** (all with fake models; no network): hard filter, ranking, scoring, CP-SAT groups, projection, group
-  review fallback, Photon stub, scraper (server); conversation loop, judge, Jev, LLM and OpenRouter clients (agent).
+  review fallback, Photon sending (mock HTTP), scraper (server); conversation loop, judge, Jev, LLM and OpenRouter clients (agent).
 - **Integration** (`server/tests/integration/`, skipped without `DATABASE_URL_TEST`): the admin API and the
   `/users/{id}/...` views (only my pairs, no notes or private fields, 404 for non-members, graph naming), each
   against a throwaway universe, plus the World snapshot (admin vs participant fields, live chat lifecycle, stage,
@@ -454,7 +454,7 @@ inside the local DB container (so the local DB must be up):
 | Keywords, scoring, filter, rank | Yes         | Never run on a real model                | Over-blocking tuning (#17)       |                                             |
 | Group formation                 | CP-SAT      | Weak at 100+ people                      | Greedy warm start; unplaced list |                                             |
 | Group plans                     | Browser Use search, Ticketmaster fallback | Never run end to end         | Voting ("i'm in"), live refresh |                                             |
-| Notifications                   | Line assignment | Match messages only log              | Real match messages via Photon   |                                             |
+| Notifications                   | Match texts via Photon | Not yet sent to a real phone | Plan texts, group chat |                                             |
 | Auth / consent / deletion       |             | `/admin` basic auth                      | All                              | Auth approach; retention policy             |
 | Database / migrations           | Schema+seed | Idempotent SQL patches                   | Migration tool                   | Which tool                                  |
 | Client                          | `/u` pages with 3D graph, join, admin, agent world (#51) | No automated client tests in CI | Client tests           | Login                                       |

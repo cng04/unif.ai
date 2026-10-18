@@ -65,12 +65,63 @@ async def imessage_open() -> bool:
     return used is None or used < get_settings().photon_seat_limit
 
 
-async def send_message(phone: str, text: str) -> None:
-    if not get_settings().photon_api_key:
+def _client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(base_url=API, timeout=15)
+
+
+async def send_message(phone: str, text: str, key: str) -> bool:
+    """Text one person on their unif.ai iMessage line. True if Photon accepted it; never raises.
+
+    Shared lines only reach people who have texted the line first (everyone who onboarded over iMessage has), so this
+    sends into their existing direct space as our agent rather than opening a new one. `key` is the idempotency key:
+    Photon sends at most once per key, so retries and re-runs don't double-text.
+    """
+    settings = get_settings()
+    if not configured():
         log.info("[photon disabled] to %s: %s", phone, text)
-        return
-    # TODO: wire up the Photon SDK/API. Until then log instead of failing the matching run.
-    log.warning("[photon not implemented] to %s: %s", phone, text)
+        return False
+    auth = {"Authorization": f"Bearer {settings.photon_api_key}"}
+    base = f"/v1/projects/{settings.photon_project_id}"
+    try:
+        async with _client() as client:
+            res = await client.get(
+                f"{base}/spaces",
+                headers=auth,
+                params={"participantHandle": phone, "platform": "imessage", "orderBy": "last_message_created_at"},
+            )
+            res.raise_for_status()
+            space = next((sp for sp in res.json().get("items", []) if sp.get("kind", "direct") == "direct"), None)
+            if space is None:
+                log.warning("no iMessage space for %s (never texted the line?); not sent", phone)
+                return False
+            sender = None
+            for user_id in space.get("participantIds", []):
+                user = await client.get(f"{base}/users/{user_id}", headers=auth)
+                user.raise_for_status()
+                if user.json().get("kind") == "agent":
+                    sender = user_id
+                    break
+            if sender is None:
+                log.warning("no agent in iMessage space %s; not sent", space.get("id"))
+                return False
+            res = await client.post(
+                f"{base}/messages",
+                headers=auth | {"Idempotency-Key": key},
+                json={"spaceId": space["id"], "senderId": sender, "content": {"type": "text", "format": "plain", "text": text}},
+            )
+            if res.status_code >= 400:
+                try:
+                    code = res.json().get("code")
+                except ValueError:
+                    code = None
+                if code == "IDEMPOTENCY_KEY_REUSED":
+                    return True  # already sent under this key
+                log.warning("photon send to %s failed: %s %s", phone, res.status_code, code)
+                return False
+            return True
+    except (httpx.HTTPError, KeyError, ValueError):
+        log.exception("photon send to %s failed", phone)
+        return False
 
 
 async def assign_line(phone: str, full_name: str) -> str | None:
@@ -113,12 +164,17 @@ async def assign_line(phone: str, full_name: str) -> str | None:
         return None
 
 
-async def notify_group(members: list[dict], events: list[Candidate]) -> None:
-    """members: user rows with full_name and phone."""
+def group_link(user_id) -> str:
+    return f"{get_settings().client_url.rstrip('/')}/u/{user_id}/group"
+
+
+async def notify_group(group_id, members: list[dict], events: list[Candidate]) -> None:
+    """Tell each member who they matched with. members: user rows with user_id, full_name and phone."""
     first = events[0] if events else None
-    event_line = f" First idea: {first.name}" + (f" ({first.url})" if first.url else "") if first else ""
+    idea = f" First idea: {first.name}." if first else ""
     for member in members:
         if not member.get("phone"):
             continue
         others = ", ".join(m["full_name"] for m in members if m is not member)
-        await send_message(member["phone"], f"You've been matched with {others}!{event_line}")
+        text = f"You've been matched with {others}!{idea} Meet them and pick a plan: {group_link(member['user_id'])}"
+        await send_message(member["phone"], text, f"matched:{group_id}:{member['user_id']}")

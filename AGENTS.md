@@ -124,7 +124,8 @@ text. A Noul (true/false) answer counts as yes above `YES = 0.5`.
    `travel` into one coarse search area; only that string, the interests, slot, dates and price cap go to
    Browser Use (`services/event_search.py`, needs `BROWSER_USE_API_KEY`). Ticketmaster is the fallback. Code drops
    candidates outside the slot (by venue-local time) or over budget, Gemini picks 3 with a one-line reason
-   built only from interest counts, and members are notified via Photon. `POST /groups/{id}/plans` re-runs it.
+   built only from interest counts, and members are texted via Photon. `POST /groups/{id}/plans` re-runs it without
+   texting.
 
 **Known issue:** at around 100 or more people, CP-SAT hits `group_solver_seconds` far from optimal. In a
 synthetic benchmark with 5 judged edges per person, the edge weight kept inside groups was 45% at 30
@@ -235,8 +236,10 @@ from stored rows; there is no stored progress or approval state. The older serve
  `matching/runs.py`; the admin abort (`POST /admin/api/universes/{id}/matching/abort`, the "abort matching" button)
  cancels the run, deletes its partial pairs and groups, and resets to `onboarding`. It also unsticks a universe
  whose run died with a restarted server. Model calls already in worker threads finish and are discarded.
-- Photon assigns shared iMessage lines at join (`assign_line`, needs `PHOTON_API_KEY` and `PHOTON_PROJECT_ID`),
-  but `send_message` is still a stub: match notifications only log.
+- Photon assigns shared iMessage lines at join (`assign_line`, needs `PHOTON_API_KEY` and `PHOTON_PROJECT_ID`).
+  `send_message` texts into the person's existing iMessage space as our agent, so it only reaches people who have
+  texted their line; without the keys it logs. Every send carries an idempotency key (`matched:{group}:{user}`),
+  so re-runs never double-text.
 - `GET /pairs/{id}/messages` returns only `kind = 'message'` rows; agents' private `note` rows are never exposed.
 - Pairs have a `status`: the pipeline inserts `running` when a chat starts and sets `complete` (with the verdict
   and transcript) when it's judged. Anything that reads judged pairs must filter `status = 'complete'`.

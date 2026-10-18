@@ -212,6 +212,9 @@ Add a line here for each change merged to `main`.
   links to the group instead of repeating its members and plans.
 - 2026-10-18: `db/dev_events_seed.sql`: 3 fake plans per demo group, themed by the group's strongest keyword, for
   groups with no events yet (real plans are left alone). Run by hand after `dev_graph_seed.sql`.
+- 2026-10-18: Photon `send_message` now sends for real when the keys are set: into the person's existing iMessage
+  space as our agent, with idempotency keys, so the "you've been matched" text goes out. Not yet tested against a
+  real phone.
 - 2026-10-18: #51 World is now one procedurally generated single-floor campus (branch `world-procedural`, M4-M8): layout from the universe's keywords (`world/select.ts` -> `world/plan.ts`, seeded by universe id + keyword set, stable when people join), drag-pan/zoom engine, agents act out only what the data says (`world/activity.ts`; chats are live only while `pairs.status = 'running'`), participant page `/u/{id}/world` with follow-me, admin real/demo switch (`/admin?mode=demo`), synthetic seeder `server/scripts/seed_synthetic.py`, Vitest tests and `client/scripts/world-check.mjs`. API client fetches are now `no-store`. Remaining: Paper structure drawings (conflict list for the user), real-model runs on synthetic people, merge `origin/main`.
 - 2026-10-18: World integration M1-M3 (branch `world-procedural`): `GET /admin/api/universes/{id}/world` and `GET /users/{id}/world` snapshots with a `since` cursor; the pipeline records its stage and writes pairs as `running` at chat start; `universes.is_demo` (seeded fixtures marked demo). **Schema change:** apply `db/migrations/003_world.sql` (`./run.sh migrate`) or `docker compose down -v` locally. World generation started: preset library + keyword-driven structure selection with Vitest tests (`npm test` in `client/`).
 - 2026-10-18: Lowered the default minimum group size from 4 to 3 and updated matching prompts and user-facing copy.

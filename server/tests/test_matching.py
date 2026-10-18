@@ -259,7 +259,66 @@ async def test_photon_logs_instead_of_raising(monkeypatch):
     from app.services import photon
 
     monkeypatch.setattr(photon, "get_settings", lambda: Settings(photon_api_key="key"))
-    await photon.send_message("+15550001111", "hi")
+    assert await photon.send_message("+15550001111", "hi", "k") is False
+
+
+def fake_photon(monkeypatch, spaces: list[dict], send_status: int = 200, send_body: dict | None = None) -> list:
+    """Point the Photon client at a fake API; returns the list of message POSTs it receives."""
+    import httpx
+
+    from app.config import Settings
+    from app.services import photon
+
+    sent = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/spaces"):
+            assert request.url.params["participantHandle"] == "+15550001111"
+            return httpx.Response(200, json={"items": spaces})
+        if "/users/" in path:
+            uid = path.rsplit("/", 1)[1]
+            return httpx.Response(200, json={"id": uid, "kind": "agent" if uid == "agent-1" else "human"})
+        if path.endswith("/messages"):
+            sent.append(request)
+            return httpx.Response(send_status, json=send_body or {"id": "m1"})
+        return httpx.Response(404)
+
+    monkeypatch.setattr(photon, "get_settings", lambda: Settings(photon_api_key="key", photon_project_id="proj"))
+    monkeypatch.setattr(photon, "_client", lambda: httpx.AsyncClient(base_url=photon.API, transport=httpx.MockTransport(handle)))
+    return sent
+
+
+async def test_photon_sends_into_the_existing_space_as_the_agent(monkeypatch):
+    import json
+
+    from app.services import photon
+
+    sent = fake_photon(monkeypatch, [{"id": "space-1", "kind": "direct", "participantIds": ["human-1", "agent-1"]}])
+    assert await photon.send_message("+15550001111", "hi", "matched:g:u") is True
+
+    [req] = sent
+    assert req.headers["idempotency-key"] == "matched:g:u"
+    body = json.loads(req.content)
+    assert body == {"spaceId": "space-1", "senderId": "agent-1", "content": {"type": "text", "format": "plain", "text": "hi"}}
+
+
+async def test_photon_skips_people_who_never_texted_the_line(monkeypatch):
+    from app.services import photon
+
+    sent = fake_photon(monkeypatch, [])
+    assert await photon.send_message("+15550001111", "hi", "k") is False
+    assert sent == []
+
+
+async def test_photon_treats_a_reused_key_as_already_sent(monkeypatch):
+    from app.services import photon
+
+    space = {"id": "space-1", "kind": "direct", "participantIds": ["agent-1"]}
+    fake_photon(monkeypatch, [space], send_status=422, send_body={"code": "IDEMPOTENCY_KEY_REUSED"})
+    assert await photon.send_message("+15550001111", "hi", "k") is True
+    fake_photon(monkeypatch, [space], send_status=403, send_body={"code": "SHARED_LINE_INBOUND_REQUIRED"})
+    assert await photon.send_message("+15550001111", "hi", "k") is False
 
 
 def test_chat_llms_use_bounded_max_tokens_and_rotate_models(monkeypatch):
