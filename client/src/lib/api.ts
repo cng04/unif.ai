@@ -77,6 +77,24 @@ export type Profile = {
 
 export type InterviewMessage = { role: "user" | "assistant"; content: string };
 
+export type Universe = { id: string; name: string; status: UniverseStatus };
+
+export type UniverseUser = { id: string; full_name: string; created_at: string };
+
+export type GraphPoint = { user_id: string; name: string; x: number; y: number; z: number; group_id: string | null };
+
+export type Pair = {
+  id: string;
+  user_a: string;
+  user_b: string;
+  vibe_score: number | null;
+  dealbreaker_flags: string[];
+  logistics_fit: Connection["logistics_fit"];
+  judge_rationale: string | null;
+};
+
+export type PairMessage = { speaker_id: string; content: string; created_at: string };
+
 export const api = {
   connections: (userId: string) => request<Connections>(`/users/${userId}/connections`),
   pair: (userId: string, pairId: string) => request<PairDetail>(`/users/${userId}/pairs/${pairId}`),
@@ -84,4 +102,10 @@ export const api = {
   interview: (userId: string) => request<InterviewMessage[]>(`/users/${userId}/interview`),
   sendInterview: (userId: string, message: string) =>
     request<{ reply: string }>(`/users/${userId}/interview`, { method: "POST", body: JSON.stringify({ message }) }),
+  universe: (universeId: string) => request<Universe>(`/universes/${universeId}`),
+  users: (universeId: string) => request<UniverseUser[]>(`/universes/${universeId}/users`),
+  graph: (universeId: string) => request<GraphPoint[]>(`/universes/${universeId}/graph`),
+  pairs: (universeId: string) => request<Pair[]>(`/universes/${universeId}/pairs`),
+  groups: (universeId: string) => request<Group[]>(`/universes/${universeId}/groups`),
+  pairMessages: (pairId: string) => request<PairMessage[]>(`/pairs/${pairId}/messages`),
 };

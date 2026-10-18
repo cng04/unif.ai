@@ -109,6 +109,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | 43 | [ ] **Fixture data for a finished matching run:** precomputed keywords, keyword scores, pairs + transcripts, groups, events for the seed universe. Frontend can build every page without running the pipeline, and it's the **demo fallback** if Gemini fails live. | `db/seed.sql` or `db/fixture_matched.sql` | |
 | 6  | [ ] **Build the client.** In demo order: create universe + invite QR, `/join/[code]` onboarding (name, paste self-report, interviewer chat), admin "start matching" + status, groups + events, then the 3D playground (#49) and pair transcripts. Read `client/AGENTS.md` first. | `client/` | |
 | 49 | [ ] **Keyword playground (3D).** A three.js scatter plot where the user picks 3 keywords as the X/Y/Z axes. Each point is one person in the universe, placed by their Jev keyword scores (0-1) on those 3 keywords. The viewer's own point is highlighted. People the viewer had a simulated chat with (a row in `pairs`) are colored; everyone else is grey. Clicking a colored point opens that agent-to-agent transcript (`GET /pairs/{id}/messages`, with `note` rows dropped per #2). Needs a new endpoint that returns the universe's keywords plus each user's raw per-keyword scores (`GET /universes/{id}/graph` only returns the 3D projection), and a way to know who the viewer is (user id from onboarding). | `client/`, `routers/matching.py` | |
+| 50 | [x] **Agent world (2.5D pixel art).** `/world/[universeId]`: a PixiJS building (L2 study/music/arcade, L1 lounge/kitchen/party, B1 gym/bouldering/unplaced bench) where agents spawn in the lounge, A*-walk to rooms matching their public interests once scored, pair up to talk for each judged pair, and sit at tables per CP-SAT group; unplaced people wait on B1. Click an agent for a bio card and camera follow; click a talking one for the transcript. Organizer-only (`ADMIN_PASSWORD` basic auth in `client/src/proxy.ts`). Not yet checked in a real browser; see changelog. | `client/src/components/visualizer/`, `client/src/app/world/` | Matt-Chow |
 | 8  | [ ] **Run the full pipeline on real Gemini** with the seed data. Record how long it takes, which pairs failed, and group sizes. If it takes longer than about 2 minutes, lower `max_conversation_turns` or `top_m` for the demo. Also count how many people the hard filter and CP-SAT leave out (see #17). | — | |
 | 9 | [x] **Photon:** make `send_message` log and return instead of raising `NotImplementedError` (or implement it, if iMessage is part of the demo). Right now, setting the key fails the whole run after groups are saved. | `server/app/services/photon.py` | |
 | 10 | [x] Wrap each `evaluate_group` call in error handling. One bad judge response currently fails the whole run. | `server/app/matching/groups.py` (`review_groups`) | |
@@ -199,6 +200,12 @@ Decide these in the first hour.
 ## Changelog
 
 Add a line here for each change merged to `main`.
+
+- 2026-10-17: #50 agent world at `/world/[universeId]` (PixiJS 8 + `@pixi/react`, `pathfinding` A*, `pixi-filters` glow).
+  Reads `/users`, `/graph`, `/pairs`, `/groups` and each profile's public part on the server; the browser never
+  gets `private`. Polls every 5s while matching, so new pairs walk over and talk live. Lint, build and a
+  layout/seating reachability check pass; rendering and clicks still need a look in a real browser.
+  Gap: room choice uses public interests because no endpoint exposes per-user keyword names (see #49).
 
 - 2026-10-17: OpenRouter can now stand in for both Gemini and Jev (one key runs the pipeline); conversations and `main.py` log at INFO.
 - 2026-10-17: Added #49 (3D keyword playground with user-picked axes and clickable chat transcripts).

@@ -29,7 +29,7 @@ partitions people into groups.
 | Group formation                              | Implemented (CP-SAT). Quality drops past about 100 people.             |
 | Real-world events                            | Partial: Ticketmaster lookup works if a key is set; no city filter.    |
 | Notifications                                | Partial: Photon assigns iMessage lines at join; match messages only log. |
-| Web client                                   | Per-user mobile pages (agent, connections, you, pair detail). No admin UI. |
+| Web client                                   | Per-user mobile pages (agent, connections, you, pair detail), plus the organizer agent world `/world/{universeId}` (2.5D pixel art). |
 | Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`). Everything else not started. |
 
 ## System architecture
@@ -56,7 +56,10 @@ flowchart LR
 ```
 
 - **Frontend (`client/`)** talks only to the server, never the database. It has per-user mobile pages under
-  `/u/[userId]` (agent, connections, you, pair detail) and no login.
+  `/u/[userId]` (agent, connections, you, pair detail) and no login. `/world/[universeId]` is the organizer
+  view: a PixiJS building of three floors where agents walk (A*) to rooms matching their public interests, pair
+  up to talk, and sit with their CP-SAT group (`client/src/components/visualizer/`). It shows judge rationales
+  for every pair, so `client/src/proxy.ts` puts it behind `ADMIN_PASSWORD` basic auth.
 - **Onboarding bot (`onboarding/`)** is a TypeScript chat version of onboarding. It runs over iMessage (Photon)
   and a local HTTP channel used by the ASI:One relay (`asi-agent/`, see `asi-agent/SETUP.md`), and writes
   profiles straight to Postgres.
@@ -74,6 +77,7 @@ flowchart LR
 | Layer      | Technology                                                                                       | Why                                              |
 | ---------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
 | Client     | Next.js 16.4, React 19.3, Tailwind 4, TypeScript 5, ESLint 9                                      | Per-user web UI                                  |
+| Agent world | pixi.js 8, @pixi/react 8, pixi-filters 6, pathfinding (A*)                                       | WebGL sprite world, glow outline, grid routing   |
 | Onboarding bot | Node, TypeScript, tsx, `@anthropic-ai/sdk`, `@photon-ai/api`, pg, socket.io-client, zod      | Chat onboarding over iMessage / HTTP             |
 | ASI agent  | Python 3.11+, uagents, httpx                                                                      | ASI:One relay to the onboarding bot              |
 | Server     | Python 3.11-3.14, FastAPI, uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
@@ -92,7 +96,7 @@ unif.ai/
 ├── RUNNING.md                          step-by-step local setup
 ├── excalidraw_mockup_1.excalidraw      original architecture diagram (product intent, not a spec)
 ├── docker-compose.yml, run.sh          full stack (db, server, bot, ASI agent, tunnel); deploy/ has the Dockerfiles
-├── client/                             Next.js app (per-user pages). Has its own AGENTS.md; read it first.
+├── client/                             Next.js app (per-user pages, /world agent world). Has its own AGENTS.md; read it first.
 ├── onboarding/                         TypeScript chat onboarding bot (iMessage via Photon, HTTP channel)
 ├── asi-agent/                          Python uAgent relay for onboarding from ASI:One (see SETUP.md)
 ├── db/
@@ -201,7 +205,7 @@ lists them. No secret has a default, and `.env` is gitignored. The onboarding bo
 | `PHOTON_API_KEY`, `PHOTON_PROJECT_ID` | Optional         | Both needed to assign iMessage lines at join. Match notifications only log either way. |
 | `PHOTON_SEAT_LIMIT`     | Optional                       | Shared-line seats on the Photon plan, default 10. At the limit, joins go to ASI:One. |
 | `ASI_AGENT_URL`, `ASI_AGENT_HANDLE` | Optional           | ASI:One agent chat page and handle shown on the join page (handle default `@unifyai-onboarding`). |
-| `ADMIN_PASSWORD`        | Before exposing the server     | HTTP basic auth for `/admin` (any username).                                       |
+| `ADMIN_PASSWORD`        | Before exposing the server     | HTTP basic auth for `/admin` (any username). Set the same variable for `client/` to protect `/world`. |
 | `CLIENT_URL`            | Optional                       | CORS origin. Default `http://localhost:3001`.                                      |
 | `PUBLIC_URL`            | Optional                       | Base for invite links (`/join/<code>`, served by this server). Default `http://localhost:8000`. |
 | `SCRAPE_ENABLED`, `BROWSER_USE_API_KEY` | Optional       | Scrape stored social links with Browser Use Cloud. Default off.                    |
@@ -237,7 +241,8 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
 - **`matching/`**: the pipeline stages described below, orchestrated by `pipeline.run_matching`.
 - **`services/`**: Ticketmaster (httpx), Photon (iMessage line assignment; sending is a stub), Browser Use
   scraper (optional, run as a background task after join).
-- **Authentication and authorization:** only `/admin` is protected (basic auth with `ADMIN_PASSWORD`). Every
+- **Authentication and authorization:** only `/admin` (server) and `/world` (client) are protected (basic auth
+  with `ADMIN_PASSWORD`; open when unset). Every
   JSON route is public, including private profiles and the `/users/{id}/...` views.
 - **Error handling**: a failed matching run resets the universe to `onboarding`. Within a run, a failed
   conversation is skipped, a failed scoring call falls back to neutral scores, a failed keyword call ends the
@@ -354,7 +359,7 @@ to be loaded with `schema.sql` by hand.
 | Notifications                   | Line assignment | Match messages only log              | Real match messages via Photon   |                                             |
 | Auth / consent / deletion       |             | `/admin` basic auth                      | All                              | Auth approach; retention policy             |
 | Database / migrations           | Schema+seed | Idempotent SQL patches                   | Migration tool                   | Which tool                                  |
-| Client                          | Per-user pages |                                       | Admin UI, playground (#49)       | Login                                       |
+| Client                          | Per-user pages, agent world (#50) | World not yet checked in a browser | Admin UI, playground (#49) | Login                                       |
 | Deployment / CI                 | Docker Compose stack | No client image                 | CI, deploy                       | Hosting target                              |
 
 ## Roadmap

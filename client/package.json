@@ -9,13 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@pixi/react": "^8.0.5",
     "next": "16.4.2",
+    "pathfinding": "^0.4.18",
+    "pixi-filters": "^6.1.5",
+    "pixi.js": "^8.22.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
+    "@types/pathfinding": "^0.1.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
