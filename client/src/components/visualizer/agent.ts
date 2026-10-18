@@ -63,6 +63,8 @@ export class AgentSprite {
   arrived = true;
   /** In a conversation, whether this agent holds the speech bubble right now. */
   speaking = false;
+  /** Latest public line, shown only while this agent is the one speaking. */
+  quote: string | null = null;
 
   private sheet: AgentSheet;
   private body: Sprite;
@@ -229,6 +231,7 @@ export class AgentSprite {
     this.shadow.scale.set(1 - Math.min(lift, 10) / 25);
 
     if (this.state === "THINKING") this.bubble.show("think", simT);
+    else if (this.state === "TALKING" && this.speaking && this.quote) this.bubble.showText(this.quote);
     else if (this.state === "TALKING" && this.speaking) this.bubble.show("talk", simT);
     else this.bubble.hide();
     this.bubble.root.y = -lift;
@@ -288,14 +291,39 @@ class Bubble {
   readonly root = new Container();
   private bg = new Graphics();
   private dots = new Graphics();
-  private kind: "think" | "talk" | null = null;
+  private caption: Text;
+  private kind: string | null = null;
 
   constructor() {
-    this.root.addChild(this.bg, this.dots);
+    this.caption = new Text({
+      text: "",
+      style: { fontFamily: "monospace", fontSize: 8, fill: 0x1d1b1a, wordWrap: true, wordWrapWidth: 96, align: "center" },
+      resolution: 2,
+    });
+    this.caption.anchor.set(0.5, 0);
+    this.caption.visible = false;
+    this.root.addChild(this.bg, this.dots, this.caption);
     this.root.visible = false;
   }
 
+  showText(text: string) {
+    const shown = text.length > 72 ? `${text.slice(0, 71).trimEnd()}…` : text;
+    this.root.visible = true;
+    this.dots.clear();
+    this.caption.visible = true;
+    if (this.kind === `quote:${shown}`) return;
+    this.kind = `quote:${shown}`;
+    this.caption.text = shown;
+    const w = Math.ceil(Math.min(108, this.caption.width + 10));
+    const h = Math.ceil(this.caption.height + 6);
+    this.bg.clear();
+    this.bg.roundRect(-w / 2, -42 - h, w, h, 4).fill(0xffffff).stroke({ color: 0x1d1b1a, width: 1 });
+    this.bg.poly([-2, -42.5, 3, -42.5, -3, -38.5]).fill(0xffffff).stroke({ color: 0x1d1b1a, width: 0.8 });
+    this.caption.position.set(0, -39 - h);
+  }
+
   show(kind: "think" | "talk", t: number) {
+    this.caption.visible = false;
     if (kind !== this.kind) {
       this.kind = kind;
       this.bg.clear();
@@ -324,6 +352,7 @@ class Bubble {
 
   hide() {
     this.root.visible = false;
+    this.caption.visible = false;
   }
 }
 

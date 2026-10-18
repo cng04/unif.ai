@@ -42,12 +42,20 @@ SELECT md5(concat_ws('|',
     (SELECT count(*) || ':' || count(*) FILTER (WHERE status = 'running') || ':'
         || coalesce(max(completed_at)::text, '') || ':' || coalesce(max(created_at)::text, '')
         FROM pairs WHERE universe_id = un.id),
+    (SELECT coalesce(max(pm.id)::text, '') FROM pair_messages pm
+        JOIN pairs p ON p.id = pm.pair_id
+        WHERE p.universe_id = un.id AND pm.kind = 'message'),
     (SELECT count(*) || ':' || string_agg(plans_status, ',' ORDER BY id) FROM groups WHERE universe_id = un.id),
     (SELECT coalesce(max(e.created_at)::text, '') FROM events e JOIN groups g ON g.id = e.group_id
         WHERE g.universe_id = un.id)
 )) AS version
 FROM universes un WHERE un.id = %s
 """
+
+
+def _clip(text: str, limit: int = 72) -> str:
+    flat = " ".join(text.split())
+    return flat if len(flat) <= limit else flat[: limit - 1].rstrip() + "…"
 
 
 async def world_version(conn: AsyncConnection, universe_id: UUID) -> str:
@@ -114,6 +122,22 @@ async def build_world(conn: AsyncConnection, universe_id: UUID, viewer: UUID | N
             (universe_id,),
         )
     ).fetchall()
+    # Latest public turn of each chat still running. Notes stay out. Only the admin and the two people in the
+    # pair receive it, so other participants see the sprites meet without reading the words.
+    latest_lines = {
+        row["pair_id"]: {"speaker_id": row["speaker_id"], "content": _clip(row["content"])}
+        for row in await (
+            await conn.execute(
+                """
+                SELECT DISTINCT ON (pm.pair_id) pm.pair_id, pm.speaker_id, pm.content
+                FROM pair_messages pm JOIN pairs p ON p.id = pm.pair_id
+                WHERE p.universe_id = %s AND p.status = 'running' AND pm.kind = 'message'
+                ORDER BY pm.pair_id, pm.id DESC
+                """,
+                (universe_id,),
+            )
+        ).fetchall()
+    }
 
     labels = await group_labels(conn, universe_id)
     groups = await (
@@ -178,6 +202,9 @@ async def build_world(conn: AsyncConnection, universe_id: UUID, viewer: UUID | N
         }
         if full or mine:
             out |= {"vibe": p["vibe_score"], "logistics": p["logistics_fit"]}
+            line = latest_lines.get(p["id"])
+            if line:
+                out["line"] = line
         if full:
             out |= {
                 "dealbreaker_flags": p["dealbreaker_flags"],

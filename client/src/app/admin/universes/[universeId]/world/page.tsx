@@ -4,6 +4,7 @@ import { Caption } from "@/components/admin-ui";
 import type { WorldSnapshot } from "@/components/visualizer/world/snapshot";
 import { WorldCanvas } from "@/components/visualizer/WorldCanvas";
 import { adminApi, ApiError } from "@/lib/api";
+import { abortMatching, runMatching } from "../../../actions";
 import { fetchWorld, loadPairMessages } from "./actions";
 
 // Organizer view of a whole universe: shows judge rationales and dealbreaker flags for every pair, so it sits
@@ -23,5 +24,12 @@ async function WorldScreen({ params }: { params: Promise<{ universeId: string }>
     throw e;
   });
   if ("unchanged" in initial) throw new Error("unexpected unchanged snapshot");
-  return <WorldCanvas initial={initial as WorldSnapshot} fetchWorld={fetchWorld.bind(null, universeId)} loadMessages={loadPairMessages} />;
+  return (
+    <WorldCanvas
+      initial={initial as WorldSnapshot}
+      fetchWorld={fetchWorld.bind(null, universeId)}
+      loadMessages={loadPairMessages}
+      match={{ run: runMatching.bind(null, universeId), abort: abortMatching.bind(null, universeId) }}
+    />
+  );
 }

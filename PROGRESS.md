@@ -204,6 +204,11 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-18: The admin agent world can start or abort matching. Sprites update from the same snapshot poll,
+  so a run started there is the one you watch.
+- 2026-10-18: The agent world shows a running chat as the two sprites meeting in a shared interest structure
+  (café, gym, garden, and the rest of the preset library). The speaker's sprite carries the latest public line;
+  other participants see the meeting without the words.
 - 2026-10-18: Live admin chat stream (#54): each public agent turn is committed while its pair is still
   `running`, and one resumable, admin-only SSE connection multiplexes every pair. The overview counts those
   running chats ("N chats in progress") and refreshes every 2 seconds while matching.

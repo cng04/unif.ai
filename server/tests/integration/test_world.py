@@ -120,6 +120,13 @@ async def test_chat_is_running_then_complete(test_db_conn, test_universe, world)
         (pair_id, key[0], pair_id, key[1]),
     )
     await conn.commit()
+    spoken = await build_world(conn, test_universe)
+    live_pair = next(p for p in spoken["pairs"] if p["status"] == "running")
+    assert live_pair["line"]["content"] == "hey" and str(live_pair["line"]["speaker_id"]) == key[1]
+    own = await build_world(conn, test_universe, viewer=world["cyn"])
+    assert next(p for p in own["pairs"] if p["status"] == "running")["line"]["content"] == "hey"
+    hidden = await build_world(conn, test_universe, viewer=world["maya"])
+    assert "line" not in next(p for p in hidden["pairs"] if p["status"] == "running")
     verdict = Verdict(vibe_score=7.0, dealbreaker_conflicts=[], logistics_fit="workable", rationale="fine")
     await save_pair(conn, test_universe, key, transcript, verdict, messages_saved_live=True)
     done = await build_world(conn, test_universe)

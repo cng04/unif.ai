@@ -245,7 +245,9 @@ from stored rows; there is no stored progress or approval state. The older serve
 - `GET /pairs/{id}/messages` returns only `kind = 'message'` rows; agents' private `note` rows are never exposed.
 - Pairs have a `status`: the pipeline inserts `running` when a chat starts, appends each public message to
   `pair_messages` as it happens, then sets `complete` with the verdict and private notes when it's judged.
-  `GET /admin/api/universes/{id}/chats/stream` multiplexes those messages for an admin client. Anything that reads judged pairs must
+  `GET /admin/api/universes/{id}/chats/stream` multiplexes those messages for an admin client. The World snapshot
+  includes the latest public line of each running pair for the admin and for that pair's own participants.
+  Anything that reads judged pairs must
   filter `status = 'complete'`.
   `universes.matching_stage` (keywords / scoring / chats / groups) is set during a run and cleared when it ends.
 - `universes.is_demo` marks seeded fixtures and synthetic universes; keep demo and real data apart in lists.

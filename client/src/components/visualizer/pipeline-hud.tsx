@@ -23,6 +23,7 @@ export function PipelineHud({
   className = "",
   onSpeed,
   onFollow,
+  match,
 }: {
   stage: Stage;
   speed: number;
@@ -31,6 +32,16 @@ export function PipelineHud({
   className?: string;
   onSpeed: (speed: number) => void;
   onFollow: (on: boolean) => void;
+  /** Admin only. Absent on a participant's world. */
+  match?: {
+    running: boolean;
+    ready: boolean;
+    needed: number;
+    pending: boolean;
+    error?: string;
+    onRun: () => void;
+    onAbort: () => void;
+  };
 }) {
   // "matched" means the whole run is done: every step is behind us.
   const current = stage === "matched" ? STEPS.length : STEPS.findIndex((s) => s.stage === stage);
@@ -65,6 +76,34 @@ export function PipelineHud({
           );
         })}
       </ol>
+
+      {match && (
+        <div className="flex flex-col gap-1.5 border-t border-line pt-3.5">
+          {match.running ? (
+            <button
+              type="button"
+              disabled={match.pending}
+              onClick={match.onAbort}
+              className="press self-start rounded-full border border-ember bg-ember/10 px-3.5 py-[7px] font-mono text-[11px] leading-3 tracking-[0.14em] text-ember-text disabled:opacity-40"
+            >
+              {match.pending ? "aborting…" : "abort matching"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={match.pending || !match.ready}
+              onClick={match.onRun}
+              className="press self-start rounded-full bg-ink px-3.5 py-[7px] font-mono text-[11px] leading-3 tracking-[0.14em] text-paper disabled:opacity-40"
+            >
+              {match.pending ? "starting…" : stage === "matched" ? "re-run matching" : "run matching"}
+            </button>
+          )}
+          {!match.running && !match.ready && (
+            <span className="font-mono text-[9.5px] leading-3 tracking-[0.12em] text-ink-muted">need {match.needed} people onboarded</span>
+          )}
+          {match.error && <span className="font-sans text-[13px] leading-4 text-ember-text">{match.error}</span>}
+        </div>
+      )}
 
       <div className="flex items-center justify-between border-t border-line pt-3.5">
         <Segmented options={SPEEDS} value={speed as (typeof SPEEDS)[number]} onChange={onSpeed} label="Speed" size="sm" render={(s) => `${s}×`} />

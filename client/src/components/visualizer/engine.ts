@@ -8,7 +8,7 @@ import { GlowFilter, OutlineFilter } from "pixi-filters";
 import { AgentSprite, arrivalFor, type Task } from "./agent";
 import { buildScene, type Scene } from "./scenery";
 import type { AgentState } from "./types";
-import type { Activity, Intent } from "./world/activity";
+import { pairKey, type Activity, type Intent } from "./world/activity";
 import { hash, mapBounds, rng, tileToScreen, type Spot } from "./world/geometry";
 import { tileKey, type WorldPlan, type Zone } from "./world/plan";
 import type { WorldSnapshot } from "./world/snapshot";
@@ -74,6 +74,10 @@ export class WorldEngine {
   setWorld(snapshot: WorldSnapshot, plan: WorldPlan, activity: Activity) {
     const layoutChanged = !this.plan || this.plan.seed !== plan.seed || this.plan.zones.length !== plan.zones.length;
     this.activity = activity;
+    this.lines.clear();
+    for (const p of snapshot.pairs) {
+      if (p.status === "running" && p.line) this.lines.set(pairKey(p), { speaker: p.line.speaker_id, text: p.line.content });
+    }
     if (layoutChanged) this.buildScene(plan);
 
     const ids = new Set(snapshot.members.map((m) => m.id));
@@ -330,6 +334,8 @@ export class WorldEngine {
   }
 
   private partners = new Map<string, string>();
+  /** Latest public line of a running chat, keyed like activity's pair key. Display only. */
+  private lines = new Map<string, { speaker: string; text: string }>();
 
   private goToZone(id: string, zoneId: string, key: string) {
     const zone = this.plan?.zones.find((z) => z.id === zoneId);
@@ -377,7 +383,16 @@ export class WorldEngine {
       const b = this.agents.get(partnerId);
       if (!a || !b || !a.arrived || !b.arrived) continue;
       if (a.state !== "TALKING") a.setState("TALKING");
-      a.speaking = (Math.floor(this.simT / 2.2) + (id < partnerId ? 0 : 1)) % 2 === 0;
+      const intent = this.activity?.intents[id];
+      const line = intent?.kind === "meet" ? this.lines.get(intent.pair) : undefined;
+      if (line) {
+        const mine = line.speaker === id;
+        a.speaking = mine;
+        a.quote = mine ? line.text : null;
+      } else {
+        a.quote = null;
+        a.speaking = (Math.floor(this.simT / 2.2) + (id < partnerId ? 0 : 1)) % 2 === 0;
+      }
     }
     for (const [id, sprite] of this.agents)
       if (!this.partners.has(id) && sprite.state === "TALKING") {

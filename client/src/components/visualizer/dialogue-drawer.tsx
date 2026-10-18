@@ -108,42 +108,50 @@ export function DialogueDrawer({
       <div className="h-px shrink-0 bg-line" />
 
       <div className="flex min-h-0 flex-col gap-2.5 overflow-y-auto pr-1">
-        {origin === "live" ? (
+        {origin === "live" && !Array.isArray(messages) && (
           <div className="flex items-center gap-2 py-2">
             <span className="size-2 animate-pulse rounded-full bg-blob-ochre" />
             <span className="size-2 animate-pulse rounded-full bg-blob-glacier" />
             <span className="size-2 animate-pulse rounded-full bg-blob-periwinkle" />
-            <span className="ml-1 font-sans text-[13px] leading-4 text-ink-muted">talking now; the transcript appears when the chat is judged</span>
+            <span className="ml-1 font-sans text-[13px] leading-4 text-ink-muted">
+              {pair.line ? `${nameOf(pair.line.speaker_id).toLowerCase()}: ${pair.line.content}` : "talking now"}
+            </span>
           </div>
-        ) : messages === undefined || messages === "loading" ? (
-          <p className="py-2 font-sans text-[13px] text-ink-muted">loading the transcript…</p>
-        ) : messages === "error" ? (
+        )}
+        {Array.isArray(messages) ? (
+          messages.length === 0 ? (
+            <p className="py-2 font-sans text-[14px] text-ink-muted">no messages saved for this chat</p>
+          ) : (
+            messages.map((m, i) => {
+              const first = m.speakerId === pair.a;
+              return (
+                <div key={i} className={`flex max-w-[290px] flex-col gap-1 ${first ? "items-start" : "items-end self-end"}`}>
+                  <span className="font-mono text-[9.5px] leading-3 tracking-[0.14em] text-ink-faint">
+                    {nameOf(m.speakerId).toLowerCase()} · {clock(m.createdAt)}
+                  </span>
+                  <p
+                    className={`px-3.5 py-2.5 font-sans text-[14px] leading-[21px] text-ink ${
+                      first ? "rounded-[18px] rounded-bl-md bg-[#E2B36C3D]" : "rounded-[18px] rounded-br-md bg-[#A8D6E066]"
+                    }`}
+                  >
+                    {m.content}
+                  </p>
+                </div>
+              );
+            })
+          )
+        ) : origin === "live" ? null : messages === "error" ? (
           <p className="font-sans text-[13px] text-ink-muted">
             couldn&apos;t load the transcript.{" "}
             <button type="button" className="underline" onClick={onRetry}>
               try again
             </button>
           </p>
-        ) : messages.length === 0 ? (
-          <p className="py-2 font-sans text-[14px] text-ink-muted">no messages saved for this chat</p>
         ) : (
-          messages.map((m, i) => {
-            const first = m.speakerId === pair.a;
-            return (
-              <div key={i} className={`flex max-w-[290px] flex-col gap-1 ${first ? "items-start" : "items-end self-end"}`}>
-                <span className="font-mono text-[9.5px] leading-3 tracking-[0.14em] text-ink-faint">
-                  {nameOf(m.speakerId).toLowerCase()} · {clock(m.createdAt)}
-                </span>
-                <p
-                  className={`px-3.5 py-2.5 font-sans text-[14px] leading-[21px] text-ink ${
-                    first ? "rounded-[18px] rounded-bl-md bg-[#E2B36C3D]" : "rounded-[18px] rounded-br-md bg-[#A8D6E066]"
-                  }`}
-                >
-                  {m.content}
-                </p>
-              </div>
-            );
-          })
+          <p className="py-2 font-sans text-[13px] text-ink-muted">loading the transcript…</p>
+        )}
+        {origin === "live" && Array.isArray(messages) && (
+          <p className="font-mono text-[9.5px] leading-3 tracking-[0.14em] text-ink-faint">still talking</p>
         )}
       </div>
     </aside>

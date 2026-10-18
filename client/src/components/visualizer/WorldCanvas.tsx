@@ -35,17 +35,25 @@ function planFor(selection: Selection, seed: number): WorldPlan {
   return lastPlan.plan;
 }
 
+const MIN_TO_MATCH = 4;
+
 export function WorldCanvas({
   initial,
   fetchWorld,
   loadMessages,
   pollSeconds = 4,
+  match,
 }: {
   initial: WorldSnapshot;
   /** Returns the snapshot, or `{unchanged: true}` when `since` is still current. A server action: keeps secrets off the browser. */
   fetchWorld: (since: string) => Promise<WorldSnapshot | Unchanged>;
   loadMessages: (pairId: string) => Promise<ChatLine[]>;
   pollSeconds?: number;
+  /** Admin world only: start or stop a run and watch the sprites react. */
+  match?: {
+    run: () => Promise<{ error?: string }>;
+    abort: () => Promise<{ error?: string }>;
+  };
 }) {
   const container = useRef<HTMLDivElement>(null);
   const [engine, setEngine] = useState<WorldEngine | null>(null);
@@ -60,31 +68,34 @@ export function WorldCanvas({
   const [messages, setMessages] = useState<Record<string, MessageState>>({});
   const requested = useRef(new Set<string>());
   const version = useRef(initial.version);
+  const inflight = useRef(false);
+  const [matchPending, setMatchPending] = useState(false);
+  const [matchError, setMatchError] = useState<string>();
 
   // ---- data: poll the snapshot (skipping while hidden) ----
   useEffect(() => {
     version.current = snapshot.version;
   }, [snapshot.version]);
-  useEffect(() => {
-    let inflight = false;
-    const tick = async () => {
-      if (inflight || document.hidden) return;
-      inflight = true;
-      try {
-        const next = await fetchWorld(version.current);
-        if (!("unchanged" in next)) {
-          setSnapshot(next);
-          setNow(Date.now());
-        }
-      } catch {
-        // Transient; the next poll tries again and the last good snapshot stays on screen.
-      } finally {
-        inflight = false;
+  const pull = useCallback(async () => {
+    if (inflight.current || document.hidden) return;
+    inflight.current = true;
+    try {
+      const next = await fetchWorld(version.current);
+      if (!("unchanged" in next)) {
+        setSnapshot(next);
+        setNow(Date.now());
       }
-    };
-    const id = setInterval(tick, pollSeconds * 1000);
+    } catch {
+      // Transient; the next poll tries again and the last good snapshot stays on screen.
+    } finally {
+      inflight.current = false;
+    }
+  }, [fetchWorld]);
+  useEffect(() => {
+    const seconds = snapshot.universe.status === "matching" ? 2 : pollSeconds;
+    const id = setInterval(pull, seconds * 1000);
     return () => clearInterval(id);
-  }, [fetchWorld, pollSeconds]);
+  }, [pull, pollSeconds, snapshot.universe.status]);
 
   // ---- generation and activity (pure, derived from the snapshot) ----
   const selection = useMemo(() => selectStructures(snapshot), [snapshot]);
@@ -133,10 +144,30 @@ export function WorldCanvas({
     (pair: SnapshotPair, replay = false) => {
       if (!pair.id) return;
       setDrawer({ pair, replay });
-      if (pair.status === "complete") ensureMessages(pair.id);
+      if (pair.status === "complete" || snapshot.viewer == null) ensureMessages(pair.id);
     },
-    [ensureMessages],
+    [ensureMessages, snapshot.viewer],
   );
+  const livePairId = drawer?.pair.status === "running" ? drawer.pair.id : null;
+  useEffect(() => {
+    if (!livePairId || snapshot.viewer) return;
+    let stop = false;
+    const pull = () => {
+      loadMessages(livePairId).then(
+        (lines) => {
+          if (!stop) setMessages((m) => ({ ...m, [livePairId]: lines }));
+        },
+        () => {
+          if (!stop) setMessages((m) => ({ ...m, [livePairId]: "error" }));
+        },
+      );
+    };
+    const id = setInterval(pull, 2000);
+    return () => {
+      stop = true;
+      clearInterval(id);
+    };
+  }, [livePairId, loadMessages, snapshot.viewer]);
 
   const events = useRef<EngineEvents>({ onSelect: () => {}, onFollow: () => {}, onStatus: () => {} });
   useLayoutEffect(() => {
@@ -165,6 +196,27 @@ export function WorldCanvas({
       : provenance(drawerPair, now)
     : null;
 
+  const onboarded = snapshot.members.filter((m) => m.onboarding === "complete").length;
+  const startMatch = async () => {
+    if (!match) return;
+    if (snapshot.universe.status === "matched" && !window.confirm("Re-run matching? This replaces every pair, chat and group.")) return;
+    setMatchPending(true);
+    setMatchError(undefined);
+    const result = await match.run();
+    setMatchPending(false);
+    if (result.error) setMatchError(result.error);
+    else await pull();
+  };
+  const stopMatch = async () => {
+    if (!match || !window.confirm("Abort matching? The run stops, its chats so far are deleted, and the universe goes back to onboarding.")) return;
+    setMatchPending(true);
+    setMatchError(undefined);
+    const result = await match.abort();
+    setMatchPending(false);
+    if (result.error) setMatchError(result.error);
+    else await pull();
+  };
+
   const hud = (
     <PipelineHud
       stage={activity.stage}
@@ -173,6 +225,17 @@ export function WorldCanvas({
       canFollow={Boolean(selected)}
       onSpeed={setSpeed}
       onFollow={(on) => (on && selected ? engine?.select(selected.id, true) : engine?.setFollow(false))}
+      match={
+        match && {
+          running: snapshot.universe.status === "matching",
+          ready: onboarded >= MIN_TO_MATCH,
+          needed: MIN_TO_MATCH,
+          pending: matchPending,
+          error: matchError,
+          onRun: startMatch,
+          onAbort: stopMatch,
+        }
+      }
       className="xl:absolute xl:top-5 xl:right-5 xl:w-[460px]"
     />
   );

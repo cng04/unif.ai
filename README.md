@@ -68,8 +68,8 @@ flowchart LR
     dictation or typing becomes an onboarded agent, for live demos), and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
     `ADMIN_PASSWORD` basic auth in `src/proxy.ts`, and the client forwards the same password to `/admin/api`.
 - **Agent world** (`client/src/components/visualizer/`): one explorable, **procedurally generated campus** (PixiJS,
-  32x32 pixel-art isometric tiles). Everything comes from one server snapshot (`GET .../world`, polled every ~4 s
-  with a version cursor) and is built in three separate layers, each pure and unit-tested (`world/`):
+  32x32 pixel-art isometric tiles). Everything comes from one server snapshot (`GET .../world`, polled every ~2 s
+  while matching and ~4 s otherwise, with a version cursor) and is built in three separate layers, each pure and unit-tested (`world/`):
   `select.ts` decides which themed structures the universe's keywords justify (one per preset from the library in
   `presets.ts`; at least 2 people must share its keywords; unmatched keywords join the closest crowd or are left
   out; overlapping crowds merge into one open-plan zone; size, decoration and population follow the crowd),
@@ -77,11 +77,13 @@ flowchart LR
   anything; spawn plaza and meeting square always exist; winding paths; trees, lamps and flowers as filler), and
   `scenery.ts` / `engine.ts` render it (drag to pan, wheel or +/- to zoom, follow, A* walking over the plan).
   `activity.ts` derives what each agent does **only from data**: unscored people wait at the spawn plaza
-  (thinking while their interview or scoring is running), a pair walks to meet only while the server has its chat
-  as `running`, groups sit at tables in the structure their members share, unplaced people sit in the square.
+  (thinking while their interview or scoring is running), a pair walks to meet in a shared structure (otherwise
+  the square) only while the server has its chat as `running`, and the speaker's sprite shows that turn. Groups
+  sit at tables in the structure their members share, and unplaced people sit in the square.
   Completed chats can be re-enacted on request, always labelled (live / completed / replay / historical).
   Clicking an agent follows it and opens a bio card; chats open the transcript (messages only, never notes).
-  Admins see everything at `/admin/universes/{id}/world`; participants get `/u/{id}/world` (their own agent
+  Admins see everything at `/admin/universes/{id}/world` and can start or abort matching from that screen;
+  participants get `/u/{id}/world` (their own agent
   followed) without scores, dealbreakers, judge flags or rationales, and with other people's chats unopenable.
   The admin list separates real universes from demo/test ones (`/admin?mode=demo`); seed demo data with
   `server/scripts/seed_demo.py`, `db/dev_graph_seed.sql` or `server/scripts/seed_synthetic.py --people 50`.
@@ -366,8 +368,8 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `GET`/`POST /admin/api/universes`       | List universes with member/onboarded/group counts / create one (basic auth) |
 | `GET /admin/api/universes/{id}`         | Overview: stats, members with onboarding status, keywords (basic auth) |
 | `GET /admin/api/universes/{id}/groups`  | Groups with labels and weakest tie, plus leftovers (basic auth)      |
-| `GET /admin/api/universes/{id}/world?since=` | World snapshot for the agent world: members (onboarding/busy, public fields, top keywords, scores), keywords with crowd sizes, pairs (`running`/`complete`), groups, matching stage; `{unchanged: true}` when `since` matches (basic auth) |
-| `GET /users/{id}/world?since=`          | The same World as that participant may see it: no scores, dealbreakers, flags or rationales; other people's pairs without ids or verdicts |
+| `GET /admin/api/universes/{id}/world?since=` | World snapshot for the agent world: members (onboarding/busy, public fields, top keywords, scores), keywords with crowd sizes, pairs (`running`/`complete`, plus the latest public line while running), groups, matching stage; `{unchanged: true}` when `since` matches (basic auth) |
+| `GET /users/{id}/world?since=`          | The same World as that participant may see it: no scores, dealbreakers, flags or rationales; other people's pairs without ids, verdicts, or the live line |
 | `GET /admin/api/universes?mode=real\|demo\|all` | Universe list filtered by `is_demo` (basic auth) |
 | `POST /admin/api/universes/{id}/people` | Add someone interviewed in person: name, notes, optional phone/email/socials, `scrape_consent`. Builds and saves the profile, returns the public part only (basic auth; 409 while matching) |
 | `GET /admin/api/users/{id}/public`      | Public profile plus which socials have been scraped, for the add-person screen (basic auth) |
