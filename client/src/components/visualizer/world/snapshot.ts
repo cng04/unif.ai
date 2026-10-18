@@ -32,7 +32,7 @@ export type SnapshotPair = {
   started_at: string;
   completed_at: string | null;
   /** Admin, or the viewer's own pairs. Latest public turn while the chat is still running. */
-  line?: { speaker_id: string; content: string };
+  line?: { id?: number; speaker_id: string; content: string };
   /** Admin, or the viewer's own pairs. */
   vibe?: number | null;
   logistics?: "strong" | "workable" | "incompatible" | null;

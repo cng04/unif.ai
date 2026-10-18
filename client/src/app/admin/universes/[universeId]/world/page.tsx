@@ -29,6 +29,7 @@ async function WorldScreen({ params }: { params: Promise<{ universeId: string }>
       initial={initial as WorldSnapshot}
       fetchWorld={fetchWorld.bind(null, universeId)}
       loadMessages={loadPairMessages}
+      streamChats
       match={{ run: runMatching.bind(null, universeId), abort: abortMatching.bind(null, universeId) }}
     />
   );

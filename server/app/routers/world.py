@@ -125,11 +125,11 @@ async def build_world(conn: AsyncConnection, universe_id: UUID, viewer: UUID | N
     # Latest public turn of each chat still running. Notes stay out. Only the admin and the two people in the
     # pair receive it, so other participants see the sprites meet without reading the words.
     latest_lines = {
-        row["pair_id"]: {"speaker_id": row["speaker_id"], "content": _clip(row["content"])}
+        row["pair_id"]: {"id": row["id"], "speaker_id": row["speaker_id"], "content": _clip(row["content"])}
         for row in await (
             await conn.execute(
                 """
-                SELECT DISTINCT ON (pm.pair_id) pm.pair_id, pm.speaker_id, pm.content
+                SELECT DISTINCT ON (pm.pair_id) pm.id, pm.pair_id, pm.speaker_id, pm.content
                 FROM pair_messages pm JOIN pairs p ON p.id = pm.pair_id
                 WHERE p.universe_id = %s AND p.status = 'running' AND pm.kind = 'message'
                 ORDER BY pm.pair_id, pm.id DESC

@@ -103,7 +103,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | #  | Task | Where | Owner |
 | -- | ---- | ----- | ----- |
 | 5  | [x] Add `server/.env.example` (`DATABASE_URL`, `GEMINI_API_KEY`, `TICKETMASTER_API_KEY`, `PHOTON_API_KEY`, `CLIENT_URL`). Share the real keys in the team chat, never in the repo. | `server/` | |
-| 7  | [x] Seeded two varied 40-person public-figure demos plus a 15-person live-run pool, with profiles, deliberate mismatches and onboarding transcripts (`lahacks`, `encore40`, `celeb15`). | `db/seed.sql`, `db/seed_celebrity_encore.sql`, `db/seed_celebrity_fifteen.sql` | Cursor |
+| 7  | [x] Seeded two varied 40-person public-figure demos plus a 10-person live-run pool, with profiles, deliberate mismatches and onboarding transcripts (`lahacks`, `encore40`, `celeb15`). | `db/seed.sql`, `db/seed_celebrity_encore.sql`, `db/seed_celebrity_fifteen.sql` | Cursor |
 | 43 | [ ] **Fixture data for a finished matching run:** precomputed keywords, keyword scores, pairs + transcripts, groups, events for the seed universe. Frontend can build every page without running the pipeline, and it's the **demo fallback** if Gemini fails live. | `db/seed.sql` or `db/fixture_matched.sql` | |
 | 6  | [ ] **Build the client.** In demo order: create universe + invite QR, `/join/[code]` onboarding (name, paste self-report, interviewer chat), admin "start matching" + status, groups + events, then the 3D playground (#49) and pair transcripts. Read `client/AGENTS.md` first. | `client/` | |
 | 49 | [ ] **Keyword playground (3D).** A three.js scatter plot where the user picks 3 keywords as the X/Y/Z axes. Each point is one person in the universe, placed by their Jev keyword scores (0-1) on those 3 keywords. The viewer's own point is highlighted. People the viewer had a simulated chat with (a row in `pairs`) are colored; everyone else is grey. Clicking a colored point opens that agent-to-agent transcript (`GET /pairs/{id}/messages`, with `note` rows dropped per #2). Needs a new endpoint that returns the universe's keywords plus each user's raw per-keyword scores (`GET /universes/{id}/graph` only returns the 3D projection), and a way to know who the viewer is (user id from onboarding). | `client/`, `routers/matching.py` | |
@@ -204,6 +204,8 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-18: The admin world applies each public chat turn as it is saved, so a reply that lands in about a
+  second shows on that sprite. The snapshot poll still places the pairs.
 - 2026-10-18: The admin agent world can start or abort matching. Sprites update from the same snapshot poll,
   so a run started there is the one you watch.
 - 2026-10-18: The agent world shows a running chat as the two sprites meeting in a shared interest structure
@@ -230,6 +232,8 @@ Add a line here for each change merged to `main`.
 - 2026-10-18: #51 World is now one procedurally generated single-floor campus (branch `world-procedural`, M4-M8): layout from the universe's keywords (`world/select.ts` -> `world/plan.ts`, seeded by universe id + keyword set, stable when people join), drag-pan/zoom engine, agents act out only what the data says (`world/activity.ts`; chats are live only while `pairs.status = 'running'`), participant page `/u/{id}/world` with follow-me, admin real/demo switch (`/admin?mode=demo`), synthetic seeder `server/scripts/seed_synthetic.py`, Vitest tests and `client/scripts/world-check.mjs`. API client fetches are now `no-store`. Remaining: Paper structure drawings (conflict list for the user), real-model runs on synthetic people, merge `origin/main`.
 - 2026-10-18: World integration M1-M3 (branch `world-procedural`): `GET /admin/api/universes/{id}/world` and `GET /users/{id}/world` snapshots with a `since` cursor; the pipeline records its stage and writes pairs as `running` at chat start; `universes.is_demo` (seeded fixtures marked demo). **Schema change:** apply `db/migrations/003_world.sql` (`./run.sh migrate`) or `docker compose down -v` locally. World generation started: preset library + keyword-driven structure selection with Vitest tests (`npm test` in `client/`).
 - 2026-10-18: Lowered the default minimum group size from 4 to 3 and updated matching prompts and user-facing copy.
+- 2026-10-18: `celeb15` is now 10 people (`10-person Celebrity Sprint`). Re-running `db/seed_celebrity_fifteen.sql`
+  deletes that universe and recreates it, including any pairs and groups from a previous run.
 - 2026-10-18: Added rerunnable `db/seed_celebrity_fifteen.sql`: a separate 15-person public-figure universe
   (`celeb15`) with fictional demo profiles and onboarding transcripts for shorter live matching runs.
 - 2026-10-17: Connections graphs: both views sit on a small spring layout (`client/src/lib/elastic.ts`). 2D pans,

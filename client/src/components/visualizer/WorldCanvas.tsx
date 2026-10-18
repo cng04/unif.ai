@@ -14,6 +14,7 @@ import { Caption } from "./hud";
 import { PipelineHud } from "./pipeline-hud";
 import type { ChatLine, Origin } from "./types";
 import { deriveActivity, pairKey, provenance } from "./world/activity";
+import { keepNewerLines, mergeLiveTurn } from "./world/live-line";
 import { planWorld, worldSeed, type WorldPlan } from "./world/plan";
 import { selectStructures, type Selection } from "./world/select";
 import type { SnapshotPair, Unchanged, WorldSnapshot } from "./world/snapshot";
@@ -42,6 +43,7 @@ export function WorldCanvas({
   fetchWorld,
   loadMessages,
   pollSeconds = 4,
+  streamChats = false,
   match,
 }: {
   initial: WorldSnapshot;
@@ -49,6 +51,8 @@ export function WorldCanvas({
   fetchWorld: (since: string) => Promise<WorldSnapshot | Unchanged>;
   loadMessages: (pairId: string) => Promise<ChatLine[]>;
   pollSeconds?: number;
+  /** Admin world only: each saved public turn updates the speaking sprite without waiting for the next poll. */
+  streamChats?: boolean;
   /** Admin world only: start or stop a run and watch the sprites react. */
   match?: {
     run: () => Promise<{ error?: string }>;
@@ -82,7 +86,7 @@ export function WorldCanvas({
     try {
       const next = await fetchWorld(version.current);
       if (!("unchanged" in next)) {
-        setSnapshot(next);
+        setSnapshot((current) => keepNewerLines(current, next));
         setNow(Date.now());
       }
     } catch {
@@ -92,10 +96,43 @@ export function WorldCanvas({
     }
   }, [fetchWorld]);
   useEffect(() => {
-    const seconds = snapshot.universe.status === "matching" ? 2 : pollSeconds;
+    const seconds = snapshot.universe.status === "matching" ? 1 : pollSeconds;
     const id = setInterval(pull, seconds * 1000);
     return () => clearInterval(id);
   }, [pull, pollSeconds, snapshot.universe.status]);
+
+  // Admin only. The stream is a few hundred milliseconds behind the database write, which is faster than the
+  // snapshot poll, so a reply that lands in about a second shows up on its own.
+  const universeId = snapshot.universe.id;
+  const matching = snapshot.universe.status === "matching";
+  useEffect(() => {
+    if (!streamChats || !matching) return;
+    const source = new EventSource(`/admin/api/universes/${universeId}/chats/stream`);
+    source.addEventListener("message", (ev) => {
+      let data: { id?: number; pair_id?: string; speaker_id?: string; content?: string; created_at?: string };
+      try {
+        data = JSON.parse((ev as MessageEvent).data);
+      } catch {
+        return;
+      }
+      if (data.id == null || !data.pair_id || !data.speaker_id || typeof data.content !== "string") return;
+      const turn = { id: data.id, pair_id: data.pair_id, speaker_id: data.speaker_id, content: data.content };
+      setSnapshot((current) => mergeLiveTurn(current, turn));
+      setMessages((existing) => {
+        const current = existing[turn.pair_id];
+        if (!Array.isArray(current)) return existing;
+        return {
+          ...existing,
+          [turn.pair_id]: [...current, { speakerId: turn.speaker_id, content: data.content!, createdAt: data.created_at ?? "" }],
+        };
+      });
+    });
+    source.addEventListener("done", () => {
+      source.close();
+      void pull();
+    });
+    return () => source.close();
+  }, [streamChats, matching, universeId, pull]);
 
   // ---- generation and activity (pure, derived from the snapshot) ----
   const selection = useMemo(() => selectStructures(snapshot), [snapshot]);

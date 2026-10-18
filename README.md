@@ -68,8 +68,10 @@ flowchart LR
     dictation or typing becomes an onboarded agent, for live demos), and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
     `ADMIN_PASSWORD` basic auth in `src/proxy.ts`, and the client forwards the same password to `/admin/api`.
 - **Agent world** (`client/src/components/visualizer/`): one explorable, **procedurally generated campus** (PixiJS,
-  32x32 pixel-art isometric tiles). Everything comes from one server snapshot (`GET .../world`, polled every ~2 s
-  while matching and ~4 s otherwise, with a version cursor) and is built in three separate layers, each pure and unit-tested (`world/`):
+  32x32 pixel-art isometric tiles). Everything comes from one server snapshot (`GET .../world`, polled every ~1 s
+  while matching and ~4 s otherwise, with a version cursor). On the admin world, each public turn also arrives
+  on the chat stream as it is saved, so a reply shows on its sprite without waiting for the next poll. Built in
+  three separate layers, each pure and unit-tested (`world/`):
   `select.ts` decides which themed structures the universe's keywords justify (one per preset from the library in
   `presets.ts`; at least 2 people must share its keywords; unmatched keywords join the closest crowd or are left
   out; overlapping crowds merge into one open-plan zone; size, decoration and population follow the crowd),
@@ -142,7 +144,7 @@ unif.ai/
 │   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`): 40 playful celebrity
 │   │                                   profiles in 8 clusters of 5, with interviews and dealbreaker clashes
 │   ├── seed_celebrity_encore.sql       Rerunnable second 40-person public-figure demo (invite `encore40`)
-│   ├── seed_celebrity_fifteen.sql      Rerunnable 15-person public-figure demo (invite `celeb15`)
+│   ├── seed_celebrity_fifteen.sql      Rerunnable 10-person public-figure demo (invite `celeb15`)
 │   ├── dev_graph_seed.sql              fake matching output for that universe (scores, pairs, groups); run by hand
 │   ├── dev_events_seed.sql             fake plans (3 per group) for groups that have none; run by hand after it
 │   └── docker-compose.yml              local Postgres; runs schema + seed on first boot only
@@ -199,7 +201,7 @@ docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_graph_seed.sql   #
 docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_events_seed.sql  # fake plans for its groups
 #    Second unmatched 40-person public-figure pool (safe to re-run):
 docker exec -i unifai-db psql -U unifai -d unifai < ../db/seed_celebrity_encore.sql
-#    Smaller unmatched 15-person public-figure pool (safe to re-run):
+#    Smaller unmatched 10-person public-figure pool (safe to re-run):
 docker exec -i unifai-db psql -U unifai -d unifai < ../db/seed_celebrity_fifteen.sql
 
 # 3. Client (API_URL defaults to http://localhost:8000; set ADMIN_PASSWORD to the server's value if you set one)
@@ -400,7 +402,7 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
   personas, not real data) in 8 clusters, with deliberate dealbreaker clashes. `seed_celebrity_encore.sql`
   creates a separate, rerunnable 40-person pool of different real public figures (`encore40`); its profiles and
   logistics are explicitly fictional demo sketches, not claims about private lives. `seed_celebrity_fifteen.sql`
-  creates a separate rerunnable 15-person pool (`celeb15`) for shorter live matching runs. `dev_graph_seed.sql`
+  creates a separate rerunnable 10-person pool (`celeb15`) for shorter live matching runs. `dev_graph_seed.sql`
   adds fake matching output for `lahacks` so `/graph`, `/pairs` and `/groups` have data;
   `server/scripts/seed_demo.py` builds a separate post-matching "UI Demo" universe (invite `ui-demo`).
 - **Unused**: `agent_profiles.embedding` (vector(768)).

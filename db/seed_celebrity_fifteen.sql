@@ -1,11 +1,11 @@
--- A small 15-person demo universe using public figures who are not in the two 40-person seeds.
+-- A small 10-person demo universe using public figures who are not in the two 40-person seeds.
 -- These are fictional matching-agent sketches inspired by public work/personas, not factual claims about
 -- anyone's private life, availability, location, values, or relationships. Safe to re-run locally.
 BEGIN;
 
 DELETE FROM universes WHERE id = '20000000-0000-0000-0000-000000000001';
 INSERT INTO universes (id, name, admin_email, invite_code)
-VALUES ('20000000-0000-0000-0000-000000000001', '15-person Celebrity Sprint', 'sprint@unif.ai', 'celeb15');
+VALUES ('20000000-0000-0000-0000-000000000001', '10-person Celebrity Sprint', 'sprint@unif.ai', 'celeb15');
 
 CREATE TEMP TABLE sprint_people (
     seq INT PRIMARY KEY,
@@ -35,10 +35,6 @@ INSERT INTO sprint_people VALUES
      ARRAY['comedy writing','television','education','storytelling'], 'quick, grounded, observant',
      'Workshopping jokes, watching a sharp sitcom, and having dinner with people who notice the room.',
      'Punching down and calling it comedy.'),
-    (5, 'Yo-Yo Ma', 'cellist known for classical performance and cross-cultural collaborations', 'creative',
-     ARRAY['cello','classical music','collaboration','cultural exchange'], 'warm, attentive, quietly adventurous',
-     'Rehearsing with musicians from different traditions and sharing a long meal afterward.',
-     'Ego that leaves no room for listening.'),
 
     (6, 'Chris Hemsworth', 'actor known for Thor and action-adventure films', 'active',
      ARRAY['fitness','surfing','outdoor training','film'], 'upbeat, physical, playful',
@@ -52,14 +48,6 @@ INSERT INTO sprint_people VALUES
      ARRAY['football','team sports','fashion','social advocacy'], 'direct, competitive, outspoken',
      'A hard game, a loud dinner, and a conversation where people say what they mean.',
      'Standing by when a teammate is being targeted.'),
-    (9, 'Michelle Obama', 'author and former First Lady of the United States', 'active',
-     ARRAY['education','fitness','gardening','community service'], 'disciplined, warm, pragmatic',
-     'A workout, time in a garden, and helping organize something useful for a community.',
-     'Disrespect toward children or service workers.'),
-    (10, 'Emma Watson', 'actor and advocate known for the Harry Potter films and education work', 'active',
-     ARRAY['literature','acting','sustainable fashion','education'], 'thoughtful, composed, purposeful',
-     'A bookshop, a long walk, and a small dinner that turns into a serious conversation.',
-     'Dismissiveness toward education or equality.'),
 
     (11, 'Tim Berners-Lee', 'computer scientist who invented the World Wide Web', 'builders',
      ARRAY['open web','software','digital rights','information systems'], 'idealistic, technical, understated',
@@ -69,18 +57,10 @@ INSERT INTO sprint_people VALUES
      ARRAY['electronics','computers','engineering','pranks'], 'playful, generous, deeply technical',
      'Taking apart old hardware, building something elegant, and sneaking in a harmless prank.',
      'Status-seeking without curiosity about how anything works.'),
-    (13, 'Mark Rober', 'engineer and video creator known for science and engineering projects', 'builders',
-     ARRAY['engineering','science videos','education','creative experiments'], 'enthusiastic, methodical, accessible',
-     'Building a ridiculous experiment, collecting real data, and making the explanation fun.',
-     'Faking results because the honest experiment was less dramatic.'),
     (14, 'Mae Jemison', 'engineer, physician, and former NASA astronaut', 'builders',
      ARRAY['spaceflight','medicine','engineering','dance'], 'calm, interdisciplinary, determined',
      'A science museum, a dance performance, and a conversation connecting fields people keep separate.',
-     'Telling people they must choose between technical and creative interests.'),
-    (15, 'Demis Hassabis', 'computer scientist and co-founder of Google DeepMind', 'builders',
-     ARRAY['artificial intelligence','games','neuroscience','scientific discovery'], 'analytical, ambitious, systems-minded',
-     'A strategy game, a research discussion, and mapping a difficult problem into smaller experiments.',
-     'Certainty that ignores evidence or safety concerns.');
+     'Telling people they must choose between technical and creative interests.');
 
 INSERT INTO users (id, universe_id, full_name, email)
 SELECT
