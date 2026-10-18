@@ -23,6 +23,26 @@ def test_429_waits_until_reset_then_succeeds(monkeypatch):
     assert len(sleeps) == 1 and 28 <= sleeps[0] <= 30
 
 
+def test_429_tries_the_next_model_without_sleeping(monkeypatch):
+    sleeps = []
+    seen: list[str] = []
+    monkeypatch.setattr(openrouter.time, "sleep", sleeps.append)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        model = request.read().decode()
+        seen.append("gemini" if "gemini" in model else "blocked")
+        if "gemini" in model:
+            return httpx.Response(200, json={"ok": True})
+        return rate_limited(reset_in=60)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    body = {"model": "blocked"}
+    assert post_chat(client, body, attempts=3, fallbacks=["google/gemini-2.5-flash-lite"]) == {"ok": True}
+    assert sleeps == []
+    assert body["model"] == "google/gemini-2.5-flash-lite"
+    assert seen == ["blocked", "gemini"]
+
+
 def test_rate_limiter_blocks_once_the_minute_is_full(monkeypatch):
     clock = [0.0]
     monkeypatch.setattr(openrouter.time, "monotonic", lambda: clock[0])

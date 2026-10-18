@@ -69,7 +69,16 @@ def _retry_delay(resp: httpx.Response, attempt: int) -> float:
     return min(max(reset_ms / 1000 - time.time(), 1.0), 60.0)
 
 
-def post_chat(client: httpx.Client, body: dict, attempts: int, limiter: RateLimiter | None = None) -> dict:
+def post_chat(
+    client: httpx.Client,
+    body: dict,
+    attempts: int,
+    limiter: RateLimiter | None = None,
+    fallbacks: list[str] | None = None,
+) -> dict:
+    """POST one chat completion. A 429 tries the next fallback model immediately; only when none are left
+    does it sleep until OpenRouter's reset."""
+    fallbacks = list(fallbacks or [])
     for attempt in range(attempts):
         last = attempt == attempts - 1
         if limiter:
@@ -82,6 +91,11 @@ def post_chat(client: httpx.Client, body: dict, attempts: int, limiter: RateLimi
             delay = min(2 * 2**attempt, 60)
             log.warning("OpenRouter %s: %s, retrying in %.0fs", body.get("model"), type(e).__name__, delay)
         else:
+            if resp.status_code == 429 and fallbacks:
+                nxt = fallbacks.pop(0)
+                log.warning("OpenRouter %s rate limited, trying %s", body.get("model"), nxt)
+                body["model"] = nxt
+                continue
             if resp.status_code not in RETRY_STATUS or last:
                 data = resp.json() if resp.content else {}
                 if resp.is_error or "error" in data:

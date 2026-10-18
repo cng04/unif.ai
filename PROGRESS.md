@@ -204,6 +204,8 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-18: A rate-limited chat turn tries the next OpenRouter model immediately instead of sleeping until
+  that model's minute resets. Chat speed changes only when this server code is deployed and restarted.
 - 2026-10-18: While matching is still reading keywords and nobody has a score yet, agents mill around the
   square instead of standing still at the spawn plaza.
 - 2026-10-18: The admin world applies each public chat turn as it is saved, so a reply that lands in about a

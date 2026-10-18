@@ -62,6 +62,7 @@ def get_chat_llms() -> list[LLM]:
             rpm=settings.openrouter_rpm,
             chat_temperature=temperature,
             temperature_jitter=settings.openrouter_chat_temperature_jitter,
+            fallbacks=[other for other in models if other != m],
         )
         for m, temperature in zip(models, temperatures)
     ]

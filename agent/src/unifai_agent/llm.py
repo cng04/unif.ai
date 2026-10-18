@@ -124,6 +124,7 @@ class OpenRouterLLM:
         rpm: int = 0,
         chat_temperature: float | None = None,
         temperature_jitter: float = 0.0,
+        fallbacks: list[str] | None = None,
     ):
         self.client = make_client(api_key, timeout)
         self.model = model
@@ -131,6 +132,8 @@ class OpenRouterLLM:
         self.max_tokens = max_tokens
         self.attempts = attempts
         self.limiter = limiter_for(model, rpm)
+        # Other chat models to try immediately when this one is rate limited, instead of sleeping out the minute.
+        self.fallbacks = list(fallbacks or [])
         # Persona conversations bind one randomized temperature around this base for all turns in that pair.
         self.chat_temperature = chat_temperature
         self.temperature_jitter = temperature_jitter
@@ -173,7 +176,7 @@ class OpenRouterLLM:
             }
 
         for attempt in range(3):
-            message = post_chat(self.client, body, self.attempts, self.limiter)["choices"][0]["message"]
+            message = post_chat(self.client, body, self.attempts, self.limiter, fallbacks=list(self.fallbacks))["choices"][0]["message"]
             calls = [
                 ToolCall(c["function"]["name"], json.loads(c["function"].get("arguments") or "{}"))
                 for c in message.get("tool_calls") or []
