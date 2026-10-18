@@ -76,7 +76,7 @@ flowchart LR
 | Client     | Next.js 16.4, React 19.3, Tailwind 4, TypeScript 5, ESLint 9                                      | Per-user web UI                                  |
 | Onboarding bot | Node, TypeScript, tsx, `@anthropic-ai/sdk`, `@photon-ai/api`, pg, socket.io-client, zod      | Chat onboarding over iMessage / HTTP             |
 | ASI agent  | Python 3.11+, uagents, httpx                                                                      | ASI:One relay to the onboarding bot              |
-| Server     | Python 3.11-3.14, FastAPI, uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
+| Server     | Python 3.11-3.14, FastAPI (`standard` extra for CLI startup), uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
 | Agent lib  | google-genai, pydantic, httpx, typesafe-sdk                                                       | Gemini calls, schemas, Jev client, OpenRouter    |
 | Models     | Gemini (`gemini-3.8-flash` by default), Jev (`jev-latest`), or OpenRouter (`google/gemini-3.8-flash`) | Text generation; typed scoring and judging       |
 | Database   | Postgres 17 with pgvector and pgcrypto; local image `timescale/timescaledb-ha:pg17`               | Storage. No TimescaleDB-specific features used. |

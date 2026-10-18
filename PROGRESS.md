@@ -117,6 +117,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | 27 | [ ] Add a retry with backoff to Gemini calls. 8 conversations at once will hit rate limits. | `agent/llm.py` | |
 | 11 | [ ] Prepend `CONVERSATION_KICKOFF` to the opening agent's history so it never starts with an `assistant` message. Check in #8 whether Gemini actually complains; skip this if it doesn't. | `agent/persona.py` | |
 | 44 | [ ] **Deploy early** (server, client, shared DB) and redeploy as features land, so "works on my machine" problems show up early. | — | |
+| 50 | [x] Include FastAPI CLI dependencies for deployment startup. | `server/pyproject.toml`, `server/uv.lock` | Codex |
 | 45 | [ ] **`DEMO.md`:** exact click path, which universe and invite code, time per step, who presents, and what to do if a live call fails (switch to the #43 fixture). | repo root | |
 
 ### Should: the demo is noticeably better or safer
@@ -200,6 +201,7 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Enabled the FastAPI `standard` extra and refreshed the server lockfile so deployment startup has the FastAPI CLI dependencies.
 - 2026-10-17: `seed.sql` now has 40 celebrity profiles (athletes, actors, musicians, politicians, historical figures) in 8 clusters of 5 with dealbreaker clashes; `dev_graph_seed.sql` follows with 8 clusters.
 - 2026-10-17: OpenRouter can now stand in for both Gemini and Jev (one key runs the pipeline); conversations and `main.py` log at INFO.
 - 2026-10-17: Added #49 (3D keyword playground with user-picked axes and clickable chat transcripts).
