@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 from psycopg import AsyncConnection
 
-from app.routers.admin_api import abort_matching, universe_detail, universe_groups
+from app.routers.admin_api import abort_matching, universe_detail, universe_groups, universe_scores
 from tests.integration.test_me import add_pair, add_user
 
 
@@ -61,3 +61,35 @@ async def test_abort_matching_reopens_onboarding_and_drops_partial_results(test_
     with pytest.raises(HTTPException) as err:
         await abort_matching(test_universe, conn)
     assert err.value.status_code == 409
+
+
+async def test_scores_are_keyword_level_only(test_db_conn: AsyncConnection, test_universe):
+    conn = test_db_conn
+    a, b = [await add_user(conn, test_universe, n) for n in ("Ana", "Ben")]
+    unscored = await add_user(conn, test_universe, "Cal")
+    ids = {}
+    for name in ("climbing", "late nights"):
+        row = await (
+            await conn.execute(
+                "INSERT INTO keywords (universe_id, name) VALUES (%s, %s) RETURNING id", (test_universe, name)
+            )
+        ).fetchone()
+        ids[name] = row["id"]
+    for user, climbing, late, avoids_late in ((a, 0.9, 0.1, True), (b, 0.4, 0.8, False)):
+        await conn.execute(
+            "INSERT INTO keyword_scores (user_id, keyword_id, score, dealbreaker) VALUES (%s, %s, %s, false), (%s, %s, %s, %s)",
+            (user, ids["climbing"], climbing, user, ids["late nights"], late, avoids_late),
+        )
+    await conn.commit()
+
+    out = await universe_scores(test_universe, conn)
+    assert out["keywords"] == ["climbing", "late nights"]
+    by_user = {m["user_id"]: m for m in out["members"]}
+    assert unscored not in by_user
+    assert by_user[a]["scores"] == pytest.approx({"climbing": 0.9, "late nights": 0.1})  # REAL column
+    assert by_user[a]["dealbreakers"] == ["late nights"]
+    assert by_user[b]["dealbreakers"] == []
+    # The profile's private dealbreaker text is never part of the response.
+    private = (await (await conn.execute("SELECT private FROM agent_profiles WHERE user_id = %s", (a,))).fetchone())["private"]
+    for text in private.get("dealbreakers", []):
+        assert text not in str(out)

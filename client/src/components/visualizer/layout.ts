@@ -11,9 +11,10 @@ export const WALL_H = 44;
 /** Gap between floors in world pixels, where the floor label sits. */
 export const FLOOR_GAP = 36;
 
-/** Screen size of one floor: the iso diamond of the grid plus the back walls above it. */
+/** Screen size of one floor: the iso diamond of the grid, the back walls above it, and the 16px block sides of the
+ * 32x32 front-edge tiles below it. Tiles project as 32x16 diamonds (2:1 iso); each tile image is 32x32. */
 export const FLOOR_W = (COLS + ROWS) * (TILE_W / 2);
-export const FLOOR_H = (COLS + ROWS) * (TILE_H / 2) + WALL_H + 12;
+export const FLOOR_H = (COLS + ROWS) * (TILE_H / 2) + WALL_H + 20;
 
 export type FloorId = "L2" | "L1" | "B1";
 /** Top to bottom, the order they're stacked on screen. */
@@ -251,12 +252,18 @@ export function isPartitionWall(x: number, y: number): boolean {
 
 const AFFINITY_ROOMS: RoomId[] = ["kitchen", "party", "study", "music", "arcade", "gym", "boulder", "lounge"];
 
-/** Rank rooms for an agent from its public interests; earlier interests weigh more. Ties fall back to the
- * keyword-score projection so similar people still land together, then to a stable hash of the id. */
-export function roomAffinity(agent: Pick<WorldAgent, "id" | "interests" | "point">): RoomId[] {
+/** Rank rooms for an agent. Matching's keyword scores count first: each keyword that names a room adds how far
+ * the score sits above "no signal" (0.5). Public interests break what's left (earlier ones weigh more), then the
+ * keyword-score projection so similar people still land together, then a stable hash of the id. */
+export function roomAffinity(
+  agent: Pick<WorldAgent, "id" | "interests" | "point"> & { keywords?: WorldAgent["keywords"] },
+): RoomId[] {
   const score = new Map<RoomId, number>(AFFINITY_ROOMS.map((r) => [r, 0]));
+  for (const { name, score: s } of agent.keywords ?? [])
+    if (s > 0.5)
+      for (const id of AFFINITY_ROOMS) if (ROOM_BY_ID[id].keywords.test(name)) score.set(id, score.get(id)! + (s - 0.5) * 4);
   agent.interests.forEach((interest, i) => {
-    const weight = 1 / (1 + i * 0.35);
+    const weight = 0.25 / (1 + i * 0.35);
     for (const id of AFFINITY_ROOMS) if (ROOM_BY_ID[id].keywords.test(interest)) score.set(id, score.get(id)! + weight);
   });
   const fallback = fallbackRoom(agent);

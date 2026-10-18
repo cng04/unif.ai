@@ -9,6 +9,10 @@ export type WorldAgent = {
   /** Where they are in onboarding; "chatting" agents are still talking to the interviewer. */
   onboarding: "invited" | "chatting" | "complete";
   interests: string[];
+  /** Matching's keyword scores (0-1, 0.5 = no signal), highest first. Empty until scored. */
+  keywords: { name: string; score: number }[];
+  /** Matching keywords this person flagged as dealbreakers (keyword level, not the private profile text). */
+  dealbreakerKeywords: string[];
   vibe: string | null;
   lookingFor: string | null;
   /** Has keyword scores, i.e. appears in `/graph`. */

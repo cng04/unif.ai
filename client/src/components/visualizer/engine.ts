@@ -93,7 +93,9 @@ export class WorldEngine {
         style: { fontFamily: "monospace", fontSize: 9, fill: 0xf3f1ed, letterSpacing: 2, fontWeight: "700" },
         resolution: 4,
       });
-      label.position.set(10, floorTop(id) - FLOOR_GAP + 12);
+      // Right-aligned so it doesn't sit under the HUD pill in the top-left corner.
+      label.anchor.set(1, 0);
+      label.position.set(FLOOR_W - 10, floorTop(id) - FLOOR_GAP + 12);
       label.alpha = 0.75;
       root.addChild(label, scene.ground, scene.entities);
       this.camera.addChild(root);
@@ -181,6 +183,22 @@ export class WorldEngine {
       room: roomAt(sprite.floor, Math.round(sprite.gx)).name,
       floor: sprite.floor,
       talkingPairId: convo?.pair.id ?? null,
+    };
+  }
+
+  /** Test hook (dev builds only): each agent's state and canvas-pixel position, for browser checks. */
+  snapshot() {
+    const k = this.scale;
+    return {
+      phase: this.phase,
+      floor: this.currentFloor,
+      following: this.following,
+      selected: this.selected,
+      talking: [...this.convos.values()].filter((c) => c.startedAt !== null).map((c) => c.pair.id),
+      agents: [...this.agents.values()].map((s) => {
+        const p = tileToWorld(s.floor, s.gx, s.gy);
+        return { id: s.id, name: s.name, state: s.state, floor: s.floor, x: p.x * k, y: (p.y - 12) * k - this.camY * k };
+      }),
     };
   }
 

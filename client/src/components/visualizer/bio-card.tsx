@@ -43,7 +43,7 @@ export function BioCard({
     .filter((p) => p.a === agent.id || p.b === agent.id)
     .sort((a, b) => (b.vibe ?? 0) - (a.vibe ?? 0));
   const group = data.groups.find((g) => g.memberIds.includes(agent.id)) ?? null;
-  // Judge output from this agent's chats (already returned by /pairs), not the private profile.
+  // The judge's flags from this agent's chats (already returned by /pairs).
   const flags = [...new Set(pairs.flatMap((p) => p.dealbreakerFlags))];
 
   return (
@@ -69,7 +69,7 @@ export function BioCard({
             type="button"
             onClick={onFollow}
             aria-pressed={following}
-            className={`press micro h-7 rounded-full border px-2.5 uppercase ${following ? "border-[#2bb3a0] text-[#1f8a7b]" : "border-ink/20"}`}
+            className={`press micro h-7 rounded-full border px-2.5 whitespace-nowrap uppercase ${following ? "border-[#2bb3a0] text-[#1f8a7b]" : "border-ink/20"}`}
           >
             {following ? "following" : "follow"}
           </button>
@@ -95,32 +95,41 @@ export function BioCard({
 
       <div className="flex flex-col gap-1.5">
         <h3 className="micro text-ink-muted uppercase">top keywords</h3>
-        {agent.interests.length ? (
+        {agent.keywords.length ? (
+          <ul className="flex flex-col gap-1">
+            {agent.keywords.slice(0, 6).map((k) => (
+              <li key={k.name} className="grid grid-cols-[1fr_72px_28px] items-center gap-2 text-[11px] lowercase">
+                <span className="truncate">{k.name}</span>
+                <span className="h-1.5 overflow-hidden rounded-full bg-ink/10" aria-hidden>
+                  <span className="block h-full rounded-full bg-ink/70" style={{ width: `${Math.round(k.score * 100)}%` }} />
+                </span>
+                <span className="text-right font-mono text-[10px] text-ink-muted">{k.score.toFixed(2)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[12px] text-ink-muted">not scored yet</p>
+        )}
+        {agent.interests.length > 0 && (
+          <p className="text-[11px] text-ink-muted lowercase">interests: {agent.interests.slice(0, 6).join(" · ")}</p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <h3 className="micro text-ink-muted uppercase">dealbreakers</h3>
+        {agent.dealbreakerKeywords.length ? (
           <ul className="flex flex-wrap gap-1">
-            {agent.interests.slice(0, 8).map((k) => (
-              <li key={k} className="rounded-full border border-line bg-white/60 px-2 py-0.5 text-[11px] lowercase">
+            {agent.dealbreakerKeywords.map((k) => (
+              <li key={k} className="rounded-full bg-ember/15 px-2 py-0.5 text-[11px] text-ember-text lowercase">
                 {k}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-[12px] text-ink-muted">no public profile yet</p>
+          <p className="text-[12px] text-ink-muted">{agent.scored ? "no dealbreaker keywords" : "not scored yet"}</p>
         )}
-        {!agent.scored && <p className="micro text-ink-faint uppercase">not scored yet</p>}
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <h3 className="micro text-ink-muted uppercase">dealbreaker flags</h3>
-        {flags.length ? (
-          <ul className="flex flex-wrap gap-1">
-            {flags.map((f) => (
-              <li key={f} className="rounded-full bg-ember/15 px-2 py-0.5 text-[11px] text-ember-text lowercase">
-                {f}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-[12px] text-ink-muted">{pairs.length ? "none raised in judged chats" : "no judged chats yet"}</p>
+        {flags.length > 0 && (
+          <p className="text-[11px] text-ember-text lowercase">raised in chats: {flags.join(" · ")}</p>
         )}
       </div>
 

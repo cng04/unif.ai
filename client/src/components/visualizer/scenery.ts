@@ -1,11 +1,12 @@
-// Static scenery for one floor: tiles, back walls, partitions and furniture, all drawn as Pixi Graphics.
-// Tall pieces go into the depth-sorted entity layer so agents can walk in front of and behind them.
+// Static scenery for one floor: the 32x32 tilemap (tiles.ts), back walls, partitions and furniture (Pixi
+// Graphics). Tall pieces go into the depth-sorted entity layer so agents can walk in front of and behind them.
 
 import { Container, Graphics, Text } from "pixi.js";
 import {
-  COLS, ELEVATOR, ROOMS, ROWS, TILE_H, TILE_W, WALL_H, isPartitionWall, rng, tileToWorld,
+  ELEVATOR, ROOMS, ROWS, TILE_H, TILE_W, WALL_H, isPartitionWall, rng, tileToWorld,
   type FloorId, type Furniture, type Room,
 } from "./layout";
+import { buildTileLayer } from "./tiles";
 
 type Pt = { x: number; y: number };
 type Animator = (t: number) => void;
@@ -28,8 +29,8 @@ export function buildFloor(floor: FloorId): FloorScene {
   const g = new Graphics();
   ground.addChild(g);
   drawWalls(g, floor, rooms);
-  drawTiles(g, floor, rooms);
   for (const room of rooms) drawWallDecor(g, ground, floor, room, animators);
+  ground.addChild(buildTileLayer(floor, rooms));
 
   for (const room of rooms)
     for (const it of room.furniture) {
@@ -106,21 +107,6 @@ function backWallQuad(floor: FloorId, u0: number, u1: number, v0: number, v1: nu
 }
 
 // ---- floor and walls ----
-
-function drawTiles(g: Graphics, floor: FloorId, rooms: Room[]) {
-  for (let y = 0; y < ROWS; y++)
-    for (let x = 0; x < COLS; x++) {
-      const room = rooms.find((r) => x >= r.x0 && x <= r.x1);
-      const color = room ? room.floorColors[(x + y) % 2] : 0xd8d2c6;
-      g.poly(tilePoly(floor, x, y)).fill(color);
-    }
-  // Thin front lip so each floor reads as a slab.
-  const L = corner(floor, -0.5, ROWS - 0.5);
-  const B = corner(floor, COLS - 0.5, ROWS - 0.5);
-  const R = corner(floor, COLS - 0.5, -0.5);
-  g.poly(flat(L, B, up(B, -8), up(L, -8))).fill(0x8e877b);
-  g.poly(flat(B, R, up(R, -8), up(B, -8))).fill(0xa69f92);
-}
 
 function drawWalls(g: Graphics, floor: FloorId, rooms: Room[]) {
   for (const room of rooms) {
@@ -226,7 +212,8 @@ function roomSign(floor: FloorId, room: Room): Text {
     style: { fontFamily: "monospace", fontSize: 7, fill: 0xffffff, letterSpacing: 1, fontWeight: "700" },
     resolution: 4,
   });
-  const p = backWall(floor, room.x0 + 4.5, WALL_H - 6);
+  // Above the wall's top edge, so tall furniture against the wall never covers it.
+  const p = backWall(floor, room.x0 + 4.5, WALL_H + 9);
   label.anchor.set(0.5, 1);
   label.position.set(p.x, p.y + 1);
   label.skew.set(0, -Math.atan(TILE_H / TILE_W));

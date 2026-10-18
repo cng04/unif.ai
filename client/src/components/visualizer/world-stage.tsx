@@ -47,7 +47,9 @@ function EngineHost({ events, onReady }: { events: RefObject<EngineEvents>; onRe
     const instance = new WorldEngine(app, proxy);
     engine.current = instance;
     onReady(instance);
+    if (process.env.NODE_ENV !== "production") (window as { __unifaiWorld?: WorldEngine }).__unifaiWorld = instance;
     return () => {
+      if (process.env.NODE_ENV !== "production") delete (window as { __unifaiWorld?: WorldEngine }).__unifaiWorld;
       engine.current = null;
       onReady(null);
       instance.destroy();

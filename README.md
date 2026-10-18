@@ -65,10 +65,12 @@ flowchart LR
   - `/admin/...`: the admin console: universes, universe overview (pipeline strip, members, keywords, run
     matching), groups, and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
     `ADMIN_PASSWORD` basic auth in `src/proxy.ts`, and the client forwards the same password to `/admin/api`.
-- **Agent world** (`client/src/components/visualizer/`): a PixiJS building of three floors and nine themed rooms.
-  Agents spawn in the lounge, walk (A*) to rooms matching their public interests once scored, pair up to talk
-  for each judged pair, and sit with their CP-SAT group; unplaced people wait on B1. It refreshes every 5
-  seconds while matching runs. Only public profile fields and judge output reach the browser.
+- **Agent world** (`client/src/components/visualizer/`): a PixiJS building of three floors and nine themed rooms
+  on a 32x32 pixel-art isometric tilemap. Agents spawn in the lounge, walk (A*) to the room their keyword scores
+  point to (public interests as a fallback), pair up to talk for each judged pair, and sit with their CP-SAT
+  group; unplaced people wait on B1. Clicking an agent gives a glow, camera follow and a bio card (top keyword
+  scores, keyword-level dealbreakers, group); clicking a talking one opens the transcript. It refreshes every 5
+  seconds while matching runs. The browser gets public profile fields, keyword vectors and judge output only.
 - **Onboarding bot (`onboarding/`)** is a TypeScript chat version of onboarding. It runs over iMessage (Photon)
   and a local HTTP channel used by the ASI:One relay (`asi-agent/`, see `asi-agent/SETUP.md`), and writes
   profiles straight to Postgres.
@@ -326,6 +328,7 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `GET`/`POST /admin/api/universes`       | List universes with member/onboarded/group counts / create one (basic auth) |
 | `GET /admin/api/universes/{id}`         | Overview: stats, members with onboarding status, keywords (basic auth) |
 | `GET /admin/api/universes/{id}/groups`  | Groups with labels and weakest tie, plus leftovers (basic auth)      |
+| `GET /admin/api/universes/{id}/scores`  | Keyword vectors for the agent world: per member, score per keyword and the keywords flagged as dealbreakers (basic auth; no private text) |
 
 HTML pages (not in `/docs`): `GET /admin`, `POST /admin/universes`, `GET /admin/universes/{id}` (basic auth),
 and `GET`/`POST /join/{code}` (public join form; offers iMessage while Photon seats last, and ASI:One;
@@ -356,7 +359,7 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
 ## Testing
 
 ```bash
-cd server && uv run --extra scrape pytest   # 23 tests; 5 need DATABASE_URL_TEST; test_scraper.py needs the extra
+cd server && uv run --extra scrape pytest   # 24 tests; 6 need DATABASE_URL_TEST; test_scraper.py needs the extra
 cd agent  && uv run pytest                  # 11 tests
 cd client && npm run lint && npm run build
 cd onboarding && npm test
@@ -368,8 +371,10 @@ cd onboarding && npm test
   `/users/{id}/...` views (only my pairs, no notes or private fields, 404 for non-members, graph naming), each
   against a throwaway universe. Point `DATABASE_URL_TEST` at a separate database with `schema.sql` applied.
 - **Gaps**: no tests for the HTTP onboarding routes, interviewer, Ticketmaster or the full pipeline; nothing has
-  run against real Gemini, Jev or OpenRouter at scale; no client tests (the agent world's layout and seating were
-  checked by a one-off script, and its rendering hasn't been checked in a browser); no CI or linter for Python.
+  run against real Gemini, Jev or OpenRouter at scale; no client tests in the repo (the agent world was checked
+  with one-off scripts: layout reachability and seating, plus a headless-Edge run of every phase, a sprite click,
+  the drawer and floor navigation, using the dev-only `window.__unifaiWorld.snapshot()` hook); no CI or linter for
+  Python.
 
 ## Deployment
 
@@ -401,7 +406,7 @@ to be loaded with `schema.sql` by hand, or overwritten with a copy of your local
 | Notifications                   | Line assignment | Match messages only log              | Real match messages via Photon   |                                             |
 | Auth / consent / deletion       |             | `/admin` basic auth                      | All                              | Auth approach; retention policy             |
 | Database / migrations           | Schema+seed | Idempotent SQL patches                   | Migration tool                   | Which tool                                  |
-| Client                          | `/u` pages with 3D graph, join, admin, agent world (#51) | Agent world not checked in a browser | Client tests      | Login                                       |
+| Client                          | `/u` pages with 3D graph, join, admin, agent world (#51) | No automated client tests in CI | Client tests           | Login                                       |
 | Deployment / CI                 | Docker Compose stack | No client image                 | CI, deploy                       | Hosting target                              |
 
 ## Roadmap

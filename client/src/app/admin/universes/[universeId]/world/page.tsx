@@ -41,13 +41,19 @@ async function WorldScreen({ params }: { params: Promise<{ universeId: string }>
   );
 }
 
-/** Everything the world needs, reduced to public profile fields and judge output; contacts and `private` stay here. */
+/** Everything the world needs: public profile fields, matching's keyword vectors and judge output. Contacts and
+ * the private profile stay on the server. */
 async function loadWorld(universeId: string): Promise<WorldData> {
   const [universe, grouped] = await Promise.all([adminApi.universe(universeId), adminApi.groups(universeId)]).catch((e) => {
     if (e instanceof ApiError && (e.status === 404 || e.status === 422)) notFound();
     throw e;
   });
-  const [graph, pairs] = await Promise.all([api.universeGraph(universeId), api.pairs(universeId)]);
+  const [graph, pairs, scores] = await Promise.all([
+    api.universeGraph(universeId),
+    api.pairs(universeId),
+    adminApi.scores(universeId),
+  ]);
+  const vectors = new Map(scores.members.map((m) => [m.user_id, m]));
   const profiles = await Promise.all(
     universe.members.map((m) => (m.status === "complete" ? api.profile(m.id).catch(() => null) : null)),
   );
@@ -58,11 +64,16 @@ async function loadWorld(universeId: string): Promise<WorldData> {
     agents: universe.members.map((m, i) => {
       const pub = profiles[i]?.public;
       const point = points.get(m.id);
+      const vector = vectors.get(m.id);
       return {
         id: m.id,
         name: m.full_name.split(" ")[0] || m.full_name,
         onboarding: m.status,
         interests: (pub?.interests ?? []).slice(0, 10),
+        keywords: Object.entries(vector?.scores ?? {})
+          .map(([name, score]) => ({ name, score }))
+          .sort((a, b) => b.score - a.score),
+        dealbreakerKeywords: vector?.dealbreakers ?? [],
         vibe: pub?.vibe || null,
         lookingFor: pub?.looking_for || null,
         scored: Boolean(point),

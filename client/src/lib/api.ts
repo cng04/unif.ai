@@ -190,7 +190,14 @@ export type UniverseGroups = UniverseSummary & {
   leftovers: { id: string; full_name: string; chats: number; strong_ties: number }[];
 };
 
+/** Matching's keyword vectors (admin only): 0-1 score per keyword and the keywords each member flagged. */
+export type UniverseScores = {
+  keywords: string[];
+  members: { user_id: string; scores: Record<string, number>; dealbreakers: string[] }[];
+};
+
 export const adminApi = {
+  scores: (id: string) => request<UniverseScores>(`/admin/api/universes/${id}/scores`, { headers: adminHeaders() }),
   universes: () => request<UniverseListItem[]>("/admin/api/universes", { headers: adminHeaders() }),
   createUniverse: (name: string, admin_email: string) =>
     request<UniverseSummary>("/admin/api/universes", {

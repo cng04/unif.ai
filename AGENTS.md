@@ -166,8 +166,10 @@ The onboarding bot sends that link once dealbreakers are confirmed (`onboarding/
 
 **Admin** (`/admin`): universes list, universe overview (pipeline strip, members, keywords, run matching),
 groups, and the agent world (`/world`: PixiJS pixel-art building, `src/components/visualizer/`), under
-`/admin/universes/{id}`. The world reads the public endpoints plus `/admin/api` and passes only public profile
-fields to the browser. It reads
+`/admin/universes/{id}`. The world reads the public endpoints plus `/admin/api` (including `/scores`, the keyword
+vectors and keyword-level dealbreaker flags) and passes only public profile fields, keyword vectors and judge output
+to the browser; never `agent_profiles.private` text. Dev builds expose `window.__unifaiWorld.snapshot()` (agent
+states and screen positions) for browser checks. It reads
 `/admin/api/*` (`server/app/routers/admin_api.py`). Both the `/admin` pages (`src/proxy.ts`) and the API ask for
 HTTP basic auth with `ADMIN_PASSWORD` when it's set; the client forwards its own `ADMIN_PASSWORD` to the API, so
 set the same value in both. Pipeline stages, group labels (`g-01`...), weakest ties and leftovers are all derived

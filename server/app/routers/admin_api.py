@@ -168,6 +168,34 @@ async def abort_matching(universe_id: UUID, conn: AsyncConnection = Depends(get_
     return {"status": "onboarding"}
 
 
+@router.get("/universes/{universe_id}/scores")
+async def universe_scores(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> dict:
+    """Matching's keyword vectors for the agent world: per member, a 0-1 score per keyword and the keyword names
+    they flagged as dealbreakers. Keyword-level only; the private profile's own dealbreaker text never leaves."""
+    await repo.get_universe(conn, universe_id)  # 404 if missing
+    keywords = await (
+        await conn.execute("SELECT id, name FROM keywords WHERE universe_id = %s ORDER BY id", (universe_id,))
+    ).fetchall()
+    rows = await (
+        await conn.execute(
+            """
+            SELECT s.user_id, k.name, s.score, s.dealbreaker
+            FROM keyword_scores s JOIN keywords k ON k.id = s.keyword_id
+            WHERE k.universe_id = %s
+            ORDER BY s.user_id, k.id
+            """,
+            (universe_id,),
+        )
+    ).fetchall()
+    members: dict[UUID, dict] = {}
+    for r in rows:
+        m = members.setdefault(r["user_id"], {"user_id": r["user_id"], "scores": {}, "dealbreakers": []})
+        m["scores"][r["name"]] = r["score"]
+        if r["dealbreaker"]:
+            m["dealbreakers"].append(r["name"])
+    return {"keywords": [k["name"] for k in keywords], "members": list(members.values())}
+
+
 @router.get("/universes/{universe_id}/groups")
 async def universe_groups(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> dict:
     universe = await repo.get_universe(conn, universe_id)
