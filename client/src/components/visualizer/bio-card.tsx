@@ -44,7 +44,7 @@ export function BioCard({
   return (
     <section aria-label={`${member.name}'s agent`} className={`${panel} flex flex-col gap-4 overflow-y-auto p-[22px] ${className}`}>
       <header className="flex items-center gap-3.5">
-        <AgentAvatar userId={member.id} />
+        <AgentAvatar userId={member.id} look={member.look} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 className="truncate font-sans text-[21px] leading-[26px] font-light tracking-[-0.01em] text-ink">
             {member.name}

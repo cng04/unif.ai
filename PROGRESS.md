@@ -298,3 +298,4 @@ Add a line here for each change merged to `main`.
   testing, deployment gaps, roadmap); AGENTS.md is the agent operating guide (commands, ownership, rules);
   `.env.example` lists every setting. Closes #39.
 - World: per-keyword room variants (Bakery, Cocktail bar, Poetry nook, Chess club, Trailhead, ...) chosen from a structure's keywords; participant `world` tab added. `catalog.test.ts` covers all 31 keywords seen so far.
+- World: agents pick their sprite look (skin, hair, style, shirt, pants) from what the person wrote about themselves, never inferred; editable on the `you` tab (`/users/{id}/look`). Tests: `agent/tests/test_appearance.py`, `test_world.py`, `character.test.ts`.

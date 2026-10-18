@@ -11,11 +11,16 @@ from uuid import UUID
 import numpy as np
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from psycopg import AsyncConnection
+from pydantic import BaseModel, Field
+from unifai_agent import Interviewer
+from unifai_agent.profile import LOOK_MAX, Look
 
 from app import repo
 from app.db import get_conn
+from app.deps import get_interviewer
 from app.matching.plans import PlanLocked, announce_lock, set_vote, votes_needed
 from app.matching.projection import project_3d
+from app.profile_look import pick_look
 from app.schemas import Connections, Group, PairDetail, UserGraph, UserGraphLink, UserGraphNode, UserGroup
 
 router = APIRouter(prefix="/users/{user_id}", tags=["me"])
@@ -314,3 +319,44 @@ async def vote(user_id: UUID, event_id: UUID, background: BackgroundTasks, conn:
 async def unvote(user_id: UUID, event_id: UUID, conn: AsyncConnection = Depends(get_conn)):
     await set_my_vote(user_id, event_id, False, conn)
     return await get_group(user_id, conn)
+
+
+class LookIn(BaseModel):
+    """Sprite parts the person chose; unset parts keep the sprite's default. Ranges match `unifai_agent.profile.LOOK_MAX`."""
+
+    skin: int | None = Field(None, ge=0, le=LOOK_MAX["skin"])
+    hair: int | None = Field(None, ge=0, le=LOOK_MAX["hair"])
+    hair_style: int | None = Field(None, ge=0, le=LOOK_MAX["hair_style"])
+    shirt_hue: int | None = Field(None, ge=0, le=LOOK_MAX["shirt_hue"])
+    pants: int | None = Field(None, ge=0, le=LOOK_MAX["pants"])
+
+
+# The person editing how their agent looks in the world (no auth yet: the id in the URL is the identity). The look is
+# public: everyone in the universe sees it on the sprite.
+@router.put("/look", response_model=Look)
+async def set_look(user_id: UUID, body: LookIn, conn: AsyncConnection = Depends(get_conn)):
+    await repo.get_user(conn, user_id)  # 404 if missing
+    look = Look(**body.model_dump(), source="you")
+    await repo.save_look(conn, user_id, look.model_dump())
+    return look
+
+
+# "Reset to the agent's pick": drop the look and let the agent choose again from what the person wrote.
+@router.delete("/look", response_model=Look)
+async def reset_look(
+    user_id: UUID,
+    conn: AsyncConnection = Depends(get_conn),
+    interviewer: Interviewer = Depends(get_interviewer),
+):
+    await repo.get_user(conn, user_id)
+    await conn.execute("UPDATE agent_profiles SET public = public - 'look', updated_at = now() WHERE user_id = %s", (user_id,))
+    await pick_look(conn, interviewer, user_id)
+    row = await (await conn.execute("SELECT public -> 'look' AS look FROM agent_profiles WHERE user_id = %s", (user_id,))).fetchone()
+    return Look(**row["look"]) if row and row["look"] else Look()
+
+
+@router.get("/look", response_model=Look)
+async def get_look(user_id: UUID, conn: AsyncConnection = Depends(get_conn)):
+    await repo.get_user(conn, user_id)
+    row = await (await conn.execute("SELECT public -> 'look' AS look FROM agent_profiles WHERE user_id = %s", (user_id,))).fetchone()
+    return Look(**row["look"]) if row and row["look"] else Look()

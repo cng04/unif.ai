@@ -77,9 +77,24 @@ async def merge_raw_sources(conn: AsyncConnection, user_id: UUID, patch: dict) -
 
 
 async def save_profile(conn: AsyncConnection, profile: AgentProfile) -> None:
+    # A rebuilt profile keeps the sprite look already chosen (by the agent or the person).
     await conn.execute(
-        "UPDATE agent_profiles SET public = %s, private = %s, updated_at = now() WHERE user_id = %s",
+        """
+        UPDATE agent_profiles
+        SET public = %s::jsonb || CASE WHEN public ? 'look' THEN jsonb_build_object('look', public -> 'look')
+                                       ELSE '{}'::jsonb END,
+            private = %s, updated_at = now()
+        WHERE user_id = %s
+        """,
         (Jsonb(profile.public.model_dump()), Jsonb(profile.private.model_dump()), profile.user_id),
+    )
+
+
+async def save_look(conn: AsyncConnection, user_id: UUID, look: dict) -> None:
+    """Set the sprite look (a validated `Look` dict) in the user's public profile."""
+    await conn.execute(
+        "UPDATE agent_profiles SET public = public || %s, updated_at = now() WHERE user_id = %s",
+        (Jsonb({"look": look}), user_id),
     )
 
 

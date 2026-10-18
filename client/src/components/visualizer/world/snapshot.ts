@@ -1,6 +1,8 @@
 // The World snapshot as the server sends it (server/app/routers/world.py). Fields marked optional exist only in
 // the admin view; a participant's view never carries them.
 
+import type { Look } from "../character";
+
 export type UniverseStatus = "onboarding" | "matching" | "matched";
 export type MatchingStage = "keywords" | "scoring" | "chats" | "groups";
 
@@ -17,6 +19,8 @@ export type SnapshotMember = {
   interests: string[];
   looking_for: string | null;
   vibe: string | null;
+  /** Sprite parts the agent or the person chose (public); unset parts use the default look. */
+  look?: Look | null;
   /** Admin only. */
   scores?: Record<string, number>;
   /** Admin only: keywords they flagged as dealbreakers. */

@@ -6,6 +6,7 @@ import PF from "pathfinding";
 import { Container, type Application, type FederatedPointerEvent, type Filter } from "pixi.js";
 import { GlowFilter, OutlineFilter } from "pixi-filters";
 import { AgentSprite, arrivalFor, type Task } from "./agent";
+import type { Look } from "./character";
 import { buildScene, type Scene } from "./scenery";
 import type { AgentState } from "./types";
 import { pairKey, type Activity, type Intent } from "./world/activity";
@@ -91,8 +92,10 @@ export class WorldEngine {
       }
     for (const m of snapshot.members) {
       const existing = this.agents.get(m.id);
-      if (existing) existing.name = m.name;
-      else this.spawn(m.id, m.name);
+      if (existing) {
+        existing.name = m.name;
+        existing.setLook(m.look);
+      } else this.spawn(m.id, m.name, m.look);
     }
     this.applyIntents();
   }
@@ -267,13 +270,13 @@ export class WorldEngine {
 
   private viewSet = false;
 
-  private spawn(id: string, name: string) {
+  private spawn(id: string, name: string, look?: Look | null) {
     if (!this.plan || !this.scene) return;
     const tiles = this.plan.spawnTiles;
     const t = tiles[hash(id) % tiles.length];
     const sprite = new AgentSprite(id, name, t.x, t.y, (agent) => {
       if (!this.suppressTap) this.select(agent.id);
-    });
+    }, look);
     this.scene.entities.addChild(sprite.root);
     this.agents.set(id, sprite);
     this.brains.set(id, { key: "", nextAt: 0 });

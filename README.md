@@ -351,6 +351,7 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `POST /users/{id}/self-report`          | Save the pasted self-report                                          |
 | `GET`/`POST /users/{id}/interview`      | Read the transcript / send a message and get the interviewer's reply |
 | `POST /users/{id}/profile`              | Build the agent profile from all sources                             |
+| `GET`/`PUT`/`DELETE /users/{id}/look`   | The sprite look in the World: read, set your own, reset to the agent's pick |
 | `GET /users/{id}/profile`               | Read the profile (includes `private`; see gaps)                      |
 | `POST /universes/{id}/matching`         | Start matching (202; 409 if running; 503 without a model key)        |
 | `POST /admin/api/universes/{id}/matching/abort` | Admin only: stop a run, drop its partial pairs and groups, back to `onboarding` (409 if not matching) |

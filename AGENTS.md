@@ -76,6 +76,13 @@ real notifications, spending model quota at scale) needs explicit approval.
   self-report from the user's own AI, and an interviewer chat. It has a `public` part (shareable
   interests) and a `private` part (dealbreakers, values, logistics). Private data must never be revealed
   verbatim in agent-to-agent chats.
+- **Look** (`agent_profiles.public.look`, `unifai_agent/profile.py` `Look`, `appearance.py`): which sprite parts
+  draw a person in the World (skin, hair colour and style, shirt hue, pants; any can be unset and then keeps the
+  id-seeded default). After a profile is built, `app/profile_look.py` has the agent pick it once, from what the
+  person wrote (interview answers, intro, self-report) and nothing else: appearance is never inferred from a name,
+  place, language or interests, and an unstated part stays unset. Model output is clamped to range in code. The
+  person edits it on the `you` tab (`PUT /users/{id}/look`; `DELETE` re-runs the agent's pick), and a profile
+  rebuild never overwrites an existing look. It is public and part of the World snapshot for everyone.
 - **Universe status** moves `onboarding` -> `matching` -> `matched`. If matching fails, it resets to
   `onboarding`.
 - `server` depends on `agent` through an editable uv path dependency, so changes in `agent/src` are picked up

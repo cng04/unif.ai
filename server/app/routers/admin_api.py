@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.db import get_conn, pool
 from app.deps import get_interviewer
 from app.matching import runs
+from app.profile_look import pick_look
 from app.routers.web import invite_url, require_admin
 from app.services import scraper
 
@@ -138,6 +139,7 @@ async def build_and_save_profile(conn: AsyncConnection, interviewer: Interviewer
     )
     profile.public.name = user["full_name"]
     await repo.save_profile(conn, profile)
+    await pick_look(conn, interviewer, user["id"], profile.public.intro)
     return profile.public.model_dump()
 
 

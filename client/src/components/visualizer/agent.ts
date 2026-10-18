@@ -3,6 +3,7 @@
 
 import { Container, Graphics, Rectangle, Sprite, Text, type Filter } from "pixi.js";
 import { depthOf, dirFor, tileToScreen, type Activity, type Dir, type Spot } from "./world/geometry";
+import type { Look } from "./character";
 import { buildSheet, type AgentSheet, type Pose } from "./sprites";
 import type { AgentState } from "./types";
 
@@ -67,6 +68,7 @@ export class AgentSprite {
   quote: string | null = null;
 
   private sheet: AgentSheet;
+  private lookKey: string;
   private body: Sprite;
   private prop = new Graphics();
   private shadow = new Graphics();
@@ -85,12 +87,14 @@ export class AgentSprite {
     x: number,
     y: number,
     onTap: (agent: AgentSprite) => void,
+    look?: Look | null,
   ) {
     this.id = id;
     this.name = name;
     this.gx = x;
     this.gy = y;
-    this.sheet = buildSheet(id);
+    this.lookKey = JSON.stringify(look ?? null);
+    this.sheet = buildSheet(id, look);
     this.body = new Sprite(this.sheet.frames.S.idle0);
     this.body.anchor.set(0.5, 1);
     this.body.roundPixels = true;
@@ -118,6 +122,16 @@ export class AgentSprite {
     });
     this.root.scale.set(0);
     this.place();
+  }
+
+  /** Repaint the sheet when the person (or their agent) changed the look; a no-op for the same look. */
+  setLook(look?: Look | null) {
+    const key = JSON.stringify(look ?? null);
+    if (key === this.lookKey) return;
+    this.lookKey = key;
+    this.sheet = buildSheet(this.id, look);
+    this.body.texture = this.sheet.frames[this.dir].idle0;
+    this.refreshLabel();
   }
 
   get accent(): number {

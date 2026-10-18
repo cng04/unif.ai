@@ -1,4 +1,5 @@
 import "server-only";
+import type { Look } from "@/components/visualizer/character";
 import type { Unchanged, WorldSnapshot } from "@/components/visualizer/world/snapshot";
 
 // Server-side only: the browser never talks to the API directly, so there's no CORS or key exposure.
@@ -190,6 +191,12 @@ export const api = {
   groups: (universeId: string) => request<Group[]>(`/universes/${universeId}/groups`),
   pairMessages: (pairId: string) => request<PairMessage[]>(`/pairs/${pairId}/messages`),
   /** The World as one participant may see it (no scores, dealbreakers, flags or rationales). */
+  /** How the person's agent looks in the world: the agent's pick, or their own edit. */
+  look: (userId: string) => request<Look>(`/users/${userId}/look`),
+  setLook: (userId: string, look: Look) =>
+    request<Look>(`/users/${userId}/look`, { method: "PUT", body: JSON.stringify(look) }),
+  /** Drop the look and let the agent choose again from what the person wrote. */
+  resetLook: (userId: string) => request<Look>(`/users/${userId}/look`, { method: "DELETE" }),
   userWorld: (userId: string, since?: string) =>
     request<WorldSnapshot | Unchanged>(`/users/${userId}/world${since ? `?since=${encodeURIComponent(since)}` : ""}`),
 };

@@ -9,6 +9,7 @@ from unifai_agent.prompts import SELF_REPORT_PROMPT
 from app import repo
 from app.db import get_conn, pool
 from app.deps import get_interviewer
+from app.profile_look import pick_look
 from app.schemas import ChatIn, ChatOut, SelfReportIn, SocialLinksIn, User, UserCreate
 from app.services import scraper
 
@@ -110,6 +111,7 @@ async def build_profile(
         scraped=sources.get("scraped"),
     )
     await repo.save_profile(conn, profile)
+    await pick_look(conn, interviewer, user_id, profile.public.intro)
     return profile
 
 

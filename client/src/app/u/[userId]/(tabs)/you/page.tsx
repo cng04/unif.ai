@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { Blobs } from "@/components/atmosphere";
+import { LookEditor } from "@/components/look-editor";
 import { Meta, ProfileSkeleton, Title } from "@/components/ui";
+import { api } from "@/lib/api";
 import { getConnections, getProfile } from "@/lib/cached";
 
 export default function YouPage({ params }: PageProps<"/u/[userId]/you">) {
@@ -22,7 +24,11 @@ const slotLabel: Record<string, string> = {
 
 async function YouScreen({ params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
-  const [profile, data] = await Promise.all([getProfile(userId), getConnections(userId)]);
+  const [profile, data, look] = await Promise.all([
+    getProfile(userId),
+    getConnections(userId),
+    api.look(userId).catch(() => ({})),
+  ]);
   if (!profile || !data) notFound();
   const { public: pub, private: priv } = profile;
   const logistics = [
@@ -59,6 +65,10 @@ async function YouScreen({ params }: { params: Promise<{ userId: string }> }) {
               <Chips items={pub.interests} />
             </Row>
           )}
+
+          <Row label="your agent in the world">
+            <LookEditor userId={userId} initial={look} />
+          </Row>
 
           {group && (
             // The group itself (members, plans) lives in the group flow; this just points there.

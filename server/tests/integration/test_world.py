@@ -1,17 +1,24 @@
 """World snapshot: admin vs participant views, live chat lifecycle, matching stage, demo/real filtering."""
 
+import json
+
 import pytest
 from fastapi import HTTPException
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
+from pydantic import ValidationError
 
 from app import repo
 from app.matching.pipeline import drop_running_pair, save_pair, start_pair
+from app.profile_look import pick_look
 from app.routers.admin_api import list_universes
+from app.routers.me import LookIn, reset_look, set_look
 from app.routers.world import admin_world, build_world, participant_world
 from tests.integration.test_me import add_pair, add_user
 from unifai_agent.conversation import Transcript
+from unifai_agent.llm import LLMResponse
 from unifai_agent.judge import Verdict
+from unifai_agent.profile import AgentProfile, PublicProfile
 
 
 async def add_keyword(conn: AsyncConnection, universe_id, name: str, scores: dict) -> None:
@@ -166,3 +173,79 @@ async def test_demo_and_real_universes_never_mix(test_db_conn, test_universe):
     real = {u["id"] for u in await list_universes(mode="real", conn=test_db_conn)}
     assert test_universe in demo and test_universe not in real
     assert not demo & real
+
+
+# ---- sprite look ----
+
+
+class _FakeLLM:
+    def __init__(self, answer):
+        self.answer = answer
+
+    def generate(self, system, history, **kwargs):
+        if isinstance(self.answer, Exception):
+            raise self.answer
+        return LLMResponse(text=json.dumps(self.answer))
+
+
+class _FakeInterviewer:
+    def __init__(self, answer):
+        self.llm = _FakeLLM(answer)
+
+
+async def _say(conn, user, text):
+    await conn.execute("INSERT INTO onboarding_messages (user_id, role, content) VALUES (%s, 'user', %s)", (user, text))
+    await conn.commit()
+
+
+async def test_look_is_public_in_both_views_and_defaults_to_none(test_db_conn, test_universe, world):
+    await repo.save_look(test_db_conn, world["maya"], {"hair": 5, "source": "agent"})
+    await test_db_conn.commit()
+    for viewer in (None, world["cyn"]):
+        out = await build_world(test_db_conn, test_universe, viewer=viewer)
+        maya = next(m for m in out["members"] if m["id"] == world["maya"])
+        ari = next(m for m in out["members"] if m["id"] == world["ari"])
+        assert maya["look"]["hair"] == 5 and ari["look"] is None
+
+
+async def test_agent_picks_a_look_once_from_what_the_person_wrote(test_db_conn, test_universe, world):
+    await _say(test_db_conn, world["ari"], "I have red hair and I wear green all the time")
+    interviewer = _FakeInterviewer({"hair": 5, "shirt_hue": 120, "skin": 99})
+    await pick_look(test_db_conn, interviewer, world["ari"])
+    look = (await build_world(test_db_conn, test_universe))["members"]
+    ari = next(m for m in look if m["id"] == world["ari"])["look"]
+    assert (ari["hair"], ari["shirt_hue"], ari["skin"], ari["source"]) == (5, 120, None, "agent")
+    # A second pick must not overwrite (it may be the person's own edit).
+    await pick_look(test_db_conn, _FakeInterviewer({"hair": 1}), world["ari"])
+    again = next(m for m in (await build_world(test_db_conn, test_universe))["members"] if m["id"] == world["ari"])
+    assert again["look"]["hair"] == 5
+
+
+async def test_nothing_said_or_a_model_error_leaves_the_sprite_alone(test_db_conn, test_universe, world):
+    await pick_look(test_db_conn, _FakeInterviewer({"hair": 5}), world["maya"])  # nothing written
+    await _say(test_db_conn, world["maya"], "I like climbing")
+    await pick_look(test_db_conn, _FakeInterviewer(RuntimeError("boom")), world["maya"])  # model fails
+    await pick_look(test_db_conn, _FakeInterviewer({}), world["maya"])  # model says nothing stated
+    maya = next(m for m in (await build_world(test_db_conn, test_universe))["members"] if m["id"] == world["maya"])
+    assert maya["look"] is None
+
+
+async def test_person_edit_is_validated_and_survives_a_profile_rebuild(test_db_conn, test_universe, world):
+    look = await set_look(world["cyn"], LookIn(skin=3, hair_style=2), conn=test_db_conn)
+    assert look.source == "you" and look.skin == 3 and look.hair is None
+    with pytest.raises(ValidationError):
+        LookIn(skin=6)
+    with pytest.raises(ValidationError):
+        LookIn(shirt_hue=360)
+    profile = AgentProfile(user_id=str(world["cyn"]), public=PublicProfile(name="Cyn"))
+    await repo.save_profile(test_db_conn, profile)
+    await test_db_conn.commit()
+    cyn = next(m for m in (await build_world(test_db_conn, test_universe))["members"] if m["id"] == world["cyn"])
+    assert cyn["look"]["skin"] == 3 and cyn["look"]["source"] == "you"
+
+
+async def test_reset_returns_to_the_agents_pick(test_db_conn, test_universe, world):
+    await set_look(world["cyn"], LookIn(hair=9), conn=test_db_conn)
+    await _say(test_db_conn, world["cyn"], "I have short black hair")
+    reset = await reset_look(world["cyn"], conn=test_db_conn, interviewer=_FakeInterviewer({"hair": 0, "hair_style": 0}))
+    assert (reset.hair, reset.hair_style, reset.source) == (0, 0, "agent")

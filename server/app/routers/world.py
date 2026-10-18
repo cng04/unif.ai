@@ -76,7 +76,7 @@ async def build_world(conn: AsyncConnection, universe_id: UUID, viewer: UUID | N
             f"""
             SELECT u.id, u.full_name, u.created_at, {repo.USER_STATUS_SQL} AS status,
                    ap.public -> 'interests' AS interests, ap.public ->> 'looking_for' AS looking_for,
-                   ap.public ->> 'vibe' AS vibe,
+                   ap.public ->> 'vibe' AS vibe, ap.public -> 'look' AS look,
                    (SELECT max(om.created_at) > now() - make_interval(secs => %(busy)s)
                       FROM onboarding_messages om WHERE om.user_id = u.id) AS recent_chat
             FROM users u LEFT JOIN agent_profiles ap ON ap.user_id = u.id
@@ -184,6 +184,7 @@ async def build_world(conn: AsyncConnection, universe_id: UUID, viewer: UUID | N
             "interests": (m["interests"] or [])[:10] if isinstance(m["interests"], list) else [],
             "looking_for": m["looking_for"] or None,
             "vibe": m["vibe"] or None,
+            "look": m["look"] if isinstance(m["look"], dict) else None,
         }
         if full:
             out["scores"] = {r["name"]: r["score"] for r in rows}

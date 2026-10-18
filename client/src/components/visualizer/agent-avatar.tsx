@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { FRAME_H, FRAME_W, paintFrame, paletteFor } from "./character";
+import { FRAME_H, FRAME_W, paintFrame, paletteFor, type Look } from "./character";
 
 /** The agent's own sprite (front, idle) on a tile of its shirt colour, with the neon selection ring. */
-export function AgentAvatar({ userId, selected = true }: { userId: string; selected?: boolean }) {
+export function AgentAvatar({ userId, look, selected = true }: { userId: string; look?: Look | null; selected?: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const palette = useMemo(() => paletteFor(userId), [userId]);
+  const palette = useMemo(() => paletteFor(userId, look), [userId, look]);
 
   useEffect(() => {
     const ctx = canvas.current?.getContext("2d");

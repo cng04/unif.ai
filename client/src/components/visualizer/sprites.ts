@@ -2,7 +2,7 @@
 // direction with nearest-neighbour scaling.
 
 import { Rectangle, Texture } from "pixi.js";
-import { DIRS, FRAME_H, FRAME_W, POSES, paintSheet, paletteFor, type Palette, type Pose } from "./character";
+import { DIRS, FRAME_H, FRAME_W, POSES, paintSheet, paletteFor, type Look, type Palette, type Pose } from "./character";
 import type { Dir } from "./world/geometry";
 
 export { FRAME_H, FRAME_W, POSES, type Pose } from "./character";
@@ -10,8 +10,8 @@ export { FRAME_H, FRAME_W, POSES, type Pose } from "./character";
 export type AgentSheet = { frames: Record<Dir, Record<Pose, Texture>>; palette: Palette };
 
 /** Paint the full sheet once per agent; textures share one canvas source. */
-export function buildSheet(userId: string): AgentSheet {
-  const palette = paletteFor(userId);
+export function buildSheet(userId: string, look?: Look | null): AgentSheet {
+  const palette = paletteFor(userId, look);
   const base = Texture.from(paintSheet(palette));
   base.source.scaleMode = "nearest";
   const frames = {} as AgentSheet["frames"];

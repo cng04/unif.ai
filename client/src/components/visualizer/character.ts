@@ -32,25 +32,48 @@ export type Palette = {
   accent: number;
 };
 
-const SKINS = ["#f6d5b8", "#eebc94", "#d9a173", "#b67b4e", "#8a5634", "#5e3a22"];
-const HAIRS = ["#24170f", "#4a2f1e", "#7b4a26", "#c08a40", "#e8c77e", "#a63a2a", "#6d717a", "#34418f", "#d07aa0", "#f2f0ea"];
-const PANTS = ["#2f3a56", "#393939", "#5b4636", "#5f7050", "#26324a", "#7d6345", "#4b3a5e"];
+export const SKINS = ["#f6d5b8", "#eebc94", "#d9a173", "#b67b4e", "#8a5634", "#5e3a22"];
+export const HAIRS = ["#24170f", "#4a2f1e", "#7b4a26", "#c08a40", "#e8c77e", "#a63a2a", "#6d717a", "#34418f", "#d07aa0", "#f2f0ea"];
+export const PANTS = ["#2f3a56", "#393939", "#5b4636", "#5f7050", "#26324a", "#7d6345", "#4b3a5e"];
 
-export function paletteFor(userId: string): Palette {
+/** Number of hair styles drawn in `paintFrame` (short, long, bun, spiky, buzz). */
+export const HAIR_STYLES = 5;
+
+/** The parts a person (or their agent) chose; any unset part keeps the id-seeded default. Mirrors the server's
+ * `Look` (agent/src/unifai_agent/profile.py), whose ranges are these tables' sizes. */
+export type Look = {
+  skin?: number | null;
+  hair?: number | null;
+  hair_style?: number | null;
+  shirt_hue?: number | null;
+  pants?: number | null;
+  source?: "agent" | "you";
+};
+
+const inRange = (v: number | null | undefined, count: number): v is number =>
+  typeof v === "number" && Number.isInteger(v) && v >= 0 && v < count;
+
+export function paletteFor(userId: string, look?: Look | null): Palette {
   const r = rng(hash(userId));
   const pick = <T,>(list: T[]) => list[Math.floor(r() * list.length)];
-  const skinIndex = Math.floor(r() * SKINS.length);
-  const hue = Math.floor(r() * 360);
+  const seededSkin = Math.floor(r() * SKINS.length);
+  const seededHue = Math.floor(r() * 360);
   const sat = 50 + Math.floor(r() * 25);
   const light = 46 + Math.floor(r() * 14);
+  const seededHair = pick(HAIRS);
+  const seededStyle = Math.floor(r() * HAIR_STYLES);
+  const seededPants = pick(PANTS);
+  // Draw order above is fixed, so setting one part never changes the others' seeded values.
+  const skinIndex = inRange(look?.skin, SKINS.length) ? look.skin : seededSkin;
+  const hue = inRange(look?.shirt_hue, 360) ? look.shirt_hue : seededHue;
   return {
     skin: SKINS[skinIndex],
     skinShade: shade(SKINS[skinIndex], -0.14),
-    hair: pick(HAIRS),
-    hairStyle: Math.floor(r() * 5),
+    hair: inRange(look?.hair, HAIRS.length) ? HAIRS[look.hair] : seededHair,
+    hairStyle: inRange(look?.hair_style, HAIR_STYLES) ? look.hair_style : seededStyle,
     shirt: `hsl(${hue} ${sat}% ${light}%)`,
     shirtShade: `hsl(${hue} ${sat}% ${light - 12}%)`,
-    pants: pick(PANTS),
+    pants: inRange(look?.pants, PANTS.length) ? PANTS[look.pants] : seededPants,
     shoes: "#1d1b1a",
     accent: hslToHex(hue, 85, 62),
   };

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -69,3 +71,19 @@ class SelfReport(BaseModel):
     possible_dealbreakers: list[str] = Field(default_factory=list)
     surprising_traits: list[str] = Field(default_factory=list)
     unknowns: list[str] = Field(default_factory=list)
+
+
+class Look(BaseModel):
+    """Which sprite parts draw this person in the world. Every field is optional: unset parts keep the sprite's
+    default for that user. Indexes match the option tables in client/src/components/visualizer/character.ts."""
+
+    skin: int | None = None  # 0-5, lightest to deepest
+    hair: int | None = None  # 0-9 colour: black, dark brown, brown, golden brown, blonde, red, grey, blue, pink, white
+    hair_style: int | None = None  # 0-4: short, long, bun, spiky, buzz
+    shirt_hue: int | None = None  # 0-359 degrees on the colour wheel
+    pants: int | None = None  # 0-6, dark blue, charcoal, brown, olive, navy, tan, plum
+    source: Literal["agent", "you"] = "agent"
+
+
+# Largest valid value of each part; the server and tests clamp against these.
+LOOK_MAX = {"skin": 5, "hair": 9, "hair_style": 4, "shirt_hue": 359, "pants": 6}
