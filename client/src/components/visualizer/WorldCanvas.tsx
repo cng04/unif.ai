@@ -99,6 +99,14 @@ export function WorldCanvas({
   useEffect(() => {
     engine?.setSpeed(speed);
   }, [engine, speed]);
+  // A participant's own agent is followed when the world opens (they can look around any time).
+  const viewer = snapshot.viewer;
+  const followedViewer = useRef(false);
+  useEffect(() => {
+    if (!engine || !viewer || followedViewer.current || !members.has(viewer)) return;
+    followedViewer.current = true;
+    engine.select(viewer, true);
+  }, [engine, viewer, members]);
   useEffect(() => {
     if (!engine || !selectedId) return;
     const id = setInterval(() => setInfo(engine.info(selectedId)), 300);
@@ -231,6 +239,16 @@ export function WorldCanvas({
                   {label}
                 </button>
               ))}
+              {viewer && (
+                <button
+                  type="button"
+                  aria-label="Follow my agent"
+                  onClick={() => engine?.select(viewer, true)}
+                  className="press rounded-full bg-ink px-3 py-[9px] font-mono text-[11px] leading-[14px] tracking-[0.14em] text-paper"
+                >
+                  follow me
+                </button>
+              )}
             </div>
           </div>
 
