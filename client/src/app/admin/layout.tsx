@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AdminNav, LogoMark } from "@/components/admin-nav";
 import { Blobs } from "@/components/atmosphere";
+import { adminApi } from "@/lib/api";
 
 export const metadata: Metadata = { title: "unif.ai admin" };
 
@@ -23,11 +24,16 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
             <span className="hidden font-mono fs-10 leading-3 tracking-[0.12em] text-ink-muted sm:inline">admin</span>
           </Link>
           <Suspense fallback={null}>
-            <AdminNav />
+            <AdminNavGate />
           </Suspense>
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col gap-[26px] px-5 py-6 md:px-8 md:py-[30px]">{children}</main>
     </div>
   );
+}
+
+async function AdminNavGate() {
+  const universes = await adminApi.universes("all").catch(() => []);
+  return <AdminNav universes={universes.map((u) => ({ id: u.id, name: u.name }))} />;
 }

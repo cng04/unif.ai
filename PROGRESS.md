@@ -204,6 +204,13 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-18: The admin sidebar has a universe switcher. Choosing one opens that universe on the same tab
+  (overview, pool graph, groups, world, or add person).
+- 2026-10-18: Persona chats also rotate through `amazon/nova-micro-v1`, `deepseek/deepseek-v4.1-flash`,
+  `inception/mercury-2.5`, and `google/gemma-3-12b-it`. Ten models total, each with its own rate-limit budget.
+- 2026-10-18: Persona chats also rotate through `inclusionai/ling-3.0-flash`, `mistralai/mistral-nemo`, and
+  `qwen/qwen3.7-flash`, three cheaper models in the same price band as the existing three. Each adds its own
+  OpenRouter rate-limit budget. Production uses its own `OPENROUTER_CHAT_MODEL` until that variable is updated.
 - 2026-10-18: Larger text on desktop: sizes below 24px scale 1.1x at `md` and up via `--type-scale` in
   `globals.css`; hard-coded `text-[Npx]` / `leading-[Npx]` became `fs-N` / `lh-N`. Mobile unchanged.
 - 2026-10-18: A rate-limited chat turn tries the next OpenRouter model immediately instead of sleeping until

@@ -16,9 +16,14 @@ class Settings(BaseSettings):
     openrouter_model: str = "google/gemini-2.5-flash-lite"
     # Persona chats only, the bulk of the tokens. Comma-separate several models to rotate pairs across them:
     # OpenRouter rate limits are per model, so each one adds its own requests-per-minute budget.
-    openrouter_chat_model: str = "openai/gpt-oss-20b,~deepseek/deepseek-v4-flash-latest,z-ai/glm-5.3-flash"
-    # One per chat model (or one value for all): restrained GPT-OSS, balanced DeepSeek, wild GLM.
-    openrouter_chat_temperatures: str = "0.50,0.80,1.05"
+    openrouter_chat_model: str = (
+        "openai/gpt-oss-20b,~deepseek/deepseek-v4-flash-latest,z-ai/glm-5.3-flash,"
+        "inclusionai/ling-3.0-flash,mistralai/mistral-nemo,qwen/qwen3.7-flash,"
+        "amazon/nova-micro-v1,deepseek/deepseek-v4.1-flash,inception/mercury-2.5,google/gemma-3-12b-it"
+    )
+    # One per chat model (or one value for all): restrained GPT-OSS, balanced DeepSeek, wild GLM,
+    # then the cheaper models kept restrained. Each model is its own rate-limit budget.
+    openrouter_chat_temperatures: str = "0.50,0.80,1.05,0.55,0.45,0.60,0.40,0.55,0.50,0.50"
     openrouter_chat_temperature_jitter: float = 0.08  # sampled once per pair, then held fixed for all turns
     openrouter_chat_max_tokens: int = 512  # 1-3 sentence turns; keeps OpenRouter in-flight credit reservation low
     # Native Jev System One models on OpenRouter. Comma-separate versions to rotate requests across them.

@@ -295,8 +295,10 @@ export class AgentSprite {
   }
 
   destroy() {
+    const source = this.body.texture.source;
     this.root.destroy({ children: true });
-    this.body.texture.source.destroy();
+    // The sheet's textures share one source; destroying the sprite can already release it.
+    if (!source.destroyed) source.destroy();
   }
 }
 
