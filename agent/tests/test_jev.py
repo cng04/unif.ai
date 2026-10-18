@@ -1,7 +1,3 @@
-import json
-
-import httpx
-import pytest
 from typesafe_sdk import Choice, Noul, Score
 
 from unifai_agent import OpenRouterJev
@@ -13,39 +9,45 @@ QUESTIONS = {
 }
 
 
-def jev_answering(content: dict) -> tuple[OpenRouterJev, list]:
-    requests = []
+def test_openrouter_jev_uses_native_system_one_api(monkeypatch):
+    created = []
+    calls = []
+    expected = object()
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        requests.append(json.loads(request.content))
-        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(content)}}]})
+    class FakeTypeSafeClient:
+        def __init__(self, **kwargs):
+            created.append(kwargs)
 
-    jev = OpenRouterJev(api_key="test")
-    jev.client = httpx.Client(transport=httpx.MockTransport(handler))
-    return jev, requests
+        def system_one(self, state, questions, **kwargs):
+            calls.append((state, questions, kwargs))
+            return expected
 
+    monkeypatch.setattr("typesafe_sdk.TypeSafeClient", FakeTypeSafeClient)
 
-def test_system_one_maps_json_answers_to_typed_results():
-    jev, requests = jev_answering(
-        {"chemistry": {"level": 7, "confidence": 0.8}, "dealbreaker_0": 1.4, "logistics": "strong"}
-    )
-
+    jev = OpenRouterJev(api_key="or-test", model="typesafe/jev-1.14", timeout=12.0)
     result = jev.system_one({"transcript": "hi"}, QUESTIONS)
 
-    assert (result.scores["chemistry"].score, result.scores["chemistry"].confidence) == (2, 0.8)
-    assert result.nouls["dealbreaker_0"].noul == 1.0
-    assert result.choices["logistics"].choice == "strong"
-    schema = requests[0]["response_format"]["json_schema"]["schema"]
-    assert schema["required"] == list(QUESTIONS)
-    assert schema["properties"]["logistics"]["enum"] == ["strong", "incompatible"]
-    assert "2: lots" in requests[0]["messages"][1]["content"]
+    assert created == [
+        {
+            "api_key": "or-test",
+            "model": "typesafe/jev-1.14",
+            "base_url": "https://openrouter.ai/api",
+        }
+    ]
+    assert calls == [({"transcript": "hi"}, QUESTIONS, {"timeout": 12.0})]
+    assert result is expected
 
 
-def test_system_one_rejects_skipped_questions_and_unknown_choices():
-    jev, _ = jev_answering({"chemistry": {"level": 1, "confidence": 0.5}, "dealbreaker_0": 0.1, "logistics": "meh"})
-    with pytest.raises(ValueError, match="logistics"):
-        jev.system_one("doc", QUESTIONS)
+def test_openrouter_jev_reads_openrouter_key_from_environment(monkeypatch):
+    created = []
 
-    jev, _ = jev_answering({"chemistry": {"level": 1, "confidence": 0.5}})
-    with pytest.raises(ValueError, match="dealbreaker_0"):
-        jev.system_one("doc", QUESTIONS)
+    class FakeTypeSafeClient:
+        def __init__(self, **kwargs):
+            created.append(kwargs)
+
+    monkeypatch.setattr("typesafe_sdk.TypeSafeClient", FakeTypeSafeClient)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-env-test")
+
+    OpenRouterJev()
+
+    assert created[0]["api_key"] == "or-env-test"

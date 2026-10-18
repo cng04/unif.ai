@@ -20,7 +20,7 @@ async function PairScreen({ params }: { params: Promise<{ userId: string; pairId
     throw e;
   });
   return (
-    <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col md:pt-6">
+    <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col md:pt-6 lg:max-w-[1080px] lg:px-6">
       <Blobs
         blobs={[
           { color: "ochre", x: "72%", y: "4%", size: 260, opacity: 0.65, blur: 50 },
@@ -33,7 +33,7 @@ async function PairScreen({ params }: { params: Promise<{ userId: string; pairId
         <BackLink href={`/u/${userId}/connections`}>connections</BackLink>
       </div>
 
-      <PairConversation pair={pair} userId={userId} />
+      <PairConversation pair={pair} userId={userId} wide />
     </main>
   );
 }

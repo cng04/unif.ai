@@ -229,3 +229,11 @@ async def load_group(conn: AsyncConnection, group: dict) -> dict:
         "members": members,
         "events": events,
     }
+
+
+async def is_onboarded(conn: AsyncConnection, user_id: UUID) -> bool:
+    """True once the onboarding bot has saved the private profile (same rule as USER_STATUS_SQL's 'complete')."""
+    row = await (
+        await conn.execute("SELECT private <> '{}'::jsonb AS done FROM agent_profiles WHERE user_id = %s", (user_id,))
+    ).fetchone()
+    return bool(row and row["done"])

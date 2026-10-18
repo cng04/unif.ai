@@ -1,9 +1,13 @@
 from types import SimpleNamespace
+from uuid import uuid4
 
 import numpy as np
+import pytest
 
 from app.matching.groups import build_groups
 from app.matching.keywords import Keyword
+from app.matching.pairing import _temperature_for_chat
+from app.matching.pipeline import save_signals
 from app.matching.projection import project_3d
 from app.matching.scoring import (
     KeywordScore,
@@ -71,6 +75,12 @@ def test_build_groups_places_people_with_no_judged_edges():
     assert all(4 <= len(g) <= 8 for g in groups)
 
 
+def test_default_group_size_allows_groups_of_three():
+    from app.config import Settings
+
+    assert Settings(_env_file=None).min_group_size == 3
+
+
 def test_build_groups_never_combines_forbidden_pairs():
     users = [f"u{i}" for i in range(8)]
     forbidden = {("u0", "u1")}
@@ -99,6 +109,42 @@ def signals(scores, dealbreakers=None, availability=None) -> Signals:
     )
 
 
+async def test_save_signals_casts_serial_keyword_ids_as_integers():
+    class Result:
+        async def fetchall(self):
+            return [{"id": 1}, {"id": 2}]
+
+    class Cursor:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def executemany(self, *_):
+            return None
+
+    class Connection:
+        def __init__(self):
+            self.queries = []
+
+        async def execute(self, query, params):
+            self.queries.append(query)
+            return Result()
+
+        def cursor(self):
+            return Cursor()
+
+        async def commit(self):
+            return None
+
+    conn = Connection()
+    await save_signals(conn, uuid4(), [str(uuid4())], KEYWORDS, signals([[0.9, 0.1]]))
+
+    insert = next(q for q in conn.queries if "INSERT INTO keyword_scores" in q)
+    assert "unnest(%s::uuid[]), unnest(%s::int[])" in insert
+
+
 def test_hard_conflicts_from_dealbreaker_keywords():
     # person 0 can't stand keyword 1; person 1 scores high on it, person 2 gives no signal
     s = signals([[0.9, 0.1], [0.8, 0.9], [0.8, 0.5]], dealbreakers=[[False, True], [False, False], [False, False]])
@@ -125,11 +171,24 @@ def test_candidate_pairs_are_unique_ordered_and_skip_blocked():
     scores = np.array([[1, 0], [0.9, 0.1], [0, 1], [0.1, 0.9]])
     blocked = np.zeros((4, 4), dtype=bool)
 
-    assert candidate_pairs(scores, blocked, top_m=1) == [(0, 1), (2, 3)]
+    pairs = candidate_pairs(scores, blocked, top_m=1)
+    assert len(pairs) == len(set(pairs)) == 4
+    assert all(i < j for i, j in pairs)
 
     blocked[0, 1] = blocked[1, 0] = True
     pairs = candidate_pairs(scores, blocked, top_m=1)
     assert (0, 1) not in pairs
+
+
+def test_candidate_pairs_replace_reciprocal_proposals_without_total_degree_cap():
+    scores = np.ones((6, 2))
+    blocked = np.zeros((6, 6), dtype=bool)
+
+    pairs = candidate_pairs(scores, blocked, top_m=2)
+    degree = [sum(i in pair for pair in pairs) for i in range(6)]
+
+    assert len(pairs) == len(set(pairs)) == 12
+    assert max(degree) > 2
 
 
 def test_to_signals_matches_keywords_case_insensitively_and_defaults_to_no_signal():
@@ -201,3 +260,56 @@ async def test_photon_logs_instead_of_raising(monkeypatch):
 
     monkeypatch.setattr(photon, "get_settings", lambda: Settings(photon_api_key="key"))
     await photon.send_message("+15550001111", "hi")
+
+
+def test_chat_llms_use_bounded_max_tokens_and_rotate_models(monkeypatch):
+    from app import deps
+    from app.config import Settings
+
+    deps.get_chat_llms.cache_clear()
+    monkeypatch.setattr(
+        deps,
+        "get_settings",
+        lambda: Settings(
+            openrouter_api_key="key",
+            openrouter_chat_model="google/gemini-3.8-flash,google/gemini-3.7-flash",
+            openrouter_chat_temperatures="0.4,1.1",
+            openrouter_chat_temperature_jitter=0.08,
+            openrouter_chat_max_tokens=512,
+        ),
+    )
+    llms = deps.get_chat_llms()
+    deps.get_chat_llms.cache_clear()
+
+    assert [m.model for m in llms] == ["google/gemini-3.8-flash", "google/gemini-3.7-flash"]
+    assert all(m.max_tokens == 512 for m in llms)
+    assert [m.chat_temperature for m in llms] == [0.4, 1.1]
+    assert all(m.temperature_jitter == 0.08 for m in llms)
+
+
+def test_pair_temperature_is_randomized_once_around_model_base(monkeypatch):
+    monkeypatch.setattr("app.matching.pairing.random.uniform", lambda low, high: 0.06)
+    llm = SimpleNamespace(chat_temperature=0.8, temperature_jitter=0.08)
+
+    assert _temperature_for_chat(llm) == pytest.approx(0.86)
+
+
+def test_openrouter_jev_ignores_chat_models_and_falls_back(monkeypatch, caplog):
+    from app import deps
+    from app.config import Settings
+
+    deps.get_jevs.cache_clear()
+    monkeypatch.setattr(
+        deps,
+        "get_settings",
+        lambda: Settings(
+            openrouter_api_key="key",
+            openrouter_jev_model="google/gemini-3.8-flash,anthropic/claude-haiku-5.5",
+        ),
+    )
+    jevs = deps.get_jevs()
+    deps.get_jevs.cache_clear()
+
+    assert [m.model for m in jevs] == ["~typesafe/jev-latest"]
+    assert "Ignoring non-Jev OPENROUTER_JEV_MODEL entries" in caplog.text
+

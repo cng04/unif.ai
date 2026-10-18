@@ -3,17 +3,28 @@ import { Bubble, formatScore, Meta, SpeakerLabel, Title } from "@/components/ui"
 import type { PairDetail } from "@/lib/api";
 import type { ReactNode } from "react";
 
-/** One agent-to-agent conversation (frame 8b). Shared by the pair page and the connections drawer. */
-export function PairConversation({ pair, userId }: { pair: PairDetail; userId: string }) {
+/**
+ * One agent-to-agent conversation (frame 8b). Shared by the pair page and the connections drawer.
+ * `wide` (the full page) puts the summary in a pinned left column on large screens; the drawer stays stacked.
+ */
+export function PairConversation({ pair, userId, wide = false }: { pair: PairDetail; userId: string; wide?: boolean }) {
   const name = pair.other.full_name.toLowerCase();
   const first = pair.messages.at(0);
   const last = pair.messages.at(-1);
   const minutes =
     first && last ? Math.max(1, Math.round((Date.parse(last.created_at) - Date.parse(first.created_at)) / 60000)) : null;
 
+  const lookingFor = pair.looking_for && (
+    <div className="flex flex-col gap-2.5 px-2 pt-1 pb-2.5">
+      <p className="micro text-ink-muted">( what {name}&apos;s looking for )</p>
+      <p className="text-[17px] leading-[26px] font-light tracking-stat">{pair.looking_for}</p>
+    </div>
+  );
+
   return (
-    <>
-      <header className="relative flex flex-col gap-3.5 border-b border-line px-7 pt-5 pb-[18px]">
+    <div className={wide ? "lg:grid lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:gap-12" : "contents"}>
+      <div className={wide ? "lg:sticky lg:top-[112px] lg:self-start" : "contents"}>
+      <header className={`relative flex flex-col gap-3.5 border-b border-line px-7 pt-5 pb-[18px] ${wide ? "lg:border-b-0 lg:px-2" : ""}`}>
         <div className="flex items-center gap-2.5">
           <svg width="44" height="14" viewBox="0 0 44 14" aria-hidden className="shrink-0">
             <line x1="7" y1="7" x2="37" y2="7" stroke="var(--color-ink)" strokeWidth="1.1" strokeOpacity="0.6" />
@@ -29,29 +40,27 @@ export function PairConversation({ pair, userId }: { pair: PairDetail; userId: s
           {minutes != null && <HeaderStat value={`${minutes} min`} label={<LocalTime iso={first!.created_at} />} />}
         </dl>
       </header>
+      {wide && lookingFor && <div className="hidden border-t border-line pt-4 lg:block">{lookingFor}</div>}
+      </div>
 
       <section className="relative flex flex-col gap-3.5 px-5 pt-5 pb-[max(30px,env(safe-area-inset-bottom))]">
-        {pair.looking_for && (
-          <div className="flex flex-col gap-2.5 px-2 pt-1 pb-2.5">
-            <p className="micro text-ink-muted">( what {name}&apos;s looking for )</p>
-            <p className="text-[17px] leading-[26px] font-light tracking-stat">{pair.looking_for}</p>
-          </div>
-        )}
+        {lookingFor && <div className={wide ? "lg:hidden" : ""}>{lookingFor}</div>}
 
         {pair.messages.length === 0 && (
           <p className="micro py-6 text-center text-ink-muted">( no conversation recorded )</p>
         )}
         {pair.messages.map((m, i) => {
           const side = m.speaker_id === userId ? "you" : "them";
-          const firstOfSide = pair.messages.findIndex((x) => x.speaker_id === m.speaker_id) === i;
+          // Name the speaker whenever the turn changes, not only the first time.
+          const newTurn = pair.messages[i - 1]?.speaker_id !== m.speaker_id;
           return (
             // Replays the conversation: each message rises in after the one before it.
             <div
               key={i}
               style={{ animationDelay: `${250 + i * 160}ms` }}
-              className={`rise-in flex flex-col gap-[5px] ${side === "you" ? "max-w-[280px] items-end self-end md:max-w-[420px]" : "max-w-[290px] md:max-w-[420px]"}`}
+              className={`rise-in flex max-w-[82%] flex-col gap-[5px] ${side === "you" ? "ml-[18%] items-end self-end" : "mr-[18%] items-start self-start"} ${newTurn && i > 0 ? "mt-2" : ""}`}
             >
-              {firstOfSide && <SpeakerLabel side={side}>{side === "you" ? "your agent" : `${name}'s agent`}</SpeakerLabel>}
+              {newTurn && <SpeakerLabel side={side}>{side === "you" ? "your agent" : `${name}'s agent`}</SpeakerLabel>}
               <Bubble side={side}>{m.content}</Bubble>
             </div>
           );
@@ -65,7 +74,7 @@ export function PairConversation({ pair, userId }: { pair: PairDetail; userId: s
           </div>
         )}
       </section>
-    </>
+    </div>
   );
 }
 

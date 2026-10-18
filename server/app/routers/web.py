@@ -275,7 +275,7 @@ def join_form(
         f"""<main class="narrow">
           <h1>Join {escape(universe['name'])}</h1>
           <p class="muted">Our agent will chat with you for about 10 minutes to get to know you,
-            then match you into a small friend group of 4–8 people.</p>
+            then match you into a small friend group of 3–8 people.</p>
           {note_html}
           {asi_section(universe, primary=not imessage)}
           {imessage_form}

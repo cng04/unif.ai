@@ -2,6 +2,9 @@
 // Each inner array is sent as separate bubbles (iMessage) or joined into one message (ASI:One),
 // so wording stays channel-neutral: "reply", not "text".
 
+// Every path into the interview (PASTE_OK, PASTE_SKIPPED, PASTE_NO_JSON) mentions that questions are skippable.
+const SKIP_HINT = 'reply "skip" to pass on any question, or "done" whenever you\'ve had enough';
+
 export const WELCOME = [
   "hey! 👋 I'm the agent that's going to help you find your people",
   "I'll ask a few quick things, then we'll just chat for ~10 min so I can represent you well",
@@ -60,14 +63,14 @@ export const PASTE_PARTIAL =
   'got part of it, but no profile JSON yet. long replies sometimes split, so send the rest, or reply "done" if that was everything';
 
 export const PASTE_NO_JSON =
-  "I couldn't find the JSON block at the end of that, so I'll cover those topics in our chat instead";
+  `I couldn't find the JSON block at the end of that, so I'll cover those topics in our chat instead. ${SKIP_HINT}`;
 
 export const PASTE_OK = (n: number) =>
   n
-    ? `perfect, got it 🙌 ${n} thing${n === 1 ? "" : "s"} I want to double-check or fill in, so let's chat`
-    : "perfect, got it 🙌 just a few things I want to ask about";
+    ? `perfect, got it 🙌 ${n} thing${n === 1 ? "" : "s"} I'd like to double-check or fill in. ${SKIP_HINT}`
+    : `perfect, got it 🙌 just a few things I want to ask about. ${SKIP_HINT}`;
 
-export const PASTE_SKIPPED = "all good, we'll do it the fun way and just chat";
+export const PASTE_SKIPPED = `all good, we'll do it the fun way and just chat. ${SKIP_HINT}`;
 
 export const REVIEW_INTRO = "ok here's what I've got. tell me anything that's off, in your own words";
 

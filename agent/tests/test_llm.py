@@ -49,6 +49,14 @@ def test_require_tool_forces_a_tool_call():
     assert requests[0]["tool_choice"] == "required"
 
 
+def test_generate_uses_requested_temperature():
+    llm, requests = llm_returning({"content": "hi"})
+
+    llm.generate("sys", [{"role": "user", "content": "hello"}], temperature=0.35)
+
+    assert requests[0]["temperature"] == 0.35
+
+
 def test_response_model_requests_json_schema_and_returns_text():
     class Answer(BaseModel):
         value: int

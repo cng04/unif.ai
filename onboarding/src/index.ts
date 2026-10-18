@@ -1,3 +1,4 @@
+import { coalesce } from "./coalesce.ts";
 import * as copy from "./copy.ts";
 import { handle } from "./flow.ts";
 import { logMessages } from "./members.ts";
@@ -66,5 +67,7 @@ function sleep(ms: number) {
 if (useTerminal) await startTerminal(onMessage);
 else {
   if (channels.includes("http")) startHttp(onMessage);
-  if (channels.includes("photon")) await startPhoton(onMessage);
+  // One turn at a time per chat: bubbles sent together, or while a reply is being written, reach the model together.
+  // Whether to answer or wait for more is the model's call. (The ASI:One relay waits for each reply anyway.)
+  if (channels.includes("photon")) await startPhoton(coalesce(onMessage, 1000));
 }

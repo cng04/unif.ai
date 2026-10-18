@@ -29,7 +29,7 @@ async function GroupsScreen({ params }: { params: Promise<{ universeId: string }
         actions={
           <>
             {data.groups.length > 0 && (
-              <span className="font-mono text-[10px] tracking-label text-ink-muted">
+              <span className="font-mono text-[11px] tracking-label text-ink-muted">
                 {placed} placed · {data.leftovers.length} leftover{data.leftovers.length === 1 ? "" : "s"}
               </span>
             )}
@@ -104,7 +104,7 @@ function GroupCard({ group: g, index }: { group: UniverseGroups["groups"][number
       {g.events.length > 0 && (
         <ul className="flex flex-col gap-1 border-t border-line pt-3">
           {g.events.map((e) => (
-            <li key={e.name} className="font-mono text-[10px] leading-4 tracking-[0.1em]">
+            <li key={e.name} className="font-mono text-[11px] leading-4 tracking-[0.1em]">
               →{" "}
               {e.url ? (
                 <a href={e.url} target="_blank" rel="noreferrer" className="hover:underline">
@@ -142,7 +142,7 @@ function Leftovers({ leftovers }: { leftovers: UniverseGroups["leftovers"] }) {
         >
           <span className="size-[11px] shrink-0 rounded-full border border-dashed border-ink/60" />
           <span className="flex-1 text-[12px] tracking-[0.08em] lowercase">{p.full_name}</span>
-          <span className="font-mono text-[9px] tracking-[0.1em] text-ink-muted">
+          <span className="font-mono text-[10px] tracking-[0.1em] text-ink-muted">
             {p.chats === 0 ? "no chats" : p.strong_ties ? `${p.strong_ties} strong` : `${p.chats} chat${p.chats === 1 ? "" : "s"}`}
           </span>
         </a>

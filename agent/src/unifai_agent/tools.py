@@ -20,13 +20,4 @@ TOOL_DECLARATIONS: list[dict] = [
             "required": ["text"],
         },
     },
-    {
-        "name": "end_conversation",
-        "description": "End the conversation once you have enough signal either way.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {"reason": {"type": "STRING"}},
-            "required": ["reason"],
-        },
-    },
 ]

@@ -1,12 +1,41 @@
+import logging
 from functools import lru_cache
 
 from unifai_agent import LLM, GeminiLLM, Interviewer, Jev, Judge, OpenRouterJev, OpenRouterLLM, jev_client
 
 from app.config import get_settings
 
+log = logging.getLogger(__name__)
+DEFAULT_OPENROUTER_JEV_MODEL = "~typesafe/jev-latest"
+
 
 def _models(csv: str) -> list[str]:
     return [m.strip() for m in csv.split(",") if m.strip()]
+
+
+def _temperatures(csv: str, count: int) -> list[float | None]:
+    try:
+        values = [float(v.strip()) for v in csv.split(",") if v.strip()]
+    except ValueError as exc:
+        raise ValueError("OPENROUTER_CHAT_TEMPERATURES must contain numbers") from exc
+    if not values:
+        return [None] * count
+    if len(values) == 1:
+        values *= count
+    if len(values) != count:
+        raise ValueError("OPENROUTER_CHAT_TEMPERATURES must have one value or one value per chat model")
+    if any(v < 0 or v > 2 for v in values):
+        raise ValueError("OPENROUTER_CHAT_TEMPERATURES values must be between 0 and 2")
+    return values
+
+
+def _jev_models(csv: str) -> list[str]:
+    configured = _models(csv)
+    models = [m for m in configured if m.lstrip("~").startswith("typesafe/jev-")]
+    ignored = [m for m in configured if m not in models]
+    if ignored:
+        log.warning("Ignoring non-Jev OPENROUTER_JEV_MODEL entries: %s", ", ".join(ignored))
+    return models or [DEFAULT_OPENROUTER_JEV_MODEL]
 
 
 @lru_cache
@@ -24,7 +53,18 @@ def get_chat_llms() -> list[LLM]:
     if not settings.openrouter_api_key:
         return [get_llm()]
     models = _models(settings.openrouter_chat_model)
-    return [OpenRouterLLM(m, settings.openrouter_api_key, rpm=settings.openrouter_rpm) for m in models]
+    temperatures = _temperatures(settings.openrouter_chat_temperatures, len(models))
+    return [
+        OpenRouterLLM(
+            m,
+            settings.openrouter_api_key,
+            max_tokens=settings.openrouter_chat_max_tokens,
+            rpm=settings.openrouter_rpm,
+            chat_temperature=temperature,
+            temperature_jitter=settings.openrouter_chat_temperature_jitter,
+        )
+        for m, temperature in zip(models, temperatures)
+    ]
 
 
 @lru_cache
@@ -33,13 +73,12 @@ def get_jevs() -> list[Jev]:
     settings = get_settings()
     if not settings.openrouter_api_key:
         return [jev_client(settings.typesafe_api_key, settings.jev_model)]
-    models = _models(settings.openrouter_jev_model) or [settings.openrouter_model]
+    models = _jev_models(settings.openrouter_jev_model)
     return [
         OpenRouterJev(
             settings.openrouter_api_key,
             m,
             rpm=settings.openrouter_rpm,
-            reasoning_effort=settings.openrouter_jev_reasoning,
         )
         for m in models
     ]

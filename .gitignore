@@ -29,3 +29,8 @@ npm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# ./run.sh bots-bundle / bots-export output (contains secrets and chat data)
+unifai-bots.tgz
+bot-data.tgz
+bot-data.tgz.imported

@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Glass } from "./ui";
 
-const label = "font-mono text-[10.5px] tracking-[0.1em] lowercase";
+const label = "font-mono text-[11.5px] tracking-[0.1em] lowercase";
 
 /**
  * Legend card for the 3D view: "similarity" (PCA of every keyword) or three Jev keywords as x / y / z.
@@ -50,12 +50,14 @@ export function AxisPicker({
       {axes ? (
         <div className="flex flex-col gap-1.5">
           {axes.map((name, i) => (
-            <label key={i} className="flex items-center gap-2.5">
-              <span className={`${label} w-3 text-ink-faint`}>{"xyz"[i]}</span>
+            <label key={i} className="flex min-w-0 items-center gap-2.5">
+              <span className={`${label} w-3 shrink-0 text-ink-faint`}>{"xyz"[i]}</span>
+              {/* min-w-0: a select's intrinsic width is its longest option, which would push it past the card. */}
               <select
                 value={name}
+                title={name}
                 onChange={(e) => go(axes.map((a, j) => (j === i ? e.target.value : a)))}
-                className={`${label} h-8 flex-1 rounded-full border border-ink/20 bg-white/40 px-3 text-ink outline-none hover:bg-white/70 focus-visible:border-ink/50`}
+                className={`${label} h-8 min-w-0 flex-1 truncate rounded-full border border-ink/20 bg-white/40 px-3 text-ink outline-none hover:bg-white/70 focus-visible:border-ink/50`}
               >
                 {keywords.map((k) => (
                   <option key={k} value={k}>

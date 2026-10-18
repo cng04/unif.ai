@@ -3,7 +3,7 @@
 import { Billboard, Line, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Fragment, useMemo, useRef, useState, type RefObject } from "react";
-import { Color, Vector3 } from "three";
+import { CanvasTexture, Color, Vector3 } from "three";
 import type { UserGraph } from "@/lib/api";
 import { formatScore } from "./ui";
 import { useOpenPair } from "./use-open-pair";
@@ -39,6 +39,22 @@ const AXIS_ENDS: Vec3[] = [
   [0, 0, SPREAD],
 ];
 
+/** A soft radial falloff, so a tinted circle reads like the blurred blobs behind every screen. */
+function useGlow() {
+  return useMemo(() => {
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const ctx = c.getContext("2d")!;
+    const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, "rgba(255,255,255,1)");
+    g.addColorStop(0.45, "rgba(255,255,255,0.55)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+    return new CanvasTexture(c);
+  }, []);
+}
+
 /**
  * Moves the DOM labels to their nodes' screen positions every frame. Labels live in one overlay outside the
  * Canvas instead of drei's <Html>, which mounts a React root per label and trips React 19's
@@ -70,6 +86,8 @@ function Scene({ data, active, setActive, open, labels, refs }: {
   const byId = useMemo(() => new Map(data.nodes.map((n) => [n.user_id, n])), [data.nodes]);
   const me = data.nodes.find((n) => n.kind === "me");
   const named = (id: string) => byId.get(id)?.kind !== "pool";
+  const glow = useGlow();
+  const activeLink = active ? data.links.find((l) => l.pair_id === active) : undefined;
   const handlers = (pairId: string | null) =>
     pairId
       ? {
@@ -112,19 +130,34 @@ function Scene({ data, active, setActive, open, labels, refs }: {
           </group>
         ))}
 
+      {/* Group colour (admin pool graph): a blurred halo behind each member, so a group pools into one cloud. */}
+      {data.nodes
+        .filter((n) => n.tint)
+        .map((n) => (
+          <Billboard key={`glow-${n.user_id}`} position={pos(n)}>
+            <mesh renderOrder={-1}>
+              <planeGeometry args={[0.95, 0.95]} />
+              <meshBasicMaterial map={glow} color={n.tint!} transparent opacity={0.32} depthWrite={false} />
+            </mesh>
+          </Billboard>
+        ))}
+
       {/* Other people's pairs: faint texture, firmer when both ends are people you know. */}
       {data.links
         .filter((l) => !l.mine && byId.has(l.a) && byId.has(l.b))
         .map((l) => {
-          const within = byId.get(l.a)!.kind === "group" && byId.get(l.b)!.kind === "group";
+          const [a, b] = [byId.get(l.a)!, byId.get(l.b)!];
+          const within = a.group !== undefined ? !!a.group && a.group === b.group : a.kind === "group" && b.kind === "group";
+          const on = !!l.pair_id && active === l.pair_id;
           return (
             <Line
               key={`${l.a}-${l.b}`}
-              points={[pos(byId.get(l.a)!), pos(byId.get(l.b)!)]}
-              color={INK}
-              lineWidth={within ? 0.9 : 0.6}
+              points={[pos(a), pos(b)]}
+              color={on ? EMBER : INK}
+              lineWidth={on ? 2 : within ? 0.9 : 0.6}
               transparent
-              opacity={(within ? 0.28 : named(l.a) || named(l.b) ? 0.16 : 0.1) * (active ? 0.5 : 1)}
+              opacity={on ? 0.95 : (within ? 0.28 : named(l.a) || named(l.b) ? 0.16 : 0.1) * (active ? 0.5 : 1)}
+              {...handlers(l.pair_id ?? null)}
             />
           );
         })}
@@ -152,7 +185,7 @@ function Scene({ data, active, setActive, open, labels, refs }: {
           })}
 
       {data.nodes.map((n) => {
-        const on = !!n.pair_id && active === n.pair_id;
+        const on = (!!n.pair_id && active === n.pair_id) || (!!activeLink && (activeLink.a === n.user_id || activeLink.b === n.user_id));
         return (
           <Billboard key={n.user_id} position={pos(n)}>
             <mesh {...handlers(n.pair_id)}>
@@ -187,7 +220,8 @@ function Scene({ data, active, setActive, open, labels, refs }: {
   );
 }
 
-export function ConnectionsGraph3D({ data }: { data: UserGraph }) {
+/** `flat` keeps the camera face-on (no rotation), for layouts that are 2D by design like the admin pool graph. */
+export function ConnectionsGraph3D({ data, flat = false }: { data: UserGraph; flat?: boolean }) {
   const pairs = useOpenPair();
   const [hovered, setHovered] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
@@ -209,6 +243,9 @@ export function ConnectionsGraph3D({ data }: { data: UserGraph }) {
   };
 
   const namedNodes = data.nodes.filter((n) => n.name);
+  // The two people on a lit pool-graph line.
+  const activeLink = active ? data.links.find((l) => l.pair_id === active) : undefined;
+  const activeEnds = activeLink ? [activeLink.a, activeLink.b] : [];
   const labels = useMemo<Label[]>(
     () => [
       ...data.nodes.filter((n) => n.name).map((n) => ({ key: n.user_id, at: pos(n) })),
@@ -233,7 +270,8 @@ export function ConnectionsGraph3D({ data }: { data: UserGraph }) {
         <OrbitControls
           enablePan={false}
           enableDamping
-          autoRotate={!active}
+          enableRotate={!flat}
+          autoRotate={!flat && !active}
           autoRotateSpeed={0.35}
           minDistance={3}
           maxDistance={14}
@@ -257,7 +295,7 @@ export function ConnectionsGraph3D({ data }: { data: UserGraph }) {
           </Fragment>
         ))}
         {namedNodes.map((n) => {
-          const on = !!n.pair_id && active === n.pair_id;
+          const on = (!!n.pair_id && active === n.pair_id) || activeEnds.includes(n.user_id);
           return (
             <span key={n.user_id} ref={track(n.user_id)} className="invisible absolute top-0 left-0">
               <span

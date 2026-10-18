@@ -116,12 +116,14 @@ def _json_schema(schema: Any) -> Any:
 class OpenRouterLLM:
     def __init__(
         self,
-        model: str = "google/gemini-3.8-flash",
+        model: str = "google/gemini-2.5-flash-lite",
         api_key: str | None = None,
         max_tokens: int = 4096,
         attempts: int = 8,
         timeout: float = 180.0,
         rpm: int = 0,
+        chat_temperature: float | None = None,
+        temperature_jitter: float = 0.0,
     ):
         self.client = make_client(api_key, timeout)
         self.model = model
@@ -129,6 +131,9 @@ class OpenRouterLLM:
         self.max_tokens = max_tokens
         self.attempts = attempts
         self.limiter = limiter_for(model, rpm)
+        # Persona conversations bind one randomized temperature around this base for all turns in that pair.
+        self.chat_temperature = chat_temperature
+        self.temperature_jitter = temperature_jitter
 
     def generate(
         self,
@@ -167,12 +172,16 @@ class OpenRouterLLM:
                 "json_schema": {"name": response_model.__name__, "schema": response_model.model_json_schema()},
             }
 
-        message = post_chat(self.client, body, self.attempts, self.limiter)["choices"][0]["message"]
-        calls = [
-            ToolCall(c["function"]["name"], json.loads(c["function"].get("arguments") or "{}"))
-            for c in message.get("tool_calls") or []
-        ]
-        return LLMResponse(text=None if calls else message.get("content"), tool_calls=calls)
+        for attempt in range(3):
+            message = post_chat(self.client, body, self.attempts, self.limiter)["choices"][0]["message"]
+            calls = [
+                ToolCall(c["function"]["name"], json.loads(c["function"].get("arguments") or "{}"))
+                for c in message.get("tool_calls") or []
+            ]
+            text = None if calls else message.get("content")
+            if not response_model or text:
+                return LLMResponse(text=text, tool_calls=calls)
+        return LLMResponse(text=text, tool_calls=calls)
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         raise NotImplementedError("OpenRouterLLM has no embeddings; use GeminiLLM.embed")

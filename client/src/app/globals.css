@@ -24,12 +24,12 @@
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  --text-micro: 8.5px;
-  --text-micro--line-height: 12px;
-  --text-meta: 9.5px;
-  --text-meta--line-height: 12px;
-  --text-label: 11px;
-  --text-label--line-height: 14px;
+  --text-micro: 10px;
+  --text-micro--line-height: 14px;
+  --text-meta: 10.5px;
+  --text-meta--line-height: 14px;
+  --text-label: 12px;
+  --text-label--line-height: 16px;
   --text-body: 14px;
   --text-body--line-height: 21px;
   --text-stat: 20px;

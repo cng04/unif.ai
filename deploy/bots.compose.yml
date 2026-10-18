@@ -1,0 +1,27 @@
+# Just the onboarding bot + ASI:One agent, for when the server and database live elsewhere (FastAPI Cloud + Tiger).
+# Unlike docker-compose.yml, nothing here overrides DATABASE_URL or SERVER_URL: onboarding/.env decides where they
+# point. Both only make outbound connections (Photon WebSocket, Agentverse mailbox), so no ports or tunnel.
+# Use ./run.sh bots rather than calling this directly.
+name: unifai-bots
+
+services:
+  bot:
+    build: { context: .., dockerfile: deploy/bot.Dockerfile }
+    env_file: ../onboarding/.env
+    environment:
+      CHANNELS: photon,http
+      BOT_HTTP_HOST: 0.0.0.0
+    volumes:
+      - botdata:/app/data  # chat sessions + Photon event cursor
+    restart: unless-stopped
+
+  asi-agent:
+    build: { context: .., dockerfile: deploy/asi-agent.Dockerfile }
+    env_file: ../asi-agent/.env
+    environment:
+      BOT_URL: http://bot:8787/message
+    depends_on: [bot]
+    restart: unless-stopped
+
+volumes:
+  botdata:

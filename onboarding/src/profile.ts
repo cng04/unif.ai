@@ -250,6 +250,20 @@ export function summarize(p: Profile): string[] {
 
 const known = (v: string) => (/^\s*(unknown|n\/a|none)?\.?\s*$/i.test(v) ? null : v.trim());
 
+/** True when a profile says almost nothing about the person (no interests, vibe, values, quirks or goals). */
+export function isNearlyEmpty(p: Profile): boolean {
+  const filled = [
+    p.public.interests.length,
+    p.quirks.length,
+    p.private.values.length,
+    known(p.public.vibe),
+    known(p.public.looking_for),
+    known(p.enjoyment_definition),
+    known(p.private.energy),
+  ].filter(Boolean).length;
+  return filled < 2;
+}
+
 /**
  * Map the interviewer's profile onto the server's public/private ProfileDraft, which matching reads.
  * Facts become plain strings; everything the server schema has no slot for goes in `extras`

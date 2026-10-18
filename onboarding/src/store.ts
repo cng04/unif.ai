@@ -33,6 +33,8 @@ export interface Session {
   /** Interviewer conversation with Claude (append-only). */
   llm: Anthropic.Beta.Messages.BetaMessageParam[];
   interviewTurns: number;
+  /** Consecutive interview replies that skipped the question (see classifySkip). Missing on older sessions. */
+  skipsInARow?: number;
   draft: Profile | null;
   /** Full human-readable log of the onboarding chat. */
   transcript: { from: "user" | "agent"; text: string; at: string }[];

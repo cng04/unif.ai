@@ -100,8 +100,10 @@ text. A Noul (true/false) answer counts as yes above `YES = 0.5`.
    form an N x k matrix.
 3. **Hard filter** (`hard_conflicts`): a pair is blocked if either person scores above 0.5 on a keyword the
    other marked as a dealbreaker, or if both gave availability and none of their slots overlap.
-4. **Rank** (`candidate_pairs`): cosine similarity on the keyword vectors, then each person's top M
-   unblocked matches (`top_m`, default 5).
+4. **Rank** (`candidate_pairs`): cosine similarity on the keyword vectors, then give each person up to M outgoing
+   proposals (`top_m`, default 4). A small CP-SAT solve maximizes filled proposal slots first, then similarity.
+   Reciprocal A->B / B->A proposals are one conversation, so the rejected direction goes to a next-best person.
+   Incoming proposals do not count against M; a popular person can participate in more than M conversations.
 5. **Chat and judge**: only those pairs get a Gemini agent-to-agent conversation (`pairing.py` ->
    `agent/conversation.py`). The chemistry judge (`Judge.evaluate`, Jev) asks a 5-level chemistry Score
    (mapped to a 1-10 vibe score), a logistics Choice (`strong` / `workable` / `incompatible`), and one
@@ -109,7 +111,7 @@ text. A Noul (true/false) answer counts as yes above `YES = 0.5`.
    returns no text.
 6. **Edges**: only judged pairs get an edge, weighted by `Verdict.edge_weight`. Pairs that never chatted
    have no edge and add nothing to a group's score. There is no fallback weight for unjudged pairs.
-7. **Groups** (`groups.py`, OR-Tools CP-SAT): groups of 4-8 in which no two members are a forbidden pair.
+7. **Groups** (`groups.py`, OR-Tools CP-SAT): groups of 3-8 in which no two members are a forbidden pair.
    A pair is forbidden if the hard filter blocked it or the judge found a conflict. The solver first
    places as many people as possible, then keeps that count fixed and maximizes the total edge weight
    inside groups. People who can't be placed are left out. The group judge (Gemini) then re-checks each
@@ -120,7 +122,7 @@ text. A Noul (true/false) answer counts as yes above `YES = 0.5`.
    Code keeps every slot the most members are free in (empty availability counts as flexible), the lowest
    budget tier in the group, and the top shared public interests. Gemini turns members' private `area` and
    `travel` into one coarse search area; only that string, the interests, slot, dates and price cap go to
-   Browser Use (`services/event_search.py`, needs `SCRAPE_ENABLED`). Ticketmaster is the fallback. Code drops
+   Browser Use (`services/event_search.py`, needs `BROWSER_USE_API_KEY`). Ticketmaster is the fallback. Code drops
    candidates outside the slot (by venue-local time) or over budget, Gemini picks 3 with a one-line reason
    built only from interest counts, and members are notified via Photon. `POST /groups/{id}/plans` re-runs it.
 
@@ -160,7 +162,9 @@ Pages are server components that call the API through `src/lib/api.ts` (`API_URL
 file and live in `src/app/globals.css`. There is no auth yet: the user id in the URL is the only identity.
 
 The connections tab defaults to 3D, with a `2d · 3d` toggle (`?view=2d` for the ego graph). Tapping a match opens
-the agent conversation in a drawer (`?pair={pair_id}`, `components/pair-drawer.tsx`) instead of navigating. The 3D view (`components/connections-graph-3d.tsx`, three.js
+the agent conversation in a drawer (`?pair={pair_id}`, `components/pair-drawer.tsx`) instead of navigating. Both graphs put nodes on springs
+(`src/lib/elastic.ts`): the 2D view pans, zooms and keeps dragged dots where they're dropped; in 3D a dragged dot
+springs back to the place its scores give it. A press that moves under 5px counts as a tap. The 3D view (`components/connections-graph-3d.tsx`, three.js
 via react-three-fiber, loaded lazily) places the whole universe by keyword scores, either PCA or three keywords picked as
 axes (`?axes=a,b,c`).
 
@@ -198,10 +202,12 @@ from stored rows; there is no stored progress or approval state. The older serve
   plus 768-dim embeddings). All Jev calls go through the `Jev` protocol in `agent/jev.py` (the
   `typesafe-sdk` client, model `jev_model`, default `jev-latest`). Tests use fakes of both.
   **OpenRouter mode:** if `OPENROUTER_API_KEY` is set, `server/app/deps.py` uses `OpenRouterLLM` for text and
-  `OpenRouterJev` for the typed questions (model `openrouter_model`), replacing both Gemini and TypeSafe. One key
-  is enough to run the whole pipeline. OpenRouter caps each model at about 20 requests per minute, so persona chats
-  (`openrouter_chat_model`) and scoring plus the pair judge (`openrouter_jev_model`) take comma-separated model lists
-  and rotate pairs across them; `openrouter_rpm` paces each model under the cap.
+  `OpenRouterJev` for typed questions through OpenRouter's native System One API. One key is enough to run the whole
+  pipeline. Persona chats (`openrouter_chat_model`) and Jev versions (`openrouter_jev_model`) can take comma-separated
+  model lists and rotate pairs across them; `openrouter_chat_temperatures` assigns one sampling temperature per chat
+  model (or one for all), overriding profile temperature for those chats. Each pair samples once within
+  `openrouter_chat_temperature_jitter` of that base and keeps the result for every turn. `openrouter_rpm` paces each
+  model under the account's cap. Jev IDs include `typesafe/jev-1.13`, `typesafe/jev-1.14`, and `~typesafe/jev-latest`.
 - Jev works best with literal, single-judgment questions and a state that holds only what the question
   needs. Keep math, counting, and date comparisons in code. See the TypeSafe "jaggedness" docs.
 - Tuning knobs (`keyword_count`, `top_m`, turns, group sizes, `group_solver_seconds`) live in
@@ -212,12 +218,13 @@ from stored rows; there is no stored progress or approval state. The older serve
 
 - Local DB: `db/docker-compose.yml` runs the SQL files only on first boot. After changing the schema,
   run `docker compose down -v` to reset the volume. A shared Tiger Data instance needs the schema
-  re-applied by hand, or the `db/migrations/` patches applied (`./run.sh migrate`).
+  re-applied by hand, or the `db/migrations/` patches applied (`db/migrate-tiger.sh`). Edit its data with
+ `db/tiger-sql.sh` (dry run first), not `db/push-to-tiger.sh`, which wipes it.
 - `server/` requires Python below 3.15, because OR-Tools has no 3.15 wheels yet.
 - The schema needs only the `vector` and `pgcrypto` extensions. No TimescaleDB-specific features are used.
 - `client/` runs a new Next.js version. Read `client/AGENTS.md` before writing frontend code.
-- Browser Use scraping is optional (`uv sync --extra scrape` in `server/`). `tests/test_scraper.py` imports
-  it, so run the server tests with `uv run --extra scrape pytest`.
+- Browser Use (account scraping, event search) is a regular server dependency, but scraping only runs with
+  `BROWSER_USE_API_KEY` set. The bot always waits briefly for scrape results before the interview.
 - Failure handling in the pipeline: `extract_keywords` returns `[]` on error (the run then resets the universe to
   `onboarding`), `score_person` falls back to all-0.5 scores, and `review_groups` keeps a group with a neutral
   verdict if the group judge errors. `POST /universes/{id}/matching` claims the universe atomically

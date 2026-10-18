@@ -7,7 +7,6 @@ import { newSession, saveProfile, type Session } from "./store.ts";
 /** Sends bubbles to the user (and records them in the transcript). */
 export type Say = (...bubbles: string[]) => Promise<void>;
 
-const SCRAPE_ENABLED = /^(1|true|yes)$/i.test(process.env.SCRAPE_ENABLED ?? "");
 // The web app (client/), where people watch their connections form. Unset: no link is sent.
 const APP_URL = process.env.APP_URL?.replace(/\/+$/, "");
 
@@ -73,9 +72,9 @@ export async function handle(s: Session, text: string, say: Say): Promise<Sessio
       const platforms = parseAccounts(text);
       const links = extractLinks(text);
       s.accounts = { raw: text.slice(0, 1000), platforms, links };
-      // Members' links are stored on the server; it scrapes them only when SCRAPE_ENABLED is on (both sides).
+      // Members' links go to the server, which scrapes the public ones (Browser Use) while they do the next step.
       if (s.userId && Object.keys(links).length > 0) await shareLinks(s.userId, links);
-      const scraping = SCRAPE_ENABLED && !!s.userId && Object.keys(links).length > 0;
+      const scraping = !!s.userId && Object.keys(links).length > 0;
       await say(copy.ACCOUNTS_ACK(platforms, !!scraping), ...copy.PASTE_INTRO, copy.AI_PROMPT, copy.PASTE_OUTRO);
       s.stage = "paste";
       return s;
@@ -170,7 +169,7 @@ async function beginInterview(s: Session, say: Say): Promise<Session> {
   s.stage = "interview";
   if (s.userId) {
     // Give in-flight scrapes a little longer; whatever has landed (including links from the join page) is used.
-    const pending = SCRAPE_ENABLED ? Object.keys(s.accounts?.links ?? {}) : [];
+    const pending = Object.keys(s.accounts?.links ?? {});
     s.scraped = await waitForScraped(s.userId, pending, pending.length ? 20_000 : 0);
   }
   const turn = await startInterview(s);

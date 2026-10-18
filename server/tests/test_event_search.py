@@ -53,7 +53,6 @@ def test_search_events_sends_only_the_query_and_parses_output(monkeypatch):
     monkeypatch.setattr(bu, "AsyncBrowserUse", fake_client(runs))
     get_settings.cache_clear()
     monkeypatch.setenv("BROWSER_USE_API_KEY", "test")
-    monkeypatch.setenv("SCRAPE_ENABLED", "true")
 
     out = asyncio.run(event_search.search_events(QUERY))
 
@@ -65,9 +64,8 @@ def test_search_events_sends_only_the_query_and_parses_output(monkeypatch):
     get_settings.cache_clear()
 
 
-def test_search_events_off_by_default(monkeypatch):
+def test_search_events_skipped_without_key(monkeypatch):
     get_settings.cache_clear()
-    monkeypatch.setenv("BROWSER_USE_API_KEY", "test")
-    monkeypatch.delenv("SCRAPE_ENABLED", raising=False)
+    monkeypatch.setenv("BROWSER_USE_API_KEY", "")
     assert asyncio.run(event_search.search_events(QUERY)) == []
     get_settings.cache_clear()

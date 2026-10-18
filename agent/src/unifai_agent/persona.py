@@ -14,10 +14,17 @@ class TurnResult:
 
 
 class PersonaAgent:
-    def __init__(self, profile: AgentProfile, llm: LLM, max_steps: int = 3):
+    def __init__(
+        self,
+        profile: AgentProfile,
+        llm: LLM,
+        max_steps: int = 3,
+        temperature_override: float | None = None,
+    ):
         self.profile = profile
         self.llm = llm
         self.max_steps = max_steps
+        self.temperature_override = temperature_override
         self.system = persona_system_prompt(profile)
         self.history: list[Message] = []
         self.notes: list[str] = []
@@ -35,7 +42,9 @@ class PersonaAgent:
                 self.system,
                 scratch,
                 tools=TOOL_DECLARATIONS,
-                temperature=self.profile.temperature,
+                temperature=(
+                    self.temperature_override if self.temperature_override is not None else self.profile.temperature
+                ),
                 require_tool=True,
             )
             message: str | None = None
@@ -45,8 +54,6 @@ class PersonaAgent:
                         message = call.args.get("text", "")
                         if note := call.args.get("note"):
                             self.notes.append(note)
-                    case "end_conversation":
-                        return TurnResult(message, ended=True, end_reason=call.args.get("reason"))
 
             if message is not None:
                 return TurnResult(message)

@@ -67,6 +67,8 @@ export type Plan = {
 
 export type Connections = {
   user: Member;
+  /** Finished onboarding in iMessage / ASI:One; the agent chat opens after that. */
+  onboarded: boolean;
   universe: { id: string; name: string; status: UniverseStatus };
   others: string[];
   connections: Connection[];
@@ -101,10 +103,15 @@ export type Profile = {
 export type UserGraph = {
   keywords: string[];
   axes: [string, string, string] | null;
+  /** Before matching scores anyone: everyone's shown, but positions are arbitrary rather than similarity. */
+  placeholder: boolean;
   nodes: {
     user_id: string;
     name: string | null;
     kind: "me" | "group" | "match" | "pool";
+    /** Admin pool graph only: the group label (lines are firm only inside a group) and its blob colour. */
+    group?: string | null;
+    tint?: string | null;
     pair_id: string | null;
     vibe_score: number | null;
     conflict: boolean;
@@ -112,10 +119,31 @@ export type UserGraph = {
     y: number;
     z: number;
   }[];
-  links: { a: string; b: string; mine: boolean }[];
+  /** `pair_id` (admin pool graph only) makes someone else's line clickable. */
+  links: { a: string; b: string; mine: boolean; pair_id?: string }[];
 };
 
 export type InterviewMessage = { role: "user" | "assistant"; content: string };
+
+export type UserGroup = {
+  group_id: string;
+  group_score: number | null; // the group judge's 1-10
+  agents_met: number;
+  shared_keywords: string[]; // every member scores high on these
+  members: {
+    user_id: string;
+    full_name: string;
+    is_me: boolean;
+    pair_id: string | null;
+    vibe_score: number | null;
+    shared_keywords: string[];
+    intro: string;
+  }[];
+  links: { a: string; b: string; vibe_score: number | null }[];
+  plans_status: Group["plans_status"];
+  plans_summary: string | null;
+  events: Plan[];
+};
 
 export type Universe = { id: string; name: string; status: UniverseStatus };
 
@@ -141,9 +169,12 @@ export const api = {
   graph: (userId: string, axes?: string[]) =>
     request<UserGraph>(`/users/${userId}/graph${axes ? `?axes=${encodeURIComponent(axes.join(","))}` : ""}`),
   profile: (userId: string) => request<Profile>(`/users/${userId}/profile`),
+  group: (userId: string) => request<UserGroup>(`/users/${userId}/group`),
   interview: (userId: string) => request<InterviewMessage[]>(`/users/${userId}/interview`),
   sendInterview: (userId: string, message: string) =>
     request<{ reply: string }>(`/users/${userId}/interview`, { method: "POST", body: JSON.stringify({ message }) }),
+  /** Rebuild the agent profile from every source (both chats, self-report, scraped accounts). One LLM call. */
+  rebuildProfile: (userId: string) => request<Profile>(`/users/${userId}/profile`, { method: "POST" }),
   universe: (universeId: string) => request<Universe>(`/universes/${universeId}`),
   users: (universeId: string) => request<UniverseUser[]>(`/universes/${universeId}/users`),
   universeGraph: (universeId: string) => request<GraphPoint[]>(`/universes/${universeId}/graph`),
@@ -218,6 +249,34 @@ export type UniverseScores = {
   members: { user_id: string; scores: Record<string, number>; dealbreakers: string[] }[];
 };
 
+export type UniverseGraph = UniverseSummary & {
+  groups: { id: string; label: string }[];
+  people: { id: string; full_name: string; group: string | null; unplaced: boolean }[];
+  pairs: {
+    id: string;
+    a: string;
+    b: string;
+    vibe_score: number | null;
+    logistics_fit: Connection["logistics_fit"];
+    conflict: boolean;
+    confidence: number | null;
+    has_transcript: boolean;
+  }[];
+};
+
+export type AdminPair = {
+  id: string;
+  a: { id: string; full_name: string };
+  b: { id: string; full_name: string };
+  vibe_score: number | null;
+  logistics_fit: Connection["logistics_fit"];
+  conflict: boolean;
+  dealbreaker_flags: string[];
+  confidence: number | null;
+  end_reason: string | null;
+  messages: { speaker_id: string; content: string; created_at: string }[];
+};
+
 export const adminApi = {
   scores: (id: string) => request<UniverseScores>(`/admin/api/universes/${id}/scores`, { headers: adminHeaders() }),
   /** The World snapshot; with `since` set to the last version, answers `{unchanged: true}` when nothing moved. */
@@ -242,6 +301,8 @@ export const adminApi = {
     }),
   universe: (id: string) => request<UniverseDetail>(`/admin/api/universes/${id}`, { headers: adminHeaders() }),
   groups: (id: string) => request<UniverseGroups>(`/admin/api/universes/${id}/groups`, { headers: adminHeaders() }),
+  graph: (id: string) => request<UniverseGraph>(`/admin/api/universes/${id}/graph`, { headers: adminHeaders() }),
+  pair: (pairId: string) => request<AdminPair>(`/admin/api/pairs/${pairId}`, { headers: adminHeaders() }),
   runMatching: (id: string) =>
     request<{ status: string }>(`/universes/${id}/matching`, { method: "POST", headers: adminHeaders() }),
   abortMatching: (id: string) =>

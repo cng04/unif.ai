@@ -11,6 +11,7 @@ import { PairDrawer } from "@/components/pair-drawer";
 import { CountUp } from "@/components/count-up";
 import { Glass, Meta, Stat, Title } from "@/components/ui";
 import { api, ApiError, type Connections } from "@/lib/api";
+import { getConnections, getGraph } from "@/lib/cached";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -31,20 +32,12 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
   const axes = typeof query.axes === "string" ? query.axes.split(",") : undefined;
   const pairId = typeof query.pair === "string" ? query.pair : null;
   const [data, graph, pair] = await Promise.all([
-    api.connections(userId),
-    view === "3d"
-      ? api.graph(userId, axes).catch((e) => {
-          // Stale or hand-edited axes: fall back to the similarity layout.
-          if (e instanceof ApiError && e.status === 422) return api.graph(userId);
-          throw e;
-        })
-      : null,
+    getConnections(userId),
+    view === "3d" ? getGraph(userId, axes) : null,
     // A stale or someone else's pair id just means no drawer.
     pairId ? api.pair(userId, pairId).catch((e) => (e instanceof ApiError && [404, 422].includes(e.status) ? null : Promise.reject(e))) : null,
-  ]).catch((e) => {
-    if (e instanceof ApiError && e.status === 404) notFound();
-    throw e;
-  });
+  ]);
+  if (!data || (view === "3d" && !graph)) notFound();
   const copy = statusCopy(data);
   const strong = data.connections.filter((c) => !c.conflict && (c.vibe_score ?? 0) >= 7).length;
 
@@ -75,15 +68,33 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
           {graph ? <ConnectionsGraph3D data={graph} /> : <ConnectionsGraph data={data} />}
         </div>
         {/* Desktop: the axis legend floats in the graph's corner; phones get it below the graph. */}
-        {graph && <AxisPicker keywords={graph.keywords} axes={graph.axes} className="absolute bottom-4 left-10 z-10 hidden md:flex" />}
+        {graph && <AxisPicker keywords={graph.keywords} axes={graph.axes} className="absolute top-4 left-10 z-10 hidden md:flex" />}
       </div>
 
       <div className="flex w-full flex-col gap-4 px-5 pt-3 md:mx-auto md:max-w-[520px] md:px-0">
         {graph && <AxisPicker keywords={graph.keywords} axes={graph.axes} className="mx-auto md:hidden" />}
-        {data.connections.length > 0 && (
-          <p className="text-center font-mono text-[10.5px] leading-4 tracking-[0.12em] text-ink/70 md:text-[11px]">
-            {graph ? "drag to turn · tap a line or a name to read how your agents met" : "tap a line to read how your agents met"}
-          </p>
+        {/* Always the head count; once agents have met, also how to move around and open their conversations. */}
+        <p className="text-center font-mono text-[11.5px] leading-[18px] tracking-[0.12em] text-ink/70 md:text-[12px]">
+          {data.others.length} {data.others.length === 1 ? "other" : "others"} in the universe
+          {data.connections.length > 0 &&
+            (graph
+              ? " · drag to turn · drag a dot to pull it · tap a line or a name to read how your agents met"
+              : " · drag to move · drag a dot to rearrange · pinch or scroll to zoom · tap a line to read how your agents met")}
+        </p>
+        {data.group && (
+          // Once matching places them, the group flow is the next thing to do.
+          <Link
+            href={`/u/${userId}/group`}
+            className="press rise-in flex items-center justify-between rounded-md bg-ink px-[18px] py-3.5 text-paper"
+          >
+            <span className="flex flex-col gap-0.5">
+              <span className="text-[15px] leading-5 font-light tracking-[0.06em]">you have a group</span>
+              <span className="font-mono text-micro leading-3 tracking-label text-paper/70">
+                {data.group.members.length} people · meet them and pick a plan
+              </span>
+            </span>
+            <span aria-hidden className="font-mono text-label">→</span>
+          </Link>
         )}
         <Glass className="flex justify-between px-[18px] py-3.5 md:px-6 md:py-4">
           <Stat value={<CountUp to={data.connections.length} />} label="agents met" />

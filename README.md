@@ -1,7 +1,7 @@
 # unif.ai
 
 AI agents represent people, interview each other, and sort a pool of people into small friend groups
-(4-8) who can then meet in real life.
+(3-8) who can then meet in real life.
 
 This README is the canonical overview: what exists, how to run it, and how ready it is. `AGENTS.md` is the
 operating guide for AI coding agents (conventions, rules, pipeline internals). `PROGRESS.md` is the live
@@ -15,20 +15,20 @@ it says so.
 An **admin** creates a **universe** (a hackathon, a club, a friend-of-friends pool) and shares an invite
 link. Each **participant** onboards, which produces a structured agent profile. The admin then starts
 matching, and the server finds compatible pairs, has their agents talk, judges the conversations, and
-partitions people into groups.
+partitions people into groups. 
 
 | Capability                                   | Status                                                                 |
 | -------------------------------------------- | ---------------------------------------------------------------------- |
 | Universe + invite link                       | Implemented (API, admin web app, join page in the client and as server HTML). No QR code. |
 | Onboarding (self-report, interview, profile) | Implemented (API, plus chat bot over iMessage and ASI:One). Profile editing is not built. |
 | Admin console                                | Implemented in the client (`/admin`): universes, overview with pipeline strip and run matching, groups, agent world. |
-| Social scraping (Browser Use)                | Partial: off unless `SCRAPE_ENABLED`; links are always stored.         |
+| Social scraping (Browser Use)                | Live when `BROWSER_USE_API_KEY` is set; links are always stored.        |
 | AI agent per user                            | Implemented (`PersonaAgent` with tools). Never run at scale.           |
 | Candidate matching (keywords, filter, rank)  | Implemented, unit-tested with fakes; never run on a real model.        |
 | Agent-to-agent interviews                    | Implemented; capped by turns and a concurrency limit.                  |
 | Compatibility judging (pair and group)       | Implemented (pair: Jev; group: LLM).                                   |
 | Group formation                              | Implemented (CP-SAT). Quality drops past about 100 people.             |
-| Group plans (events)                         | Partial: 3 plans per group from a Browser Use web search (needs `SCRAPE_ENABLED`) or Ticketmaster, fitted to shared free time and budget. Tested live once ($0.18 run). No voting yet. |
+| Group plans (events)                         | Partial: 3 plans per group from a Browser Use web search (needs `BROWSER_USE_API_KEY`) or Ticketmaster, fitted to shared free time and budget. Tested live once ($0.18 run). No voting yet. |
 | Notifications                                | Partial: Photon assigns iMessage lines at join and the bot sends each person their `/u/<id>` link; match messages only log. |
 | Web client                                   | Per-user mobile pages (agent, connections with 2D/3D keyword graph, you, pair detail), join page, admin console, 2.5D agent world. |
 | Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`, server and client). Everything else not started. |
@@ -109,10 +109,10 @@ flowchart LR
 | ASI agent  | Python 3.11+, uagents, httpx                                                                      | ASI:One relay to the onboarding bot              |
 | Server     | Python 3.11-3.14, FastAPI, uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
 | Agent lib  | google-genai, pydantic, httpx, typesafe-sdk                                                       | Gemini calls, schemas, Jev client, OpenRouter    |
-| Models     | Gemini (`gemini-3.8-flash` by default), Jev (`jev-latest`), or OpenRouter (`google/gemini-3.8-flash`) | Text generation; typed scoring and judging       |
+| Models     | Gemini (`gemini-3.8-flash`), Jev (`jev-latest`), or OpenRouter (Gemini plus `~typesafe/jev-latest`) | Text generation; typed scoring and judging       |
 | Database   | Postgres 17 with pgvector and pgcrypto; local image `timescale/timescaledb-ha:pg17`               | Storage. No TimescaleDB-specific features used. |
 | Tooling    | uv (Python), npm (client, bot), pytest + pytest-asyncio, Docker Compose                           | Dependencies, tests, full-stack runs             |
-| Optional   | browser-use (`scrape` extra)                                                                      | Scrape social profiles                           |
+| Optional   | browser-use (on with `BROWSER_USE_API_KEY`)                                                                      | Scrape social profiles                           |
 | External   | Ticketmaster Discovery API, Photon, Cloudflare tunnel (`./run.sh tunnel`)                         | Events, iMessage, public join URL                |
 
 ## Repository structure
@@ -136,6 +136,8 @@ unif.ai/
 │   ├── migrations/                     idempotent SQL patches for older databases
 │   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`): 40 playful celebrity
 │   │                                   profiles in 8 clusters of 5, with interviews and dealbreaker clashes
+│   ├── seed_celebrity_encore.sql       Rerunnable second 40-person public-figure demo (invite `encore40`)
+│   ├── seed_celebrity_fifteen.sql      Rerunnable 15-person public-figure demo (invite `celeb15`)
 │   ├── dev_graph_seed.sql              fake matching output for that universe (scores, pairs, groups); run by hand
 │   └── docker-compose.yml              local Postgres; runs schema + seed on first boot only
 ├── agent/                              unifai_agent library
@@ -182,12 +184,16 @@ docker compose -f db/docker-compose.yml up -d
 # 2. Server
 cd server
 cp .env.example .env          # then fill in keys; see the table below
-uv sync                       # add `--extra scrape` for Browser Use
+uv sync
 uv run uvicorn app.main:app --reload     # http://localhost:8000
 
 #    Optional demo data without running the models:
 uv run python -m scripts.seed_demo       # "UI Demo" universe that looks post-matching; prints /u/<id> links
 docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_graph_seed.sql   # fake results for "LA Hacks Demo"
+#    Second unmatched 40-person public-figure pool (safe to re-run):
+docker exec -i unifai-db psql -U unifai -d unifai < ../db/seed_celebrity_encore.sql
+#    Smaller unmatched 15-person public-figure pool (safe to re-run):
+docker exec -i unifai-db psql -U unifai -d unifai < ../db/seed_celebrity_fifteen.sql
 
 # 3. Client (API_URL defaults to http://localhost:8000; set ADMIN_PASSWORD to the server's value if you set one)
 cd client && npm install && npm run dev  # http://localhost:3001, admin at /admin
@@ -251,20 +257,22 @@ lists them. No secret has a default, and `.env` is gitignored. The onboarding bo
 | `CLIENT_URL`            | Optional                       | CORS origin and web app base. Default `http://localhost:3001`.                     |
 | `PUBLIC_URL`            | Optional                       | Base for invite links (`/join/<code>`, served by this server). Default `http://localhost:8000`. |
 | `JOIN_ON_CLIENT`        | Optional                       | Redirect the server's `/join/<code>` to `CLIENT_URL/join/<code>`. Default off (the Docker stack has no client). |
-| `SCRAPE_ENABLED`, `BROWSER_USE_API_KEY` | Optional       | Scrape stored social links and search the web for group plans with Browser Use Cloud. Default off (plans then come from Ticketmaster). |
+| `BROWSER_USE_API_KEY`                   | Optional       | Scrape stored social links and search the web for group plans with Browser Use Cloud. Without it, plans come from Ticketmaster. |
 | `PLANS_MAX_COST_USD`, `PLANS_TIMEOUT_S`, `PLANS_DAYS_AHEAD`, `PLANS_CANDIDATES`, `PLANS_CONCURRENCY` | Optional | Group plan search: defaults 0.30, 300, 14, 6, 4. |
 | `SCRAPE_MODEL`, `SCRAPE_MAX_COST_USD`, `SCRAPE_TIMEOUT_S`, `SCRAPE_SKIP_PLATFORMS` | Optional | Defaults `gemini-3-flash`, 0.05, 180, `instagram,tiktok,facebook`. |
 | `GEMINI_MODEL`          | Optional                       | Default `gemini-3.8-flash`.                                                        |
 | `JEV_MODEL`             | Optional                       | Default `jev-latest`.                                                              |
-| `OPENROUTER_MODEL`      | Optional                       | Keywords, interviewer, judges, Jev stand-in. Default `google/gemini-3.8-flash`.    |
-| `OPENROUTER_CHAT_MODEL` | Optional                       | Persona chats; comma-separate models to rotate pairs across them (each has its own rate limit). Default `google/gemini-3.8-flash`. |
-| `OPENROUTER_JEV_MODEL`  | Optional                       | Jev stand-in for scoring and the pair judge, comma-separated to rotate. Empty = `OPENROUTER_MODEL`. |
+| `OPENROUTER_MODEL`      | Optional                       | Keywords, interviewer and group judge. Default `google/gemini-2.5-flash-lite`.     |
+| `OPENROUTER_CHAT_MODEL` | Optional                       | Persona chats; comma-separate models to rotate pairs across them (each has its own rate limit). Default `openai/gpt-oss-20b,~deepseek/deepseek-v4-flash-latest,z-ai/glm-5.3-flash`. |
+| `OPENROUTER_CHAT_TEMPERATURES` | Optional                | One temperature per chat model, or one for all. Default `0.50,0.80,1.05`.          |
+| `OPENROUTER_CHAT_TEMPERATURE_JITTER` | Optional           | Uniform ± jitter sampled once per pair and held fixed for all turns. Default `0.08`. |
+| `OPENROUTER_CHAT_MAX_TOKENS` | Optional                  | Max output tokens per persona-chat turn (caps OpenRouter in-flight credit reservation). Default `512`. |
+| `OPENROUTER_JEV_MODEL`  | Optional                       | Native Jev System One model for scoring and the pair judge; versions can be comma-separated. Default `~typesafe/jev-latest,typesafe/jev-1.14,typesafe/jev-1.13`. |
 | `OPENROUTER_RPM`        | Optional                       | Per-model requests per minute; default 0 (unlimited). OpenRouter caps accounts at 20/min per model. |
-| `OPENROUTER_JEV_REASONING` | Optional                    | Reasoning effort for scoring and the pair judge. Default `low`.                    |
 | `KEYWORD_COUNT`         | Optional                       | Default 20 (allowed 5-50).                                                         |
-| `TOP_M`                 | Optional                       | Candidates per person, default 5 (1-20).                                           |
-| `MAX_CONVERSATION_TURNS`| Optional                       | Default 12 (4-30).                                                                 |
-| `MAX_CONCURRENT_CONVERSATIONS` | Optional                | Default 8 (1-32).                                                                  |
+| `TOP_M`                 | Optional                       | Candidates per person, default 4 (1-20).                                           |
+| `MAX_CONVERSATION_TURNS`| Optional                       | Default 6 (4-30).                                                                  |
+| `MAX_CONCURRENT_CONVERSATIONS` | Optional                | Default 50 (1-256).                                                                |
 | `MIN_GROUP_SIZE` / `MAX_GROUP_SIZE` | Optional           | Defaults 4 and 8; min must not exceed max.                                         |
 | `GROUP_SOLVER_SECONDS`  | Optional                       | CP-SAT time limit, default 10 (1-300).                                             |
 | `DATABASE_URL_TEST`     | Tests only                     | Throwaway Postgres for `server/tests/integration/`. Tests are skipped without it.  |
@@ -305,12 +313,14 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
 2. **Keywords** (Gemini): `KEYWORD_COUNT` keywords from everyone's profile and interview.
 3. **Scores** (Jev, one request per person): a 0-1 score and a dealbreaker flag per keyword, plus free-time slots.
 4. **Hard filter**: block pairs with a dealbreaker on the other's high-scoring keyword or no overlapping availability.
-5. **Rank**: cosine similarity, each person's top `TOP_M` unblocked candidates.
+5. **Rank**: cosine similarity, giving each person up to `TOP_M` outgoing proposals. A small solve maximizes
+   filled proposal slots first and similarity second; reciprocal proposals become one chat and the rejected direction
+   goes to a next-best person. Incoming proposals do not count against the cap.
 6. **Chat and judge**: only candidate pairs get an agent conversation, then a Jev verdict (vibe 1-10, logistics, dealbreakers).
-7. **Groups** (CP-SAT): groups of 4-8 with no forbidden pair; place as many as possible, then maximize judged edge weight. Unplaced people are left out.
+7. **Groups** (CP-SAT): groups of 3-8 with no forbidden pair; place as many as possible, then maximize judged edge weight. Unplaced people are left out.
 8. **Group review** (Gemini) may drop one misfit; then events are looked up and members notified.
 
-Cost is bounded: at most about `n * TOP_M` conversations (not n²), each at most `MAX_CONVERSATION_TURNS` turns.
+Cost is bounded: at most `n * TOP_M` conversations (not n²), each with `MAX_CONVERSATION_TURNS` turns.
 Details, failure behavior and the known scaling issue are in `AGENTS.md`.
 
 ## API documentation
@@ -326,7 +336,7 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `GET /universes/{id}/users`             | List participants                                                    |
 | `GET /onboarding/prompt`                | The self-report prompt users run in their own AI                     |
 | `POST /universes/{id}/users`            | Join a universe (starts optional scraping in the background)         |
-| `POST /users/{id}/social-links`         | Store social links (scraped only when `SCRAPE_ENABLED`)              |
+| `POST /users/{id}/social-links`         | Store social links (scraped when `BROWSER_USE_API_KEY` is set)      |
 | `POST /users/{id}/self-report`          | Save the pasted self-report                                          |
 | `GET`/`POST /users/{id}/interview`      | Read the transcript / send a message and get the interviewer's reply |
 | `POST /users/{id}/profile`              | Build the agent profile from all sources                             |
@@ -372,15 +382,18 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
   tool or version tracking; that is an open decision.
 - **Persistence**: local data lives in the `pgdata` Docker volume.
 - **Seed data**: `seed.sql` creates the `lahacks` universe with 40 playful celebrity profiles (built from public
-  personas, not real data) in 8 clusters, with deliberate dealbreaker clashes. `dev_graph_seed.sql` adds fake
-  matching output for it so `/graph`, `/pairs` and `/groups` have data; `server/scripts/seed_demo.py` builds a
-  separate post-matching "UI Demo" universe (invite `ui-demo`).
+  personas, not real data) in 8 clusters, with deliberate dealbreaker clashes. `seed_celebrity_encore.sql`
+  creates a separate, rerunnable 40-person pool of different real public figures (`encore40`); its profiles and
+  logistics are explicitly fictional demo sketches, not claims about private lives. `seed_celebrity_fifteen.sql`
+  creates a separate rerunnable 15-person pool (`celeb15`) for shorter live matching runs. `dev_graph_seed.sql`
+  adds fake matching output for `lahacks` so `/graph`, `/pairs` and `/groups` have data;
+  `server/scripts/seed_demo.py` builds a separate post-matching "UI Demo" universe (invite `ui-demo`).
 - **Unused**: `agent_profiles.embedding` (vector(768)).
 
 ## Testing
 
 ```bash
-cd server && uv run --extra scrape pytest   # 43 tests; 6 need DATABASE_URL_TEST; test_scraper.py needs the extra
+cd server && uv run pytest   # 43 tests; 6 need DATABASE_URL_TEST
 cd agent  && uv run pytest                  # 11 tests
 cd client && npm run lint && npm run build && npm test   # npm test: Vitest unit tests for World generation
 cd onboarding && npm test
@@ -410,9 +423,15 @@ Not production-ready. What exists:
 Missing: a client Dockerfile (so Docker deployments use the server's HTML admin and join pages), CI, a real
 migration tool, authentication and authorization beyond `/admin`, rate
 limiting, secrets management, a job queue (runs die with the process), progress reporting, structured
-logging and metrics, and a deployed environment. The shared database is intended to be Tiger Data, which has
-to be loaded with `schema.sql` by hand, or overwritten with a copy of your local Docker database by
-`TIGER_DATABASE_URL=... db/push-to-tiger.sh` (asks for confirmation; one transaction, so a failure changes nothing).
+logging and metrics, and a deployed environment. The shared database is intended to be Tiger Data. Three
+scripts in `db/` work on it, reading `TIGER_DATABASE_URL` from the environment or `db/.env` and running `psql`
+inside the local DB container (so the local DB must be up):
+
+- `db/migrate-tiger.sh [file ...]`: applies `db/migrations/*.sql` (or the named files), one transaction each.
+- `db/tiger-sql.sh`: opens a `psql` shell on Tiger; with `-c "SQL"` or a `.sql` file it shows a rolled-back dry
+  run, then applies the SQL in one transaction once you type `commit`.
+- `db/push-to-tiger.sh`: replaces all app tables on Tiger with a copy of your local Docker database (asks for
+  confirmation; one transaction). Only for demo data: it deletes whatever real users are there.
 
 ## Current development status
 

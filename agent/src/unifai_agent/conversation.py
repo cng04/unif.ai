@@ -16,7 +16,7 @@ class Transcript:
         return "\n".join(f"{names.get(uid, uid)}: {text}" for uid, text in self.messages)
 
 
-def run_conversation(a: PersonaAgent, b: PersonaAgent, max_turns: int = 12) -> Transcript:
+def run_conversation(a: PersonaAgent, b: PersonaAgent, max_turns: int = 6) -> Transcript:
     agents = [a, b]
     transcript = Transcript()
     pair = f"{a.profile.public.name} x {b.profile.public.name}"

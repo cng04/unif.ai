@@ -30,7 +30,10 @@ async function UniverseScreen({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { universeId } = await params;
-  const show = ((await searchParams).show ?? "all") as Filter;
+  const query = await searchParams;
+  const show = (query.show ?? "all") as Filter;
+  const sort = (SORT_KEYS as readonly string[]).includes(String(query.sort)) ? (query.sort as SortKey) : null;
+  const dir: Dir = query.dir === "desc" ? "desc" : "asc";
   const universe = await adminApi.universe(universeId).catch((e) => {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
@@ -43,9 +46,24 @@ async function UniverseScreen({
     waiting: universe.members.filter((m) => m.status !== "complete").length,
     unplaced: universe.members.filter(isUnplaced).length,
   };
-  const members = universe.members.filter((m) =>
-    show === "waiting" ? m.status !== "complete" : show === "unplaced" ? isUnplaced(m) : true,
+  const members = sortMembers(
+    universe.members.filter((m) => (show === "waiting" ? m.status !== "complete" : show === "unplaced" ? isUnplaced(m) : true)),
+    sort,
+    dir,
+    matched,
   );
+  // Filters and sorting both live in the URL; each link keeps the other one.
+  const href = (next: { show?: Filter; sort?: SortKey | null; dir?: Dir }) => {
+    const q = new URLSearchParams();
+    const s = next.show ?? show;
+    const k = next.sort === undefined ? sort : next.sort;
+    if (s !== "all") q.set("show", s);
+    if (k) {
+      q.set("sort", k);
+      q.set("dir", next.dir ?? dir);
+    }
+    return q.size ? `/admin/universes/${universeId}?${q}` : `/admin/universes/${universeId}`;
+  };
 
   return (
     <>
@@ -77,15 +95,15 @@ async function UniverseScreen({
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-baseline justify-between gap-3 pb-3">
             <Caption>members · {stats.members}</Caption>
-            <div className="flex gap-3.5 font-mono text-[10px] leading-3 tracking-label">
-              <FilterLink universeId={universeId} value="all" current={show}>all</FilterLink>
-              <FilterLink universeId={universeId} value="waiting" current={show}>not onboarded · {counts.waiting}</FilterLink>
+            <div className="flex gap-3.5 font-mono text-[11px] leading-3 tracking-label">
+              <FilterLink href={href({ show: "all" })} on={show === "all"}>all</FilterLink>
+              <FilterLink href={href({ show: "waiting" })} on={show === "waiting"}>not onboarded · {counts.waiting}</FilterLink>
               {matched && (
-                <FilterLink universeId={universeId} value="unplaced" current={show}>unplaced · {counts.unplaced}</FilterLink>
+                <FilterLink href={href({ show: "unplaced" })} on={show === "unplaced"}>unplaced · {counts.unplaced}</FilterLink>
               )}
             </div>
           </div>
-          <MembersTable members={members} matched={matched} />
+          <MembersTable members={members} matched={matched} sort={sort} dir={dir} href={href} />
         </section>
         <div className="flex shrink-0 flex-col gap-6 self-start xl:w-[280px]">
           <Health universe={universe} />
@@ -96,16 +114,48 @@ async function UniverseScreen({
   );
 }
 
-function FilterLink({ universeId, value, current, children }: { universeId: string; value: Filter; current: Filter; children: ReactNode }) {
+function FilterLink({ href, on, children }: { href: string; on: boolean; children: ReactNode }) {
   return (
-    <Link
-      href={value === "all" ? `/admin/universes/${universeId}` : `/admin/universes/${universeId}?show=${value}`}
-      scroll={false}
-      className={value === current ? "text-ink" : "text-ink-muted hover:text-ink"}
-    >
+    <Link href={href} scroll={false} className={on ? "text-ink" : "text-ink-muted hover:text-ink"}>
       {children}
     </Link>
   );
+}
+
+const SORT_KEYS = ["name", "contact", "onboarding", "dealbreakers", "group", "chats", "flags"] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+type Dir = "asc" | "desc";
+const STATUS_ORDER: Record<string, number> = { invited: 0, chatting: 1, complete: 2 };
+
+/** Sort a copy of the members table; empty values (no contact, no group) always sink to the bottom. */
+function sortMembers(members: UniverseDetail["members"], key: SortKey | null, dir: Dir, matched: boolean) {
+  if (!key) return members;
+  const value = (m: UniverseDetail["members"][number]): string | number | null => {
+    switch (key) {
+      case "name":
+        return m.full_name.toLowerCase();
+      case "contact":
+        return m.contact?.toLowerCase() ?? null;
+      case "onboarding":
+        return STATUS_ORDER[m.status] ?? 0;
+      case "dealbreakers":
+        return m.status === "complete" ? m.dealbreakers : null;
+      case "group":
+        return m.group;
+      case "chats":
+        return m.chats;
+      case "flags":
+        // Unplaced people (the ones with flags) first when ascending, by how few strong ties they have.
+        return matched && m.status === "complete" && !m.group ? m.strong_ties : null;
+    }
+  };
+  const sign = dir === "asc" ? 1 : -1;
+  return [...members].sort((a, b) => {
+    const va = value(a);
+    const vb = value(b);
+    if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1;
+    return (va < vb ? -1 : va > vb ? 1 : 0) * sign;
+  });
 }
 
 type StageState = "done" | "active" | "todo";
@@ -212,7 +262,7 @@ function StageCell({ stage: s }: { stage: Stage }) {
               : "border-[1.2px] border-ink bg-paper"
         }`}
       />
-      <span className={`font-mono text-[10px] leading-3 tracking-label ${active ? "text-ember-text" : "text-ink-muted"}`}>
+      <span className={`font-mono text-[11px] leading-3 tracking-label ${active ? "text-ember-text" : "text-ink-muted"}`}>
         {s.label}
       </span>
       <span className="text-stat leading-6 font-light tracking-[0.04em]">{s.value}</span>
@@ -252,17 +302,47 @@ const statusMark: Record<string, { icon: string; muted: boolean }> = {
   invited: { icon: "○", muted: true },
 };
 
-function MembersTable({ members, matched }: { members: UniverseDetail["members"]; matched: boolean }) {
+function MembersTable({
+  members,
+  matched,
+  sort,
+  dir,
+  href,
+}: {
+  members: UniverseDetail["members"];
+  matched: boolean;
+  sort: SortKey | null;
+  dir: Dir;
+  href: (next: { sort?: SortKey | null; dir?: Dir }) => string;
+}) {
   if (members.length === 0) return <Caption className="py-6">nobody here yet</Caption>;
-  const cell = "py-[11px] pr-4 font-mono text-[10px] leading-3 tracking-[0.1em] whitespace-nowrap";
+  const cell = "py-[11px] pr-4 font-mono text-[11px] leading-3 tracking-[0.1em] whitespace-nowrap";
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-left">
         <thead>
           <tr className="border-b border-ink/25">
-            {["name", "contact", "onboarding", "dealbreakers", "group", "chats", "flags"].map((h) => (
-              <th key={h} className="py-2 pr-4 font-mono text-meta leading-3 font-normal tracking-label text-ink-muted">
-                {h}
+            {SORT_KEYS.map((h) => (
+              <th key={h} className="py-2 pr-4 font-mono text-meta leading-3 font-normal tracking-label whitespace-nowrap text-ink-muted">
+                <span className="inline-flex items-center gap-1.5">
+                  {/* The label toggles; the arrows pick a direction directly. */}
+                  <Link href={href({ sort: h, dir: sort === h && dir === "asc" ? "desc" : "asc" })} scroll={false} className={sort === h ? "text-ink" : "hover:text-ink"}>
+                    {h}
+                  </Link>
+                  <span className="inline-flex flex-col text-[7px] leading-[7px]">
+                    {(["asc", "desc"] as const).map((d) => (
+                      <Link
+                        key={d}
+                        href={href({ sort: h, dir: d })}
+                        scroll={false}
+                        aria-label={`sort by ${h}, ${d === "asc" ? "ascending" : "descending"}`}
+                        className={sort === h && dir === d ? "text-ink" : "text-ink/25 hover:text-ink/60"}
+                      >
+                        {d === "asc" ? "▲" : "▼"}
+                      </Link>
+                    ))}
+                  </span>
+                </span>
               </th>
             ))}
           </tr>
@@ -332,7 +412,7 @@ function Health({ universe }: { universe: UniverseDetail }) {
       )}
       <div className="flex flex-col gap-2 border-t border-line pt-4">
         <span className="font-mono text-meta leading-3 tracking-label text-ink-muted">invite link</span>
-        <code className="font-mono text-[10px] leading-4 break-all">{universe.invite_url}</code>
+        <code className="font-mono text-[11px] leading-4 break-all">{universe.invite_url}</code>
         <div>
           <CopyButton text={universe.invite_url} label="copy link" />
         </div>

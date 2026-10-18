@@ -44,11 +44,9 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
   users paste in.
 - **`prompts.py`**: the self-report prompt users run in their own AI, the persona system prompt,
   the pair and group judge prompts, the interviewer prompt, and the profile-builder prompt.
-- **`tools.py`**: the persona agent's tools: `send_message` (with an optional private `note` for the
-  judge), `end_conversation`, `check_availability`, `lookup_profile`, `ask_my_human` (stub).
-- **`persona.py`**: `PersonaAgent.respond()` loops over tool calls, up to `max_steps` (4), until the
-  agent sends a message or ends the conversation.
-- **`conversation.py`**: `run_conversation(a, b, max_turns=12)` alternates speakers and returns a
+- **`tools.py`**: the persona agent's one tool is `send_message`, with an optional private `note` for the judge.
+- **`persona.py`**: `PersonaAgent.respond()` retries up to `max_steps` (3) until the agent sends a message.
+- **`conversation.py`**: `run_conversation(a, b, max_turns=6)` alternates speakers and returns a
   `Transcript` (messages, private notes, end reason).
 - **`judge.py`**: `Judge.evaluate` returns a `Verdict` (vibe 1-10, dealbreaker conflicts, logistics fit,
   rationale). `Verdict.edge_weight` is 0 when there's any dealbreaker or the logistics are
@@ -67,14 +65,14 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
   `GET /universes/{id}/pairs`, `GET /pairs/{id}/messages`, `GET /universes/{id}/groups`.
 - **Pipeline** (`matching/pipeline.py`, rewritten in `2cd6a5f`; full description in AGENTS.md): clear
   old results, then keywords, then per-person scores + dealbreakers + availability (in parallel), then a
-  hard filter for blocked pairs, then each person's top-M unblocked matches, then a conversation and judge
+  hard filter for blocked pairs, then a degree-capped set of top unblocked matches, then a conversation and judge
   per pair, then CP-SAT groups with no forbidden pairs (people who can't be placed are left out), then a
   group review. Status goes `matching` to `matched`, or back to `onboarding` on failure. After `matched`,
   each group gets 3 plans (`plans.py`) and a Photon notification.
 - **Services**: `ticketmaster.py` (Discovery API), `photon.py` (stub that only logs), `scraper.py`
   (Browser Use), `event_search.py` (Browser Use search for group plans).
-- **Config** (`config.py`): keyword_count 20, top_m 5, max_conversation_turns 12,
-  max_concurrent_conversations 8, group size 4-8, group_solver_seconds 10. All can be overridden with env vars.
+- **Config** (`config.py`): keyword_count 20, top_m 4, max_conversation_turns 6,
+  max_concurrent_conversations 50, group size 3-8, group_solver_seconds 10. All can be overridden with env vars.
 
 ### `db/`
 - `schema.sql`: universes, users, agent_profiles (with an unused `embedding vector(768)`),
@@ -105,7 +103,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | #  | Task | Where | Owner |
 | -- | ---- | ----- | ----- |
 | 5  | [x] Add `server/.env.example` (`DATABASE_URL`, `GEMINI_API_KEY`, `TICKETMASTER_API_KEY`, `PHOTON_API_KEY`, `CLIENT_URL`). Share the real keys in the team chat, never in the repo. | `server/` | |
-| 7  | [ ] **Seed about 20 varied profiles** (some clear mismatches and dealbreaker conflicts) so matching makes 3-4 groups. Include `onboarding_messages` for each user, since keywords and scoring now read the interview transcript too. | `db/seed.sql` | |
+| 7  | [x] Seeded two varied 40-person public-figure demos plus a 15-person live-run pool, with profiles, deliberate mismatches and onboarding transcripts (`lahacks`, `encore40`, `celeb15`). | `db/seed.sql`, `db/seed_celebrity_encore.sql`, `db/seed_celebrity_fifteen.sql` | Cursor |
 | 43 | [ ] **Fixture data for a finished matching run:** precomputed keywords, keyword scores, pairs + transcripts, groups, events for the seed universe. Frontend can build every page without running the pipeline, and it's the **demo fallback** if Gemini fails live. | `db/seed.sql` or `db/fixture_matched.sql` | |
 | 6  | [ ] **Build the client.** In demo order: create universe + invite QR, `/join/[code]` onboarding (name, paste self-report, interviewer chat), admin "start matching" + status, groups + events, then the 3D playground (#49) and pair transcripts. Read `client/AGENTS.md` first. | `client/` | |
 | 49 | [ ] **Keyword playground (3D).** A three.js scatter plot where the user picks 3 keywords as the X/Y/Z axes. Each point is one person in the universe, placed by their Jev keyword scores (0-1) on those 3 keywords. The viewer's own point is highlighted. People the viewer had a simulated chat with (a row in `pairs`) are colored; everyone else is grey. Clicking a colored point opens that agent-to-agent transcript (`GET /pairs/{id}/messages`, with `note` rows dropped per #2). Needs a new endpoint that returns the universe's keywords plus each user's raw per-keyword scores (`GET /universes/{id}/graph` only returns the 3D projection), and a way to know who the viewer is (user id from onboarding). | `client/`, `routers/matching.py` | |
@@ -119,6 +117,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | 11 | [ ] Prepend `CONVERSATION_KICKOFF` to the opening agent's history so it never starts with an `assistant` message. Check in #8 whether Gemini actually complains; skip this if it doesn't. | `agent/persona.py` | |
 | 44 | [ ] **Deploy early** (server, client, shared DB) and redeploy as features land, so "works on my machine" problems show up early. | — | |
 | 50 | [x] Include FastAPI CLI dependencies for deployment startup. | `server/pyproject.toml`, `server/uv.lock` | Codex |
+| 52 | [x] Route OpenRouter scoring and pair judging through Jev's native System One API instead of emulating typed decisions with a generative chat model. | `agent/jev.py`, `server/app/deps.py` | Cursor |
 | 45 | [ ] **`DEMO.md`:** exact click path, which universe and invite code, time per step, who presents, and what to do if a live call fails (switch to the #43 fixture). | repo root | |
 
 ### Should: the demo is noticeably better or safer
@@ -135,7 +134,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | 46 | [ ] Fake model mode (`FAKE_LLM=1`) that returns canned answers, so teammates can run the whole flow without a key or spending quota. It also works as a smoke test. | `agent/llm.py`, `server/app/deps.py` | |
 | 47 | [ ] `Makefile`: `db`, `db-reset`, `server`, `client`, `simulate`, `test`. | repo root | |
 | 48 | [ ] Generate TypeScript types from the API (`openapi-typescript http://localhost:8000/openapi.json`) so backend changes break the client build instead of breaking at demo time. | `client/` | |
-| 12 | [ ] Don't drop the message when `end_conversation` comes before `send_message` in the same response. | `agent/persona.py` | |
+| 12 | [x] Removed `end_conversation`; every pair now runs the configured fixed number of turns. | `agent/persona.py`, `tools.py` | Cursor |
 | 28 | [x] ~~Ticketmaster: pass the group's most common city so events are local.~~ Done with group plans: a search area from members' `area`. | `plans.py` | |
 | 50 | [ ] **Plan voting.** "i'm in / can't" per plan, per-member status, and "goes ahead at N yeses" from the design. Needs a table and endpoints. | `db/`, `routers/`, client | |
 | 17 | [ ] After #8, check for over-blocking. Dealbreakers now forbid a pair in two places: the scoring prompt's dealbreaker keywords (hard filter) and the judge's `dealbreaker_conflicts`. Too many means lots of people left out. Tune the prompts if so. | `scoring.py`, `prompts.py` | |
@@ -205,6 +204,33 @@ Add a line here for each change merged to `main`.
 
 - 2026-10-18: #51 World is now one procedurally generated single-floor campus (branch `world-procedural`, M4-M8): layout from the universe's keywords (`world/select.ts` -> `world/plan.ts`, seeded by universe id + keyword set, stable when people join), drag-pan/zoom engine, agents act out only what the data says (`world/activity.ts`; chats are live only while `pairs.status = 'running'`), participant page `/u/{id}/world` with follow-me, admin real/demo switch (`/admin?mode=demo`), synthetic seeder `server/scripts/seed_synthetic.py`, Vitest tests and `client/scripts/world-check.mjs`. API client fetches are now `no-store`. Remaining: Paper structure drawings (conflict list for the user), real-model runs on synthetic people, merge `origin/main`.
 - 2026-10-18: World integration M1-M3 (branch `world-procedural`): `GET /admin/api/universes/{id}/world` and `GET /users/{id}/world` snapshots with a `since` cursor; the pipeline records its stage and writes pairs as `running` at chat start; `universes.is_demo` (seeded fixtures marked demo). **Schema change:** apply `db/migrations/003_world.sql` (`./run.sh migrate`) or `docker compose down -v` locally. World generation started: preset library + keyword-driven structure selection with Vitest tests (`npm test` in `client/`).
+- 2026-10-18: Lowered the default minimum group size from 4 to 3 and updated matching prompts and user-facing copy.
+- 2026-10-18: Added rerunnable `db/seed_celebrity_fifteen.sql`: a separate 15-person public-figure universe
+  (`celeb15`) with fictional demo profiles and onboarding transcripts for shorter live matching runs.
+- 2026-10-17: Connections graphs: both views sit on a small spring layout (`client/src/lib/elastic.ts`). 2D pans,
+  zooms (wheel, pinch, buttons) and lets you drag any dot, which stays where dropped; 3D dots can be dragged and
+  spring back, PCA is rescaled per axis so people no longer clump, labels fade with depth, and your lines carry a
+  decorative pulse out (ember) and back (periwinkle). "me" is labelled "me (name)". Chat bubbles alternate sides
+  with an 18% margin and name the speaker on every turn. Type scale bumped (micro 10px, meta 10.5px, label 12px).
+  Checked with lint, build and SSR smoke tests; not yet checked by hand in a browser.
+- 2026-10-17: Added rerunnable `db/seed_celebrity_encore.sql`: a second 40-person universe (`encore40`) with
+  different real public figures, 40 fictional public-persona profiles, and 160 onboarding messages. Closes #7.
+- 2026-10-17: OpenRouter chat temperatures now belong to the rotated models rather than people: GPT-OSS is
+  restrained (`0.50`), DeepSeek balanced (`0.80`), and GLM wild (`1.05`). Each pair samples ±`0.08` once and
+  keeps that temperature for all turns; seeded profiles remain neutral (`0.70`).
+- 2026-10-17: Pair agents now complete all configured turns instead of ending early, and the agent-world
+  animation restarts when a late transcript arrives and stays active long enough to show every line.
+- 2026-10-17: Candidate ranking now gives every person up to `TOP_M` outgoing proposals. Reciprocal proposals
+  become one conversation and the rejected direction gets a next-best replacement (`n * TOP_M` maximum).
+- 2026-10-17: Fixed batched `keyword_scores` persistence to cast serial keyword IDs as `int[]` rather than
+  `uuid[]`; the earlier cast failed immediately after successful parallel scoring.
+- 2026-10-17: OpenRouter Jev configuration now ignores stale chat-model entries (such as Claude or Gemini)
+  and falls back to native `~typesafe/jev-latest`, preventing System One 400s after an env-only deployment.
+- 2026-10-17: #52 OpenRouter now uses native Jev (`~typesafe/jev-latest`) through the System One endpoint for calibrated scoring and pair judging.
+- 2026-10-17: Faster matching defaults (`top_m=4`, `max_conversation_turns=6`, `max_concurrent_conversations=50`), 512-token cap and multi-model Flash rotation defaults for OpenRouter chat, and batched/streamed DB writes (`save_signals`, `save_pair`, `save_group`).
+- 2026-10-17: Tiger Data scripts: `db/migrate-tiger.sh` applies `db/migrations/` to the shared DB and `db/tiger-sql.sh`
+  edits its data (psql shell, or SQL with a rolled-back dry run before commit). Both, and `db/push-to-tiger.sh`,
+  share `db/tiger-lib.sh` and read `TIGER_DATABASE_URL` from `db/.env`. Tested against the local DB as target.
 - 2026-10-17: #51 agent world matched to Paper: open warehouse floors (no walls, zone tints, pillars, design-system palette), overlays rebuilt to the "World visualizer" page (top bar, floor selector, pipeline HUD with auto/speed/follow, bio card with the agent's sprite as avatar, dialogue drawer with loading/empty states); Paper's canvas placeholders now show real renders and the legacy male/female sprite artboards were removed in favour of "Sprites · in-game". Headless-Edge check and layout check pass.
 - 2026-10-17: Group plans: after matching, each group gets 3 events or activities from a Browser Use web search
   (Ticketmaster fallback), fitted in code to the group's shared free slot and lowest budget, shown on the `you` tab.

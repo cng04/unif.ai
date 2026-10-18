@@ -135,3 +135,54 @@ export function RunMatchingButton({
     </form>
   );
 }
+
+/** Universe name in the page header, with an inline "rename" that saves on enter or the save button. */
+export function RenameUniverse({
+  name,
+  action,
+}: {
+  name: string;
+  action: (prev: ActionState, form: FormData) => Promise<ActionState>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [state, formAction, pending] = useActionState(async (prev: ActionState, form: FormData) => {
+    const next = await action(prev, form);
+    if (!next.error) setEditing(false);
+    return next;
+  }, {});
+
+  if (!editing) {
+    return (
+      <span className="group inline-flex items-baseline gap-3">
+        {name}
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="press font-mono text-[10px] tracking-label text-ink-muted opacity-60 transition-opacity group-hover:opacity-100 hover:text-ink"
+        >
+          rename
+        </button>
+      </span>
+    );
+  }
+  return (
+    <form action={formAction} className="flex flex-wrap items-center gap-2">
+      <input
+        name="name"
+        defaultValue={name}
+        required
+        maxLength={120}
+        autoFocus
+        onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
+        className="min-w-0 rounded-full border border-line bg-white/60 px-4 py-1.5 text-[22px] leading-8 font-light tracking-[0.08em] lowercase outline-none focus:border-ink/40"
+      />
+      <button disabled={pending} className="press rounded-full bg-ink px-4 py-2 text-[11.5px] tracking-meta text-paper disabled:opacity-50">
+        {pending ? "saving…" : "save"}
+      </button>
+      <button type="button" onClick={() => setEditing(false)} className="press px-2 py-2 text-[11.5px] tracking-meta text-ink-muted hover:text-ink">
+        cancel
+      </button>
+      {state.error && <p className="micro w-full text-ember-text">{state.error}</p>}
+    </form>
+  );
+}

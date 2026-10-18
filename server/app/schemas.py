@@ -124,6 +124,8 @@ class Edge(BaseModel):
 
 class Connections(BaseModel):
     user: GroupMember
+    # Onboarding (in iMessage / ASI:One) is finished once the bot saves the private profile.
+    onboarded: bool
     universe: UniverseSummary
     others: list[UUID]
     connections: list[Connection]
@@ -158,6 +160,8 @@ class UserGraph(BaseModel):
     axes: list[str] | None  # None = PCA of all keyword scores
     nodes: list[UserGraphNode]
     links: list[UserGraphLink]
+    # True before matching has scored anyone: positions are stable but arbitrary, not similarity.
+    placeholder: bool = False
 
 
 class PairMessage(BaseModel):
