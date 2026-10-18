@@ -245,7 +245,7 @@ lists them. No secret has a default, and `.env` is gitignored. The onboarding bo
 | `SCRAPE_MODEL`, `SCRAPE_MAX_COST_USD`, `SCRAPE_TIMEOUT_S`, `SCRAPE_SKIP_PLATFORMS` | Optional | Defaults `gemini-3-flash`, 0.05, 180, `instagram,tiktok,facebook`. |
 | `GEMINI_MODEL`          | Optional                       | Default `gemini-3.8-flash`.                                                        |
 | `JEV_MODEL`             | Optional                       | Default `jev-latest`.                                                              |
-| `OPENROUTER_MODEL`      | Optional                       | Keywords, interviewer and group judge. Default `deepseek/deepseek-v4.1-flash`.     |
+| `OPENROUTER_MODEL`      | Optional                       | Keywords, interviewer and group judge. Default `google/gemini-2.5-flash-lite`.     |
 | `OPENROUTER_CHAT_MODEL` | Optional                       | Persona chats; comma-separate models to rotate pairs across them (each has its own rate limit). Default `openai/gpt-oss-20b,~deepseek/deepseek-v4-flash-latest,z-ai/glm-5.3-flash`. |
 | `OPENROUTER_CHAT_MAX_TOKENS` | Optional                  | Max output tokens per persona-chat turn (caps OpenRouter in-flight credit reservation). Default `512`. |
 | `OPENROUTER_JEV_MODEL`  | Optional                       | Native Jev System One model for scoring and the pair judge; versions can be comma-separated. Default `~typesafe/jev-latest,typesafe/jev-1.14,typesafe/jev-1.13`. |

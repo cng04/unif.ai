@@ -116,7 +116,7 @@ def _json_schema(schema: Any) -> Any:
 class OpenRouterLLM:
     def __init__(
         self,
-        model: str = "deepseek/deepseek-v4.1-flash",
+        model: str = "google/gemini-2.5-flash-lite",
         api_key: str | None = None,
         max_tokens: int = 4096,
         attempts: int = 8,
@@ -167,12 +167,16 @@ class OpenRouterLLM:
                 "json_schema": {"name": response_model.__name__, "schema": response_model.model_json_schema()},
             }
 
-        message = post_chat(self.client, body, self.attempts, self.limiter)["choices"][0]["message"]
-        calls = [
-            ToolCall(c["function"]["name"], json.loads(c["function"].get("arguments") or "{}"))
-            for c in message.get("tool_calls") or []
-        ]
-        return LLMResponse(text=None if calls else message.get("content"), tool_calls=calls)
+        for attempt in range(3):
+            message = post_chat(self.client, body, self.attempts, self.limiter)["choices"][0]["message"]
+            calls = [
+                ToolCall(c["function"]["name"], json.loads(c["function"].get("arguments") or "{}"))
+                for c in message.get("tool_calls") or []
+            ]
+            text = None if calls else message.get("content")
+            if not response_model or text:
+                return LLMResponse(text=text, tool_calls=calls)
+        return LLMResponse(text=text, tool_calls=calls)
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         raise NotImplementedError("OpenRouterLLM has no embeddings; use GeminiLLM.embed")
