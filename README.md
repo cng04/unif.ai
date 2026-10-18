@@ -65,17 +65,27 @@ flowchart LR
   - `/admin/...`: the admin console: universes, universe overview (pipeline strip, members, keywords, run
     matching), groups, and the **agent world** (`/admin/universes/[universeId]/world`). Gated by
     `ADMIN_PASSWORD` basic auth in `src/proxy.ts`, and the client forwards the same password to `/admin/api`.
-- **Agent world** (`client/src/components/visualizer/`): a PixiJS building of three open warehouse floors (no
-  walls, nine zones by tint and furniture, stone pillars) on a 32x32 pixel-art isometric tilemap. Agents spawn in
-  the lounge, walk (A*) to the zone their keyword scores point to (public interests as a fallback), pair up to
-  talk for each judged pair, and sit with their CP-SAT group; unplaced people wait on B1. Clicking an agent gives
-  a glow, camera follow and a bio card (its sprite as avatar, top keyword scores, keyword-level dealbreakers,
-  group, judged pairs); clicking a talking one opens the transcript. It refreshes every 5 seconds while matching
-  runs. The browser gets public profile fields, keyword vectors and judge output only.
-  **Design source:** Paper file "Agent Friend Groups — Screens": the "World visualizer" page (top bar, floor
-  selector, pipeline HUD, bio card, dialogue drawer; desktop and mobile), the "Warehouse · open floor" artboards
-  (floors) and "Sprites · in-game" (characters). Sprites are drawn in code (`character.ts`); exported sheets and
-  canvas renders live in `design/sprites/` and `design/world/`.
+- **Agent world** (`client/src/components/visualizer/`): one explorable, **procedurally generated campus** (PixiJS,
+  32x32 pixel-art isometric tiles). Everything comes from one server snapshot (`GET .../world`, polled every ~4 s
+  with a version cursor) and is built in three separate layers, each pure and unit-tested (`world/`):
+  `select.ts` decides which themed structures the universe's keywords justify (one per preset from the library in
+  `presets.ts`; at least 2 people must share its keywords; unmatched keywords join the closest crowd or are left
+  out; overlapping crowds merge into one open-plan zone; size, decoration and population follow the crowd),
+  `plan.ts` lays them out deterministically (seed = universe id + keyword set, so new members never move
+  anything; spawn plaza and meeting square always exist; winding paths; trees, lamps and flowers as filler), and
+  `scenery.ts` / `engine.ts` render it (drag to pan, wheel or +/- to zoom, follow, A* walking over the plan).
+  `activity.ts` derives what each agent does **only from data**: unscored people wait at the spawn plaza
+  (thinking while their interview or scoring is running), a pair walks to meet only while the server has its chat
+  as `running`, groups sit at tables in the structure their members share, unplaced people sit in the square.
+  Completed chats can be re-enacted on request, always labelled (live / completed / replay / historical).
+  Clicking an agent follows it and opens a bio card; chats open the transcript (messages only, never notes).
+  Admins see everything at `/admin/universes/{id}/world`; participants get `/u/{id}/world` (their own agent
+  followed) without scores, dealbreakers, judge flags or rationales, and with other people's chats unopenable.
+  The admin list separates real universes from demo/test ones (`/admin?mode=demo`); seed demo data with
+  `server/scripts/seed_demo.py`, `db/dev_graph_seed.sql` or `server/scripts/seed_synthetic.py --people 50`.
+  **Design source:** Paper file "Agent Friend Groups — Screens": "World visualizer" (overlays), "World catalog ·
+  single floor" (room ideas; direction, not spec), "Sprites · in-game" (characters, drawn in code in
+  `character.ts`; exports in `design/sprites/` and `design/world/`).
 - **Onboarding bot (`onboarding/`)** is a TypeScript chat version of onboarding. It runs over iMessage (Photon)
   and a local HTTP channel used by the ASI:One relay (`asi-agent/`, see `asi-agent/SETUP.md`), and writes
   profiles straight to Postgres.
@@ -116,7 +126,7 @@ unif.ai/
 ├── client/                             Next.js app. Has its own AGENTS.md; read it first.
 │   └── src/
 │       ├── app/u/, app/join/, app/admin/   participant pages, join page, admin console (+ world/)
-│       ├── components/visualizer/      agent world: engine, sprites, scenery, layout, director, overlays
+│       ├── components/visualizer/      agent world: engine, sprites, scenery, overlays; world/ = presets, selection, layout, activity (+ tests)
 │       ├── lib/api.ts                  server-only API client (api, adminApi, joinApi)
 │       └── proxy.ts                    basic auth on /admin
 ├── onboarding/                         TypeScript chat onboarding bot (iMessage via Photon, HTTP channel)
@@ -148,6 +158,7 @@ unif.ai/
     │   ├── matching/                   pipeline, keywords, scoring, pairing, groups, plans, projection
     │   └── services/                   ticketmaster.py, photon.py, scraper.py + event_search.py (optional)
     ├── scripts/seed_demo.py            fake post-matching "UI Demo" universe
+    ├── scripts/seed_synthetic.py       N synthetic people (matched, matching or onboarding) for World/scale tests
     ├── tests/                          test_matching.py, test_plans.py, test_scraper.py, test_event_search.py; integration/ (admin API, /me; need a test DB)
     └── .env.example
 ```
@@ -379,12 +390,13 @@ cd onboarding && npm test
   review fallback, Photon stub, scraper (server); conversation loop, judge, Jev, LLM and OpenRouter clients (agent).
 - **Integration** (`server/tests/integration/`, skipped without `DATABASE_URL_TEST`): the admin API and the
   `/users/{id}/...` views (only my pairs, no notes or private fields, 404 for non-members, graph naming), each
-  against a throwaway universe. Point `DATABASE_URL_TEST` at a separate database with `schema.sql` applied.
+  against a throwaway universe, plus the World snapshot (admin vs participant fields, live chat lifecycle, stage,
+  demo/real). Point `DATABASE_URL_TEST` at a separate database with `schema.sql` applied.
 - **Gaps**: no tests for the HTTP onboarding routes, interviewer, Ticketmaster or the full pipeline; nothing has
-  run against real Gemini, Jev or OpenRouter at scale; no client tests in the repo (the agent world was checked
-  with one-off scripts: layout reachability and seating, plus a headless-Edge run of every phase, a sprite click,
-  the drawer and floor navigation, using the dev-only `window.__unifaiWorld.snapshot()` hook); no CI or linter for
-  Python.
+  run against real Gemini, Jev or OpenRouter at scale; no CI or linter for Python. The client has Vitest unit tests for World generation (`npm test`: selection,
+  layout navigability over many seeds and stability, activity/provenance, fixtures captured from the seeded
+  universes) and a browser check, `client/scripts/world-check.mjs` (headless Edge via `puppeteer-core`, installed
+  with `--no-save`; see its header), which uses the dev-only `window.__unifaiWorld.snapshot()` hook.
 
 ## Deployment
 
