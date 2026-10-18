@@ -2,15 +2,15 @@
 
 import { Billboard, Line, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, type RefObject } from "react";
 import { Vector3 } from "three";
 import type { UserGraph } from "@/lib/api";
 import { formatScore } from "./ui";
+import { useOpenPair } from "./use-open-pair";
 
 // The whole universe in 3D, placed by Jev keyword scores (PCA, or three chosen keywords as axes). Same
 // naming rules as the 2D ego graph: you, your group, and your judged matches are named; everyone else is a
-// pool dot. Tapping one of your lines or matches opens that agent conversation. Loaded lazily (three.js is
+// pool dot. Tapping one of your lines or matches opens that agent conversation in the drawer. Loaded lazily (three.js is
 // heavy), see connections-graph-3d-lazy.tsx.
 
 type Vec3 = [number, number, number];
@@ -176,30 +176,32 @@ function Scene({ data, active, setActive, open, labels, refs }: {
   );
 }
 
-export function ConnectionsGraph3D({ data, userId }: { data: UserGraph; userId: string }) {
-  const router = useRouter();
+export function ConnectionsGraph3D({ data }: { data: UserGraph }) {
+  const pairs = useOpenPair();
   const [hovered, setHovered] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const refs = useRef(new Map<string, HTMLElement>());
-  const active = opening ?? hovered;
-  const href = (pairId: string) => `/u/${userId}/pairs/${pairId}`;
+  // The open conversation stays lit while its drawer is up.
+  const active = opening ?? hovered ?? pairs.current;
   // Same feel as the 2D graph: light the edge so the tap visibly lands, then open the conversation.
   const open = (pairId: string) => {
     if (opening) return;
     setOpening(pairId);
-    router.prefetch(href(pairId));
-    setTimeout(() => router.push(href(pairId)), 220);
+    setTimeout(() => {
+      pairs.open(pairId);
+      setOpening(null);
+    }, 220);
   };
   const setActive = (pairId: string | null) => {
     setHovered(pairId);
-    if (pairId) router.prefetch(href(pairId));
+    if (pairId) pairs.prefetch(pairId);
   };
 
   const namedNodes = data.nodes.filter((n) => n.name);
   const labels = useMemo<Label[]>(
     () => [
       ...data.nodes.filter((n) => n.name).map((n) => ({ key: n.user_id, at: pos(n) })),
-      ...(data.axes ? AXIS_ENDS.map((at, i) => ({ key: `axis-${i}`, at })) : []),
+      ...(data.axes ? AXIS_ENDS.map((end, i) => ({ key: `axis-${i}`, at: end.map((v) => v * 1.12) as Vec3 })) : []),
     ],
     [data],
   );
@@ -226,7 +228,9 @@ export function ConnectionsGraph3D({ data, userId }: { data: UserGraph; userId: 
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
         {data.axes?.map((name, i) => (
           <span key={`axis-${i}`} ref={track(`axis-${i}`)} className="invisible absolute top-0 left-0">
-            <span className="micro block -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-ink-faint">{name} →</span>
+            <span className="block -translate-x-1/2 -translate-y-1/2 rounded-full border border-line bg-paper/80 px-2.5 py-1 font-mono text-[10.5px] tracking-[0.08em] whitespace-nowrap text-ink-muted lowercase">
+              <span className="text-ink-faint">{"xyz"[i]} ·</span> {name} →
+            </span>
           </span>
         ))}
         {namedNodes.map((n) => {

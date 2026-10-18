@@ -6,6 +6,8 @@ import { AutoRefresh } from "@/components/auto-refresh";
 import { AxisPicker } from "@/components/axis-picker";
 import { ConnectionsGraph } from "@/components/connections-graph";
 import { ConnectionsGraph3D } from "@/components/connections-graph-3d-lazy";
+import { PairConversation } from "@/components/pair-conversation";
+import { PairDrawer } from "@/components/pair-drawer";
 import { CountUp } from "@/components/count-up";
 import { Glass, Meta, Stat, Title } from "@/components/ui";
 import { api, ApiError, type Connections } from "@/lib/api";
@@ -23,10 +25,12 @@ export default function ConnectionsPage({ params, searchParams }: PageProps<"/u/
 async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ userId: string }>; searchParams: SearchParams }) {
   const { userId } = await params;
   const query = await searchParams;
-  // ?view=3d swaps the ego graph for the whole universe in 3D; ?axes=a,b,c picks its keyword axes.
-  const view = query.view === "3d" ? "3d" : "2d";
+  // 3D (the whole universe) by default; ?view=2d is the ego graph. ?axes=a,b,c picks the 3D keyword axes,
+  // and ?pair=<id> opens that agent conversation in the drawer.
+  const view = query.view === "2d" ? "2d" : "3d";
   const axes = typeof query.axes === "string" ? query.axes.split(",") : undefined;
-  const [data, graph] = await Promise.all([
+  const pairId = typeof query.pair === "string" ? query.pair : null;
+  const [data, graph, pair] = await Promise.all([
     api.connections(userId),
     view === "3d"
       ? api.graph(userId, axes).catch((e) => {
@@ -35,6 +39,8 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
           throw e;
         })
       : null,
+    // A stale or someone else's pair id just means no drawer.
+    pairId ? api.pair(userId, pairId).catch((e) => (e instanceof ApiError && [404, 422].includes(e.status) ? null : Promise.reject(e))) : null,
   ]).catch((e) => {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
@@ -61,19 +67,17 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
 
       <div className="relative min-h-[360px] flex-1 md:min-h-[460px]">
         <div className="absolute inset-x-0 inset-y-2 md:inset-x-6">
-          {graph ? <ConnectionsGraph3D data={graph} userId={userId} /> : <ConnectionsGraph data={data} />}
+          {graph ? <ConnectionsGraph3D data={graph} /> : <ConnectionsGraph data={data} />}
         </div>
+        {/* Desktop: the axis legend floats in the graph's corner; phones get it below the graph. */}
+        {graph && <AxisPicker keywords={graph.keywords} axes={graph.axes} className="absolute bottom-4 left-10 z-10 hidden md:flex" />}
       </div>
 
       <div className="flex w-full flex-col gap-4 px-5 pt-3 md:mx-auto md:max-w-[520px] md:px-0">
-        {graph && (
-          <div className="flex justify-center">
-            <AxisPicker keywords={graph.keywords} axes={graph.axes} />
-          </div>
-        )}
+        {graph && <AxisPicker keywords={graph.keywords} axes={graph.axes} className="mx-auto md:hidden" />}
         {data.connections.length > 0 && (
-          <p className="meta text-center text-ink/70">
-            {graph ? "drag to turn · tap a line to read how your agents met" : "tap a line to read how your agents met"}
+          <p className="text-center font-mono text-[10.5px] leading-4 tracking-[0.12em] text-ink/70 md:text-[11px]">
+            {graph ? "drag to turn · tap a line or a name to read how your agents met" : "tap a line to read how your agents met"}
           </p>
         )}
         <Glass className="flex justify-between px-[18px] py-3.5 md:px-6 md:py-4">
@@ -82,6 +86,12 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
           <Stat value={copy.status} label={copy.statusLabel} accent />
         </Glass>
       </div>
+
+      {pair && (
+        <PairDrawer key={pair.id}>
+          <PairConversation pair={pair} userId={userId} />
+        </PairDrawer>
+      )}
     </div>
   );
 }
@@ -105,7 +115,7 @@ function ViewToggle({ userId, view }: { userId: string; view: "2d" | "3d" }) {
       {(["2d", "3d"] as const).map((v) => (
         <Link
           key={v}
-          href={v === "3d" ? `/u/${userId}/connections?view=3d` : `/u/${userId}/connections`}
+          href={v === "2d" ? `/u/${userId}/connections?view=2d` : `/u/${userId}/connections`}
           scroll={false}
           aria-current={view === v ? "page" : undefined}
           className={`press micro rounded-full px-3 py-1.5 ${view === v ? "bg-ink text-paper" : "text-ink hover:bg-ink/5"}`}
