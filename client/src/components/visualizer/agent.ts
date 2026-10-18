@@ -2,15 +2,13 @@
 // machine (IDLE, WALKING, SITTING, THINKING, TALKING, ACTIVITY) that follows a route the engine plans.
 
 import { Container, Graphics, Rectangle, Sprite, Text, type Filter } from "pixi.js";
-import { dirFor, tileToWorld, type Activity, type Dir, type FloorId, type Spot } from "./layout";
-import { depthOf } from "./scenery";
+import { depthOf, dirFor, tileToScreen, type Activity, type Dir, type Spot } from "./world/geometry";
 import { buildSheet, type AgentSheet, type Pose } from "./sprites";
 import type { AgentState } from "./types";
 
 /** Where the engine wants an agent to be and what to do on arrival. `key` identifies the task. */
 export type Task = {
   key: string;
-  floor: FloorId;
   x: number;
   y: number;
   dir?: Dir;
@@ -24,11 +22,10 @@ const SEATED_POSE: Partial<Record<Pose, Pose>> = {
   idle0: "sit", idle1: "sit", fwd0: "sitFwd0", fwd1: "sitFwd1", up0: "sitFwd1", up1: "sitFwd0",
 };
 
-/** A route is tile steps on one floor, with elevator rides between floors. */
-export type RouteStep = { kind: "tile"; x: number; y: number } | { kind: "ride"; to: FloorId };
+/** A route is a list of tile steps. */
+export type RouteStep = { x: number; y: number };
 
 const WALK_SPEED = 2.6; // tiles per second
-const RIDE_TIME = 0.4; // seconds to fade out (and again to fade in)
 
 /** Which sprite frames and props each activity uses. */
 const ACTIVITY_ANIM: Record<Activity, { frames: Pose[]; fps: number; prop?: "guitar" | "dumbbell" | "book" | "mug" }> = {
@@ -57,7 +54,6 @@ export class AgentSprite {
   readonly root = new Container();
   readonly id: string;
   name: string;
-  floor: FloorId;
   gx: number;
   gy: number;
   dir: Dir = "S";
@@ -75,7 +71,6 @@ export class AgentSprite {
   private bubble = new Bubble();
   private label: Text;
   private route: RouteStep[] = [];
-  private ride: { to: FloorId; t: number; swapped: boolean } | null = null;
   private animT = Math.random() * 10;
   private spawnT = 0;
   private hovered = false;
@@ -85,15 +80,12 @@ export class AgentSprite {
   constructor(
     id: string,
     name: string,
-    floor: FloorId,
     x: number,
     y: number,
-    private onFloorChange: (agent: AgentSprite, floor: FloorId) => void,
     onTap: (agent: AgentSprite) => void,
   ) {
     this.id = id;
     this.name = name;
-    this.floor = floor;
     this.gx = x;
     this.gy = y;
     this.sheet = buildSheet(id);
@@ -128,10 +120,6 @@ export class AgentSprite {
 
   get accent(): number {
     return this.sheet.palette.accent;
-  }
-
-  get isRiding(): boolean {
-    return this.ride !== null;
   }
 
   /** The generated 13x4 sheet canvas (poses x directions S, N, E, W), for exporting the art. */
@@ -170,8 +158,7 @@ export class AgentSprite {
       const s = easeOutBack(this.spawnT);
       this.root.scale.set(s);
     }
-    if (this.ride) this.updateRide(dt);
-    else if (this.state === "WALKING") this.walk(dt);
+    if (this.state === "WALKING") this.walk(dt);
     this.animate(simT);
     this.place();
   }
@@ -180,11 +167,6 @@ export class AgentSprite {
     let budget = WALK_SPEED * dt;
     while (budget > 0 && this.route.length) {
       const step = this.route[0];
-      if (step.kind === "ride") {
-        this.route.shift();
-        this.ride = { to: step.to, t: 0, swapped: false };
-        return;
-      }
       const dx = step.x - this.gx;
       const dy = step.y - this.gy;
       const dist = Math.hypot(dx, dy);
@@ -200,29 +182,9 @@ export class AgentSprite {
         budget = 0;
       }
     }
-    if (!this.route.length && !this.ride) {
+    if (!this.route.length) {
       this.arrived = true;
       this.settle();
-    }
-  }
-
-  private updateRide(dt: number) {
-    const ride = this.ride!;
-    ride.t += dt;
-    if (!ride.swapped && ride.t >= RIDE_TIME) {
-      ride.swapped = true;
-      this.floor = ride.to;
-      this.onFloorChange(this, ride.to);
-    }
-    const fade = ride.t < RIDE_TIME ? 1 - ride.t / RIDE_TIME : Math.min(1, (ride.t - RIDE_TIME) / RIDE_TIME);
-    this.root.alpha = fade;
-    if (ride.t >= RIDE_TIME * 2) {
-      this.root.alpha = 1;
-      this.ride = null;
-      if (!this.route.length) {
-        this.arrived = true;
-        this.settle();
-      }
     }
   }
 
@@ -305,7 +267,7 @@ export class AgentSprite {
   }
 
   private place() {
-    const p = tileToWorld(this.floor, this.gx, this.gy);
+    const p = tileToScreen(this.gx, this.gy);
     this.root.position.set(p.x, p.y);
     this.root.zIndex = depthOf(this.gx, this.gy) + 6;
   }

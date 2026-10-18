@@ -154,10 +154,6 @@ function drawFurniture(g: Graphics, layer: Container, it: Furniture, theme: stri
         g.poly(tilePoly(x, y, w, h, 0.3)).fill(0x4a4f57);
       }
       break;
-    case "elevator":
-      g.poly(tilePoly(x, y, 1, 1, 0.1)).fill({ color: 0xa8d6e0, alpha: 0.8 });
-      g.poly(tilePoly(x, y, 1, 1, 0.3)).stroke({ color: 0xffffff, width: 1, alpha: 0.8 });
-      break;
     case "bench":
       for (let i = 0; i < Math.max(w, h); i++) box(7, OCHRE, 0, w > 1 ? i + 0.08 : 0.08, h > 1 ? i + 0.08 : 0.08, 0.84, 0.84);
       break;
