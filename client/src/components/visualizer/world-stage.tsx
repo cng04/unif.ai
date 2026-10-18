@@ -39,10 +39,8 @@ function EngineHost({ events, onReady }: { events: RefObject<EngineEvents>; onRe
     // Events go through the ref so the engine always calls the latest React handlers.
     const proxy: EngineEvents = {
       onSelect: (id) => events.current.onSelect(id),
-      onFloor: (floor) => events.current.onFloor(floor),
       onFollow: (on) => events.current.onFollow(on),
       onStatus: (status) => events.current.onStatus(status),
-      onNeedMessages: (pairId) => events.current.onNeedMessages(pairId),
     };
     const instance = new WorldEngine(app, proxy);
     engine.current = instance;

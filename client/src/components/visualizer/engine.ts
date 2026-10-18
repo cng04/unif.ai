@@ -186,7 +186,7 @@ export class WorldEngine {
   }
 
   /** Test hook (dev builds only): each agent's state and canvas-pixel position, plus the camera. */
-  testSnapshot() {
+  snapshot() {
     return {
       scale: this.cam.scale,
       selected: this.selected,
