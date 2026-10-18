@@ -3,7 +3,7 @@
 Last updated: 2026-10-17 (as of commit `b856488`). Keep this file current: when you pick up a task, put
 your name in **Owner**. When you finish it, check it off and add a line under [Changelog](#changelog).
 
-See `README.md` for setup and `AGENTS.md` for architecture and conventions.
+See `docs/DEVELOPMENT.md` for setup and `AGENTS.md` for architecture and conventions.
 
 **Priorities (hackathon MVP):** **Must** means the demo breaks without it. **Should** means the demo is
 noticeably better or safer. **After the hackathon** means it's cut for now. See [TODOs](#todos).
