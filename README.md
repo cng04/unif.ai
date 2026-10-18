@@ -22,13 +22,13 @@ partitions people into groups.
 | Universe + invite link                       | Implemented (API, admin web app, join page in the client and as server HTML). No QR code. |
 | Onboarding (self-report, interview, profile) | Implemented (API, plus chat bot over iMessage and ASI:One). Profile editing is not built. |
 | Admin console                                | Implemented in the client (`/admin`): universes, overview with pipeline strip and run matching, groups, agent world. |
-| Social scraping (Browser Use)                | Partial: off unless `SCRAPE_ENABLED`; links are always stored.         |
+| Social scraping (Browser Use)                | Live when `BROWSER_USE_API_KEY` is set; links are always stored.        |
 | AI agent per user                            | Implemented (`PersonaAgent` with tools). Never run at scale.           |
 | Candidate matching (keywords, filter, rank)  | Implemented, unit-tested with fakes; never run on a real model.        |
 | Agent-to-agent interviews                    | Implemented; capped by turns and a concurrency limit.                  |
 | Compatibility judging (pair and group)       | Implemented (pair: Jev; group: LLM).                                   |
 | Group formation                              | Implemented (CP-SAT). Quality drops past about 100 people.             |
-| Group plans (events)                         | Partial: 3 plans per group from a Browser Use web search (needs `SCRAPE_ENABLED`) or Ticketmaster, fitted to shared free time and budget. Tested live once ($0.18 run). No voting yet. |
+| Group plans (events)                         | Partial: 3 plans per group from a Browser Use web search (needs `BROWSER_USE_API_KEY`) or Ticketmaster, fitted to shared free time and budget. Tested live once ($0.18 run). No voting yet. |
 | Notifications                                | Partial: Photon assigns iMessage lines at join and the bot sends each person their `/u/<id>` link; match messages only log. |
 | Web client                                   | Per-user mobile pages (agent, connections with 2D/3D keyword graph, you, pair detail), join page, admin console, 2.5D agent world. |
 | Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`, server and client). Everything else not started. |
@@ -102,7 +102,7 @@ flowchart LR
 | Models     | Gemini (`gemini-3.8-flash` by default), Jev (`jev-latest`), or OpenRouter (`google/gemini-3.8-flash`) | Text generation; typed scoring and judging       |
 | Database   | Postgres 17 with pgvector and pgcrypto; local image `timescale/timescaledb-ha:pg17`               | Storage. No TimescaleDB-specific features used. |
 | Tooling    | uv (Python), npm (client, bot), pytest + pytest-asyncio, Docker Compose                           | Dependencies, tests, full-stack runs             |
-| Optional   | browser-use (`scrape` extra)                                                                      | Scrape social profiles                           |
+| Optional   | browser-use (on with `BROWSER_USE_API_KEY`)                                                                      | Scrape social profiles                           |
 | External   | Ticketmaster Discovery API, Photon, Cloudflare tunnel (`./run.sh tunnel`)                         | Events, iMessage, public join URL                |
 
 ## Repository structure
@@ -171,7 +171,7 @@ docker compose -f db/docker-compose.yml up -d
 # 2. Server
 cd server
 cp .env.example .env          # then fill in keys; see the table below
-uv sync                       # add `--extra scrape` for Browser Use
+uv sync
 uv run uvicorn app.main:app --reload     # http://localhost:8000
 
 #    Optional demo data without running the models:
@@ -240,7 +240,7 @@ lists them. No secret has a default, and `.env` is gitignored. The onboarding bo
 | `CLIENT_URL`            | Optional                       | CORS origin and web app base. Default `http://localhost:3001`.                     |
 | `PUBLIC_URL`            | Optional                       | Base for invite links (`/join/<code>`, served by this server). Default `http://localhost:8000`. |
 | `JOIN_ON_CLIENT`        | Optional                       | Redirect the server's `/join/<code>` to `CLIENT_URL/join/<code>`. Default off (the Docker stack has no client). |
-| `SCRAPE_ENABLED`, `BROWSER_USE_API_KEY` | Optional       | Scrape stored social links and search the web for group plans with Browser Use Cloud. Default off (plans then come from Ticketmaster). |
+| `BROWSER_USE_API_KEY`                   | Optional       | Scrape stored social links and search the web for group plans with Browser Use Cloud. Without it, plans come from Ticketmaster. |
 | `PLANS_MAX_COST_USD`, `PLANS_TIMEOUT_S`, `PLANS_DAYS_AHEAD`, `PLANS_CANDIDATES`, `PLANS_CONCURRENCY` | Optional | Group plan search: defaults 0.30, 300, 14, 6, 4. |
 | `SCRAPE_MODEL`, `SCRAPE_MAX_COST_USD`, `SCRAPE_TIMEOUT_S`, `SCRAPE_SKIP_PLATFORMS` | Optional | Defaults `gemini-3-flash`, 0.05, 180, `instagram,tiktok,facebook`. |
 | `GEMINI_MODEL`          | Optional                       | Default `gemini-3.8-flash`.                                                        |
@@ -315,7 +315,7 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `GET /universes/{id}/users`             | List participants                                                    |
 | `GET /onboarding/prompt`                | The self-report prompt users run in their own AI                     |
 | `POST /universes/{id}/users`            | Join a universe (starts optional scraping in the background)         |
-| `POST /users/{id}/social-links`         | Store social links (scraped only when `SCRAPE_ENABLED`)              |
+| `POST /users/{id}/social-links`         | Store social links (scraped when `BROWSER_USE_API_KEY` is set)      |
 | `POST /users/{id}/self-report`          | Save the pasted self-report                                          |
 | `GET`/`POST /users/{id}/interview`      | Read the transcript / send a message and get the interviewer's reply |
 | `POST /users/{id}/profile`              | Build the agent profile from all sources                             |
@@ -366,7 +366,7 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
 ## Testing
 
 ```bash
-cd server && uv run --extra scrape pytest   # 43 tests; 6 need DATABASE_URL_TEST; test_scraper.py needs the extra
+cd server && uv run pytest   # 43 tests; 6 need DATABASE_URL_TEST
 cd agent  && uv run pytest                  # 11 tests
 cd client && npm run lint && npm run build
 cd onboarding && npm test

@@ -120,7 +120,7 @@ text. A Noul (true/false) answer counts as yes above `YES = 0.5`.
    Code keeps every slot the most members are free in (empty availability counts as flexible), the lowest
    budget tier in the group, and the top shared public interests. Gemini turns members' private `area` and
    `travel` into one coarse search area; only that string, the interests, slot, dates and price cap go to
-   Browser Use (`services/event_search.py`, needs `SCRAPE_ENABLED`). Ticketmaster is the fallback. Code drops
+   Browser Use (`services/event_search.py`, needs `BROWSER_USE_API_KEY`). Ticketmaster is the fallback. Code drops
    candidates outside the slot (by venue-local time) or over budget, Gemini picks 3 with a one-line reason
    built only from interest counts, and members are notified via Photon. `POST /groups/{id}/plans` re-runs it.
 
@@ -214,8 +214,8 @@ from stored rows; there is no stored progress or approval state. The older serve
 - `server/` requires Python below 3.15, because OR-Tools has no 3.15 wheels yet.
 - The schema needs only the `vector` and `pgcrypto` extensions. No TimescaleDB-specific features are used.
 - `client/` runs a new Next.js version. Read `client/AGENTS.md` before writing frontend code.
-- Browser Use scraping is optional (`uv sync --extra scrape` in `server/`). `tests/test_scraper.py` imports
-  it, so run the server tests with `uv run --extra scrape pytest`.
+- Browser Use (account scraping, event search) is a regular server dependency, but scraping only runs with
+  `BROWSER_USE_API_KEY` set. The bot always waits briefly for scrape results before the interview.
 - Failure handling in the pipeline: `extract_keywords` returns `[]` on error (the run then resets the universe to
   `onboarding`), `score_person` falls back to all-0.5 scores, and `review_groups` keeps a group with a neutral
   verdict if the group judge errors. `POST /universes/{id}/matching` claims the universe atomically

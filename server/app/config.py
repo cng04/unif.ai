@@ -22,9 +22,8 @@ class Settings(BaseSettings):
     openrouter_rpm: int = 0  # per-model requests per minute; 0 = unlimited (new OpenRouter accounts get 20)
     openrouter_jev_reasoning: str = "low"  # reasoning effort for the Jev stand-in (scoring and pair judge)
     ticketmaster_api_key: str = ""
-    # Links are always stored; they're only scraped when this is on (costs Browser Use credit). It also turns on
-    # the Browser Use event search for group plans; without it, plans come from Ticketmaster only.
-    scrape_enabled: bool = False
+    # Browser Use Cloud: scrapes shared social links and searches the web for group plans whenever it's set
+    # (costs credit). Without it, links are just stored and plans come from Ticketmaster only.
     browser_use_api_key: str = ""
     # Cheap, fast model and a hard per-link spend cap; login-walled sites are skipped.
     scrape_model: str = "gemini-3-flash"

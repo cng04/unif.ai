@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { Blobs } from "@/components/atmosphere";
-import { Meta, Title } from "@/components/ui";
-import { api, ApiError, type Group, type Plan } from "@/lib/api";
+import { Meta, ProfileSkeleton, Title } from "@/components/ui";
+import type { Group, Plan } from "@/lib/api";
+import { getConnections, getProfile } from "@/lib/cached";
 
 export default function YouPage({ params }: PageProps<"/u/[userId]/you">) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ProfileSkeleton />}>
       <YouScreen params={params} />
     </Suspense>
   );
@@ -21,10 +22,8 @@ const slotLabel: Record<string, string> = {
 
 async function YouScreen({ params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
-  const [profile, data] = await Promise.all([api.profile(userId), api.connections(userId)]).catch((e) => {
-    if (e instanceof ApiError && e.status === 404) notFound();
-    throw e;
-  });
+  const [profile, data] = await Promise.all([getProfile(userId), getConnections(userId)]);
+  if (!profile || !data) notFound();
   const { public: pub, private: priv } = profile;
   const logistics = [
     priv.logistics.area,

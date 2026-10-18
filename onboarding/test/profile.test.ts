@@ -61,3 +61,16 @@ test("extracts profile links from urls and handles", async () => {
   assert.deepEqual(extractLinks("e.g. letterboxd.com"), {});
   assert.deepEqual(extractLinks("my site https://cyn.dev/about"), { website: "https://cyn.dev/about" });
 });
+
+test("isNearlyEmpty: an all-unknown profile is empty, a real one isn't", async () => {
+  const { isNearlyEmpty } = await import("../src/profile.ts");
+  const fact = (text: string) => ({ text, source: "stated_by_user" as const });
+  const base = {
+    public: { name: "Cyn", intro: "", interests: [], vibe: "unknown", looking_for: "" },
+    private: { dealbreakers: [], values: [], frustrations: [], energy: "unknown", logistics: { area: "unknown", travel: "unknown", budget: "unknown", availability: "unknown" } },
+    communication: { tone: "", humor: "", example: "" },
+    thinking_style: "", group_role: "", quirks: [], surprising_traits: [], enjoyment_definition: "",
+  } as any;
+  assert.equal(isNearlyEmpty(base), true);
+  assert.equal(isNearlyEmpty({ ...base, public: { ...base.public, interests: [fact("bouldering")], vibe: "chill, adventurous" } }), false);
+});

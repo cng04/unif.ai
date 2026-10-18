@@ -100,6 +100,8 @@ export type Profile = {
 export type UserGraph = {
   keywords: string[];
   axes: [string, string, string] | null;
+  /** Before matching scores anyone: everyone's shown, but positions are arbitrary rather than similarity. */
+  placeholder: boolean;
   nodes: {
     user_id: string;
     name: string | null;

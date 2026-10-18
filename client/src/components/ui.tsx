@@ -79,3 +79,47 @@ export function formatScore(vibe: number | null) {
   const s = Math.min(vibe / 10, 1);
   return s >= 1 ? "1.0" : s.toFixed(2).replace(/^0/, "");
 }
+
+/** Grey placeholder block for loading states. */
+export function SkeletonBar({ className = "" }: { className?: string }) {
+  return <span className={`block animate-pulse rounded-full bg-ink/[0.07] ${className}`} />;
+}
+
+/** Loading shell for the agent tab: header plus a few message-shaped bars, so a tab switch never shows a blank page. */
+export function AgentSkeleton() {
+  return (
+    <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col md:pt-6" aria-busy="true">
+      <div className="flex items-center gap-3 border-b border-line px-5 pt-5 pb-4">
+        <span className="size-7 shrink-0 rounded-full border border-ink/20" />
+        <div className="flex flex-1 flex-col gap-1.5">
+          <span className="text-[13px] leading-4 tracking-label">your agent</span>
+          <SkeletonBar className="h-2 w-24" />
+        </div>
+      </div>
+      <div className="flex flex-col gap-3.5 px-5 pt-5">
+        <SkeletonBar className="h-14 w-[70%] rounded-[16px]" />
+        <SkeletonBar className="h-10 w-[55%] self-end rounded-[16px]" />
+        <SkeletonBar className="h-16 w-[75%] rounded-[16px]" />
+      </div>
+    </main>
+  );
+}
+
+/** Loading shell for the "you" tab. */
+export function ProfileSkeleton() {
+  return (
+    <main className="mx-auto w-full max-w-[640px] flex-1 px-7 pt-8 md:px-10 md:pt-12 lg:max-w-5xl" aria-busy="true">
+      <p className="meta text-ink/70">( what your agent knows )</p>
+      <SkeletonBar className="mt-3 h-6 w-40" />
+      <SkeletonBar className="mt-3 h-3 w-56" />
+      <div className="mt-8 flex flex-col gap-4">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex flex-col gap-2 border-b border-line pb-4">
+            <SkeletonBar className="h-2 w-16" />
+            <SkeletonBar className="h-4 w-3/4" />
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+}

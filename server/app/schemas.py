@@ -160,6 +160,8 @@ class UserGraph(BaseModel):
     axes: list[str] | None  # None = PCA of all keyword scores
     nodes: list[UserGraphNode]
     links: list[UserGraphLink]
+    # True before matching has scored anyone: positions are stable but arbitrary, not similarity.
+    placeholder: bool = False
 
 
 class PairMessage(BaseModel):
