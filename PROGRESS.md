@@ -203,6 +203,9 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Tiger Data scripts: `db/migrate-tiger.sh` applies `db/migrations/` to the shared DB and `db/tiger-sql.sh`
+  edits its data (psql shell, or SQL with a rolled-back dry run before commit). Both, and `db/push-to-tiger.sh`,
+  share `db/tiger-lib.sh` and read `TIGER_DATABASE_URL` from `db/.env`. Tested against the local DB as target.
 - 2026-10-17: #51 agent world matched to Paper: open warehouse floors (no walls, zone tints, pillars, design-system palette), overlays rebuilt to the "World visualizer" page (top bar, floor selector, pipeline HUD with auto/speed/follow, bio card with the agent's sprite as avatar, dialogue drawer with loading/empty states); Paper's canvas placeholders now show real renders and the legacy male/female sprite artboards were removed in favour of "Sprites · in-game". Headless-Edge check and layout check pass.
 - 2026-10-17: Group plans: after matching, each group gets 3 events or activities from a Browser Use web search
   (Ticketmaster fallback), fitted in code to the group's shared free slot and lowest budget, shown on the `you` tab.
