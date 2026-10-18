@@ -278,7 +278,10 @@ def fake_photon(monkeypatch, spaces: list[dict], send_status: int = 200, send_bo
             return httpx.Response(200, json={"items": spaces})
         if "/users/" in path:
             uid = path.rsplit("/", 1)[1]
-            return httpx.Response(200, json={"id": uid, "kind": "agent" if uid == "agent-1" else "human"})
+            if uid == "agent-1":
+                return httpx.Response(200, json={"id": uid, "kind": "agent"})
+            handle = "+15550001111" if uid == "human-1" else "+15559998888"
+            return httpx.Response(200, json={"id": uid, "kind": "human", "handle": handle})
         if path.endswith("/messages"):
             sent.append(request)
             return httpx.Response(send_status, json=send_body or {"id": "m1"})
@@ -311,10 +314,47 @@ async def test_photon_skips_people_who_never_texted_the_line(monkeypatch):
     assert sent == []
 
 
+async def test_photon_never_texts_someone_elses_space(monkeypatch):
+    import json
+
+    # If the participant filter doesn't match, Photon can list other people's spaces; those must not get the text.
+    from app.services import photon
+
+    stranger = {"id": "space-2", "kind": "direct", "participantIds": ["human-2", "agent-1"]}
+    sent = fake_photon(monkeypatch, [stranger])
+    assert await photon.send_message("+15550001111", "hi", "k") is False
+    assert sent == []
+
+    own = {"id": "space-1", "kind": "direct", "participantIds": ["human-1", "agent-1"]}
+    sent = fake_photon(monkeypatch, [stranger, own])
+    assert await photon.send_message("+15550001111", "hi", "k") is True
+    assert [json.loads(r.content)["spaceId"] for r in sent] == ["space-1"]
+
+
+async def test_matched_text_greets_the_recipient_not_the_others(monkeypatch):
+    from app.services import photon
+
+    texts = {}
+
+    async def deliver(member, text, key):
+        texts[member["full_name"]] = text
+        return True
+
+    monkeypatch.setattr(photon, "deliver", deliver)
+    members = [
+        {"user_id": "u1", "full_name": "Ada Lovelace", "phone": "+1", "asi_address": None},
+        {"user_id": "u2", "full_name": "Grace Hopper", "phone": "+2", "asi_address": None},
+    ]
+    await photon.notify_group("g", members, [])
+    assert texts["Ada Lovelace"].startswith("You've been matched, Ada!")
+    assert texts["Grace Hopper"].startswith("You've been matched, Grace!")
+    assert "Grace" not in texts["Ada Lovelace"] and "Ada" not in texts["Grace Hopper"]
+
+
 async def test_photon_treats_a_reused_key_as_already_sent(monkeypatch):
     from app.services import photon
 
-    space = {"id": "space-1", "kind": "direct", "participantIds": ["agent-1"]}
+    space = {"id": "space-1", "kind": "direct", "participantIds": ["human-1", "agent-1"]}
     fake_photon(monkeypatch, [space], send_status=422, send_body={"code": "IDEMPOTENCY_KEY_REUSED"})
     assert await photon.send_message("+15550001111", "hi", "k") is True
     fake_photon(monkeypatch, [space], send_status=403, send_body={"code": "SHARED_LINE_INBOUND_REQUIRED"})

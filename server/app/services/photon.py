@@ -67,6 +67,11 @@ async def imessage_open() -> bool:
     return used is None or used < get_settings().photon_seat_limit
 
 
+def same_handle(a: str | None, b: str) -> bool:
+    """Phone handles compared by digits, so "+1 (555) 000-1111" and "+15550001111" match."""
+    return bool(a) and [c for c in a if c.isdigit()] == [c for c in b if c.isdigit()]
+
+
 def _client() -> httpx.AsyncClient:
     return httpx.AsyncClient(base_url=API, timeout=15)
 
@@ -92,19 +97,26 @@ async def send_message(phone: str, text: str, key: str) -> bool:
                 params={"participantHandle": phone, "platform": "imessage", "orderBy": "last_message_created_at"},
             )
             res.raise_for_status()
-            space = next((sp for sp in res.json().get("items", []) if sp.get("kind", "direct") == "direct"), None)
-            if space is None:
-                log.warning("no iMessage space for %s (never texted the line?); not sent", phone)
-                return False
-            sender = None
-            for user_id in space.get("participantIds", []):
-                user = await client.get(f"{base}/users/{user_id}", headers=auth)
-                user.raise_for_status()
-                if user.json().get("kind") == "agent":
-                    sender = user_id
+            # Don't trust the filter alone: if it doesn't match, Photon can list other people's spaces, and texting the
+            # first one sends this person's message to a stranger. Only use a space whose human is this phone.
+            space, sender = None, None
+            for sp in res.json().get("items", []):
+                if sp.get("kind", "direct") != "direct":
+                    continue
+                agent, recipient = None, False
+                for user_id in sp.get("participantIds", []):
+                    user = await client.get(f"{base}/users/{user_id}", headers=auth)
+                    user.raise_for_status()
+                    data = user.json()
+                    if data.get("kind") == "agent":
+                        agent = agent or user_id
+                    elif same_handle(data.get("handle"), phone):
+                        recipient = True
+                if agent and recipient:
+                    space, sender = sp, agent
                     break
-            if sender is None:
-                log.warning("no agent in iMessage space %s; not sent", space.get("id"))
+            if space is None:
+                log.warning("no iMessage space with our agent for %s (never texted the line?); not sent", phone)
                 return False
             res = await client.post(
                 f"{base}/messages",
@@ -186,7 +198,8 @@ def lineup_key(members: list[dict]) -> str:
 
 
 async def notify_group(group_id, members: list[dict], events: list[Candidate]) -> None:
-    """Tell each member who they matched with. members: user rows with user_id, full_name, phone and asi_address.
+    """Tell each member they've been matched, by their own first name. members: user rows with user_id, full_name,
+    phone and asi_address.
 
     Keyed by the lineup, not the group id, so re-running matching only texts people whose group changed.
     """
@@ -194,8 +207,9 @@ async def notify_group(group_id, members: list[dict], events: list[Candidate]) -
     lineup = lineup_key(members)
     idea = f" First idea: {first.name}." if first else ""
     for member in members:
-        others = ", ".join(m["full_name"] for m in members if m is not member)
-        text = f"You've been matched with {others}!{idea} Meet them and pick a plan: {group_link(member['user_id'])}"
+        name = (member.get("full_name") or "").split(" ")[0]
+        hello = f"You've been matched, {name}!" if name else "You've been matched!"
+        text = f"{hello}{idea} Meet your group and pick a plan: {group_link(member['user_id'])}"
         await deliver(member, text, f"matched:{lineup}:{member['user_id']}")
 
 
