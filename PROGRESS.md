@@ -200,6 +200,7 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: `seed.sql` now has 40 celebrity profiles (athletes, actors, musicians, politicians, historical figures) in 8 clusters of 5 with dealbreaker clashes; `dev_graph_seed.sql` follows with 8 clusters.
 - 2026-10-17: OpenRouter can now stand in for both Gemini and Jev (one key runs the pipeline); conversations and `main.py` log at INFO.
 - 2026-10-17: Added #49 (3D keyword playground with user-picked axes and clickable chat transcripts).
 - 2026-10-17: Jev (TypeSafe) now scores keywords, dealbreakers, and availability, and judges pair

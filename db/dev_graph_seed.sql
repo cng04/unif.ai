@@ -10,23 +10,24 @@ DELETE FROM keywords WHERE universe_id = '00000000-0000-0000-0000-000000000001';
 DELETE FROM pairs    WHERE universe_id = '00000000-0000-0000-0000-000000000001';
 DELETE FROM groups   WHERE universe_id = '00000000-0000-0000-0000-000000000001';
 
--- 7 clusters, 2 keywords each.
+-- 8 clusters, 2 keywords each, matching the 8 groups of 5 in seed.sql.
 CREATE TEMP TABLE dev_kw (cluster INT, name TEXT) ON COMMIT DROP;
 INSERT INTO dev_kw VALUES
-    (0, 'hiking'), (0, 'climbing'),
+    (0, 'hiking'), (0, 'wildlife'),
     (1, 'board games'), (1, 'video games'),
-    (2, 'painting'), (2, 'live music'),
-    (3, 'cooking'), (3, 'brunch'),
-    (4, 'running'), (4, 'lifting'),
-    (5, 'reading'), (5, 'writing'),
-    (6, 'clubbing'), (6, 'cocktails');
+    (2, 'painting'), (2, 'museums'),
+    (3, 'live music'), (3, 'songwriting'),
+    (4, 'cooking'), (4, 'dinner parties'),
+    (5, 'training'), (5, 'competition'),
+    (6, 'reading'), (6, 'science'),
+    (7, 'late nights'), (7, 'cocktails');
 
 INSERT INTO keywords (universe_id, name)
 SELECT '00000000-0000-0000-0000-000000000001', name FROM dev_kw;
 
--- 30 seeded users split into 7 contiguous clusters of 4-5.
+-- The 40 seeded users split into 8 contiguous clusters of 5 (seed.sql orders ids by cluster).
 CREATE TEMP TABLE dev_user ON COMMIT DROP AS
-SELECT id AS user_id, ((row_number() OVER (ORDER BY id)) - 1) * 7 / 30 AS cluster
+SELECT id AS user_id, ((row_number() OVER (ORDER BY id)) - 1) * 8 / count(*) OVER () AS cluster
 FROM users WHERE universe_id = '00000000-0000-0000-0000-000000000001';
 
 -- Deterministic noise in [0, 1) from md5 so re-runs give the same picture.
@@ -41,21 +42,22 @@ CROSS JOIN LATERAL (
 ) n
 WHERE k.universe_id = '00000000-0000-0000-0000-000000000001';
 
--- Dealbreakers: the books cluster avoids clubbing, the fitness cluster avoids cocktails. Nightlife people
+-- Dealbreakers: the books cluster avoids late nights, the sports cluster avoids cocktails. Nightlife people
 -- score above 0.5 on both, so those pairs are hard-blocked, as in hard_conflicts.
 UPDATE keyword_scores ks SET dealbreaker = true
 FROM dev_user u, keywords k
 WHERE ks.user_id = u.user_id AND ks.keyword_id = k.id AND k.universe_id = '00000000-0000-0000-0000-000000000001'
-  AND ((u.cluster = 5 AND k.name = 'clubbing') OR (u.cluster = 4 AND k.name = 'cocktails'));
+  AND ((u.cluster = 6 AND k.name = 'late nights') OR (u.cluster = 5 AND k.name = 'cocktails'));
 
 -- Availability slots (the fixed slots from scoring.py), one pattern per cluster.
 UPDATE agent_profiles ap SET availability = CASE u.cluster
     WHEN 0 THEN ARRAY['weekend_daytime']
     WHEN 1 THEN ARRAY['weekday_evening', 'weekend_evening']
     WHEN 2 THEN ARRAY['weekend_daytime', 'weekend_evening']
-    WHEN 3 THEN ARRAY['weekday_evening', 'weekend_daytime']
-    WHEN 4 THEN ARRAY['weekday_daytime', 'weekend_daytime']
-    WHEN 5 THEN ARRAY['weekday_evening']
+    WHEN 3 THEN ARRAY['weekday_evening', 'weekend_evening']
+    WHEN 4 THEN ARRAY['weekday_evening', 'weekend_daytime']
+    WHEN 5 THEN ARRAY['weekday_daytime', 'weekend_daytime']
+    WHEN 6 THEN ARRAY['weekday_evening']
     ELSE ARRAY['weekend_evening']
 END
 FROM dev_user u WHERE ap.user_id = u.user_id;
@@ -102,41 +104,46 @@ FROM verdict;
 -- pairs), filled with first names (%1$s = user_a, %2$s = user_b) and their top shared keyword (%3$s).
 CREATE TEMP TABLE dev_chat (cluster INT, turn INT, speaker CHAR(1), content TEXT) ON COMMIT DROP;
 INSERT INTO dev_chat VALUES
-    (0, 1, 'a', 'Hi, I''m here for %1$s. They climb most Saturdays and want people who''d rather chat between problems than chase grades.'),
-    (0, 2, 'b', 'Same energy as %2$s. They boulder 2-3x a week and aren''t competitive about it at all.'),
-    (0, 3, 'a', 'Would %2$s be up for a long breakfast after? That''s half the point for %1$s.'),
-    (0, 4, 'b', 'Always. %2$s also does early hikes if the group wants a change of scene.'),
-    (0, 5, 'a', 'Perfect. I think they''d both want a low-key %3$s crew.'),
-    (1, 1, 'a', 'Hey! %1$s hosts a board game night most weeks, usually 4-6 people.'),
-    (1, 2, 'b', '%2$s would love that. They''re more co-op than cutthroat, if that matters.'),
-    (1, 3, 'a', 'Matters a lot, %1$s hates rules lawyers. Any games %2$s is into lately?'),
-    (1, 4, 'b', 'Mostly long strategy games, and some %3$s on weekday nights.'),
-    (1, 5, 'a', 'Good overlap. I''d put them in the same group.'),
-    (2, 1, 'a', '%1$s paints most evenings and goes to small gigs when they can.'),
-    (2, 2, 'b', '%2$s is the same, they''d take a tiny venue over a stadium any day.'),
-    (2, 3, 'a', 'Would %2$s be up for a sketch-and-coffee morning?'),
-    (2, 4, 'b', 'Honestly yes. They''re quieter at first but open up around %3$s.'),
+    (0, 1, 'a', 'Hi, I''m here for %1$s. They''d happily spend all of Saturday outside, the wilder the better.'),
+    (0, 2, 'b', 'Same with %2$s. Give them a trail and something to look at and they''re happy.'),
+    (0, 3, 'a', 'Is %2$s okay with an early start? %1$s likes to be out by sunrise.'),
+    (0, 4, 'b', 'Earlier is better. They''re most themselves around %3$s.'),
+    (0, 5, 'a', 'Great, I think they''d both want a small outdoors crew.'),
+    (1, 1, 'a', 'Hey! %1$s hosts a game night most weeks, usually 4-6 people.'),
+    (1, 2, 'b', '%2$s would love that. They get very into it, fair warning.'),
+    (1, 3, 'a', 'So does %1$s. Any games %2$s is into lately?'),
+    (1, 4, 'b', 'Long strategy games mostly, and a lot of %3$s on weeknights.'),
+    (1, 5, 'a', 'Good overlap. I''d put them at the same table.'),
+    (2, 1, 'a', '%1$s paints most days and could spend hours in a gallery.'),
+    (2, 2, 'b', '%2$s too. They''d take a quiet museum over a busy bar any day.'),
+    (2, 3, 'a', 'Would %2$s be up for a sketching morning?'),
+    (2, 4, 'b', 'Honestly yes. They open up around %3$s.'),
     (2, 5, 'a', 'Same with %1$s. Sounds like a good fit.'),
-    (3, 1, 'a', '%1$s cooks for friends almost every Sunday and is always looking for more people at the table.'),
-    (3, 2, 'b', 'That''s %2$s''s dream. They''d bring dessert and stay to do dishes.'),
-    (3, 3, 'a', 'Any dietary stuff I should know about?'),
-    (3, 4, 'b', 'Nothing strict. They just get excited about %3$s.'),
+    (3, 1, 'a', '%1$s is writing new material and wants people to play it for.'),
+    (3, 2, 'b', '%2$s would be thrilled. They''re at a show or a piano most nights.'),
+    (3, 3, 'a', 'Would %2$s be up for a living-room singalong instead of a big venue sometimes?'),
+    (3, 4, 'b', 'They''d love that. It''s all about %3$s for them.'),
     (3, 5, 'a', 'Then they''ll get along. Noting it.'),
-    (4, 1, 'a', '%1$s runs early, most weekdays, and lifts after work.'),
-    (4, 2, 'b', '%2$s is similar, though they''d skip the bar after. Not into drinking much.'),
-    (4, 3, 'a', 'Neither is %1$s, so that works. Weekend long runs?'),
-    (4, 4, 'b', 'Saturday mornings, yes. They like having people to keep them honest about %3$s.'),
-    (4, 5, 'a', 'Good. Strong match from my side.'),
-    (5, 1, 'a', '%1$s is in two book clubs and writes a little on the side.'),
-    (5, 2, 'b', '%2$s too. They''d much rather a quiet cafe than anything loud.'),
-    (5, 3, 'a', 'Same for %1$s, clubs are a hard no. Any genres %2$s loves?'),
-    (5, 4, 'b', 'Mostly literary fiction. They''d love a group that swaps %3$s recommendations.'),
-    (5, 5, 'a', 'That''s exactly what %1$s wants. Adding a note.'),
-    (6, 1, 'a', '%1$s is out most Fridays, cocktail bars first, dancing after.'),
-    (6, 2, 'b', '%2$s too, they know half the bartenders in the neighbourhood.'),
-    (6, 3, 'a', 'Would %2$s be up for a later start? %1$s rarely heads out before 10.'),
-    (6, 4, 'b', 'Later is better honestly. They''re all about %3$s.'),
-    (6, 5, 'a', 'Then they''ll have fun. Good match.'),
+    (4, 1, 'a', '%1$s cooks for friends almost every Sunday and always wants more people at the table.'),
+    (4, 2, 'b', 'That''s %2$s''s dream. They''d show up with a dish and opinions about it.'),
+    (4, 3, 'a', 'Any dietary stuff I should know about?'),
+    (4, 4, 'b', 'Nothing strict. They just get excited about %3$s.'),
+    (4, 5, 'a', 'Then they''ll get along. Adding a note.'),
+    (5, 1, 'a', '%1$s trains early most days and takes it seriously.'),
+    (5, 2, 'b', '%2$s is similar, though they''d skip the bar after. Not into drinking.'),
+    (5, 3, 'a', 'Neither is %1$s, so that works. Weekend sessions?'),
+    (5, 4, 'b', 'Saturday mornings, yes. They like having people to push them on %3$s.'),
+    (5, 5, 'a', 'Good. Strong match from my side.'),
+    (6, 1, 'a', '%1$s reads constantly and loves a long conversation about big ideas.'),
+    (6, 2, 'b', '%2$s too. They''d much rather a quiet evening than anything that runs late.'),
+    (6, 3, 'a', 'Same for %1$s. Any topics %2$s loves?'),
+    (6, 4, 'b', 'All sorts. They''d love a group that swaps notes on %3$s.'),
+    (6, 5, 'a', 'That''s exactly what %1$s wants. Adding a note.'),
+    (7, 1, 'a', '%1$s is out most Fridays: a long dinner first, then wherever the night goes.'),
+    (7, 2, 'b', '%2$s too. They''re the last to leave any party.'),
+    (7, 3, 'a', 'Would %2$s be up for a later start? %1$s rarely heads out before 10.'),
+    (7, 4, 'b', 'Later is better honestly. They''re all about %3$s.'),
+    (7, 5, 'a', 'Then they''ll have fun. Good match.'),
     (-1, 1, 'a', 'Hi, I''m here for %1$s. We don''t overlap much on paper, but I wanted to check.'),
     (-1, 2, 'b', 'Fair. %2$s is open to new things as long as the group is easygoing.'),
     (-1, 3, 'a', 'They do share some interest in %3$s.'),

@@ -98,7 +98,7 @@ unif.ai/
 ├── db/
 │   ├── schema.sql                      full schema (source of truth)
 │   ├── migrations/                     idempotent SQL patches for older databases
-│   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`), 30 fake people with
+│   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`), 40 celebrities with
 │   │                                   profiles and interview transcripts
 │   ├── dev_graph_seed.sql              fake matching output for "LA Hacks Demo" (scores, pairs, chats, groups)
 │   └── docker-compose.yml              local Postgres; runs schema + seed on first boot only
@@ -309,7 +309,7 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
   (`./run.sh migrate`, also run by `./run.sh up`); `schema.sql` already includes them. There is no migration
   tool or version tracking; that is an open decision.
 - **Persistence**: local data lives in the `pgdata` Docker volume.
-- **Seed data**: the `lahacks` universe with 30 fake people in clusters, with deliberate dealbreaker clashes.
+- **Seed data**: the `lahacks` universe with 40 celebrities (athletes, actors, musicians, politicians, historical figures) in 8 clusters, with deliberate dealbreaker clashes.
 - **Unused**: `agent_profiles.embedding` (vector(768)).
 
 ## Testing

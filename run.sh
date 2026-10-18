@@ -8,7 +8,7 @@
 #   ./run.sh logs [service]   follow logs (server | bot | asi-agent | db)
 #   ./run.sh migrate   apply db/migrations/*.sql (safe to re-run)
 #   ./run.sh tunnel    free public HTTPS URL for the server via Cloudflare (no domain needed)
-#   ./run.sh seed      load db/seed.sql: demo pool + 30 fake people (testing only)
+#   ./run.sh seed      load db/seed.sql: demo pool + 40 celebrity profiles (testing only)
 set -euo pipefail
 cd "$(dirname "$0")"
 
