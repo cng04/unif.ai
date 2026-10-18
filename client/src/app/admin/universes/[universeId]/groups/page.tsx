@@ -2,23 +2,38 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AdminHeader, Caption, outline, shortDate } from "@/components/admin-ui";
+import { PoolGraph } from "@/components/pool-graph";
 import { formatScore } from "@/components/ui";
 import { adminApi, ApiError, type UniverseGroups } from "@/lib/api";
 
-export default function GroupsPage({ params }: PageProps<"/admin/universes/[universeId]/groups">) {
+export default function GroupsPage({ params, searchParams }: PageProps<"/admin/universes/[universeId]/groups">) {
   return (
     <Suspense fallback={<Caption>loading groups</Caption>}>
-      <GroupsScreen params={params} />
+      <GroupsScreen params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function GroupsScreen({ params }: { params: Promise<{ universeId: string }> }) {
-  const { universeId } = await params;
-  const data = await adminApi.groups(universeId).catch((e) => {
+async function GroupsScreen({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ universeId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ universeId }, query] = await Promise.all([params, searchParams]);
+  // Cards by default; ?view=graph shows the pool graph (everyone + every judged chat) instead.
+  const graphView = query.view === "graph";
+  const pairId = graphView && typeof query.pair === "string" ? query.pair : null;
+  const notFoundOn404 = (e: unknown): never => {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
-  });
+  };
+  const [data, graph, pair] = await Promise.all([
+    adminApi.groups(universeId).catch(notFoundOn404),
+    graphView ? adminApi.graph(universeId).catch(notFoundOn404) : null,
+    pairId ? adminApi.pair(pairId).catch(() => null) : null,
+  ]);
   const placed = data.groups.reduce((n, g) => n + g.members.length, 0);
 
   return (
@@ -28,6 +43,7 @@ async function GroupsScreen({ params }: { params: Promise<{ universeId: string }
         title={data.groups.length ? `groups · ${data.groups.length} formed` : "groups"}
         actions={
           <>
+            <ViewToggle universeId={universeId} graph={graphView} />
             {data.groups.length > 0 && (
               <span className="font-mono text-[11px] tracking-label text-ink-muted">
                 {placed} placed · {data.leftovers.length} leftover{data.leftovers.length === 1 ? "" : "s"}
@@ -40,7 +56,13 @@ async function GroupsScreen({ params }: { params: Promise<{ universeId: string }
         }
       />
 
-      {data.groups.length === 0 ? (
+      {graph ? (
+        graph.people.length === 0 ? (
+          <Caption className="py-8">nobody has onboarded yet</Caption>
+        ) : (
+          <PoolGraph data={graph} universeId={universeId} pair={pair} />
+        )
+      ) : data.groups.length === 0 ? (
         <Caption className="py-8">
           {data.status === "matching" ? "matching is running; groups appear when it finishes" : "no groups yet; run matching from the overview"}
         </Caption>
@@ -55,6 +77,22 @@ async function GroupsScreen({ params }: { params: Promise<{ universeId: string }
         </div>
       )}
     </>
+  );
+}
+
+function ViewToggle({ universeId, graph }: { universeId: string; graph: boolean }) {
+  const base = `/admin/universes/${universeId}/groups`;
+  const tab = (on: boolean) =>
+    `press rounded-full px-3 py-[5px] font-mono text-[11px] leading-3 tracking-label ${on ? "bg-ink text-paper" : "hover:bg-ink/5"}`;
+  return (
+    <div className="flex rounded-full border border-line p-0.5" role="group" aria-label="view">
+      <Link href={base} className={tab(!graph)} aria-current={!graph ? "page" : undefined}>
+        cards
+      </Link>
+      <Link href={`${base}?view=graph`} className={tab(graph)} aria-current={graph ? "page" : undefined}>
+        graph
+      </Link>
+    </div>
   );
 }
 

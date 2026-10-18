@@ -376,3 +376,84 @@ async def universe_groups(universe_id: UUID, conn: AsyncConnection = Depends(get
         )
     ).fetchall()
     return {**universe_out(universe), "groups": groups, "leftovers": leftovers if labels else []}
+
+
+@router.get("/universes/{universe_id}/graph")
+async def universe_graph(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> dict:
+    """The pool graph: onboarded people, their group, and every judged agent chat between them."""
+    universe = await repo.get_universe(conn, universe_id)
+    labels = await group_labels(conn, universe_id)
+    people = await (
+        await conn.execute(
+            f"""
+            SELECT u.id, u.full_name, gm.group_id
+            FROM users u
+            JOIN agent_profiles ap ON ap.user_id = u.id
+            LEFT JOIN group_members gm ON gm.user_id = u.id
+            WHERE u.universe_id = %s AND {repo.USER_STATUS_SQL} = 'complete'
+            ORDER BY u.full_name
+            """,
+            (universe_id,),
+        )
+    ).fetchall()
+    pairs = await (
+        await conn.execute(
+            f"""
+            SELECT p.id, p.user_a AS a, p.user_b AS b, p.vibe_score, p.logistics_fit, {CONFLICT} AS conflict,
+                   EXISTS (SELECT 1 FROM pair_messages m WHERE m.pair_id = p.id AND m.kind = 'message') AS has_transcript
+            FROM pairs p
+            WHERE p.universe_id = %s AND p.status = 'complete'
+            """,
+            (universe_id,),
+        )
+    ).fetchall()
+    return {
+        **universe_out(universe),
+        "groups": [{"id": gid, "label": label} for gid, label in labels.items()],
+        "people": [
+            {
+                "id": p["id"],
+                "full_name": p["full_name"],
+                "group": labels.get(p["group_id"]),
+                # Only meaningful once matching has made groups.
+                "unplaced": bool(labels) and p["group_id"] is None,
+            }
+            for p in people
+        ],
+        "pairs": pairs,
+    }
+
+
+@router.get("/pairs/{pair_id}")
+async def pair_detail(pair_id: UUID, conn: AsyncConnection = Depends(get_conn)) -> dict:
+    """One agent chat for the pool graph's side panel: the judge's verdict and the transcript."""
+    pair = await (
+        await conn.execute(
+            f"""
+            SELECT p.id, p.user_a, ua.full_name AS a_name, p.user_b, ub.full_name AS b_name, p.vibe_score,
+                   p.logistics_fit, p.dealbreaker_flags, p.end_reason, {CONFLICT} AS conflict
+            FROM pairs p JOIN users ua ON ua.id = p.user_a JOIN users ub ON ub.id = p.user_b
+            WHERE p.id = %s
+            """,
+            (pair_id,),
+        )
+    ).fetchone()
+    if not pair:
+        raise HTTPException(404, "pair not found")
+    messages = await (
+        await conn.execute(
+            "SELECT speaker_id, content, created_at FROM pair_messages WHERE pair_id = %s AND kind = 'message' ORDER BY id",
+            (pair_id,),
+        )
+    ).fetchall()
+    return {
+        "id": pair["id"],
+        "a": {"id": pair["user_a"], "full_name": pair["a_name"]},
+        "b": {"id": pair["user_b"], "full_name": pair["b_name"]},
+        "vibe_score": pair["vibe_score"],
+        "logistics_fit": pair["logistics_fit"],
+        "conflict": pair["conflict"],
+        "dealbreaker_flags": [str(f) for f in pair["dealbreaker_flags"]],
+        "end_reason": pair["end_reason"],
+        "messages": messages,
+    }

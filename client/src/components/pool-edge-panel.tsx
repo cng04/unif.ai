@@ -39,7 +39,6 @@ export function PoolEdgePanel({ pair, groupA, groupB }: { pair: AdminPair; group
       </div>
       <dl className="flex flex-col gap-2 border-t border-line pt-3 font-mono text-[10px] tracking-label">
         <Row label="logistics" value={pair.logistics_fit ?? "—"} />
-        <Row label="jev confidence" value={pair.confidence != null ? <CountUp to={pair.confidence} format={(n) => n.toFixed(2)} /> : "—"} />
         <Row label="dealbreakers" value={pair.dealbreaker_flags.length ? pair.dealbreaker_flags.join("; ") : "none"} ember={pair.dealbreaker_flags.length > 0} />
         <Row label="ended" value={pair.end_reason ?? "—"} />
       </dl>

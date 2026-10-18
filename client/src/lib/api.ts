@@ -268,7 +268,6 @@ export type UniverseGraph = UniverseSummary & {
     vibe_score: number | null;
     logistics_fit: Connection["logistics_fit"];
     conflict: boolean;
-    confidence: number | null;
     has_transcript: boolean;
   }[];
 };
@@ -281,7 +280,6 @@ export type AdminPair = {
   logistics_fit: Connection["logistics_fit"];
   conflict: boolean;
   dealbreaker_flags: string[];
-  confidence: number | null;
   end_reason: string | null;
   messages: { speaker_id: string; content: string; created_at: string }[];
 };

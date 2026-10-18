@@ -95,7 +95,7 @@ export function PoolGraph({ data, universeId, pair }: { data: UniverseGraph; uni
           <div className="flex items-baseline justify-between">
             <h2 className="font-mono text-[10px] tracking-meta text-ink-muted">( groups · {groups.length} )</h2>
             <Link href={`/admin/universes/${universeId}/groups`} className="font-mono text-[10px] tracking-label text-ink-muted hover:text-ink">
-              details →
+              cards →
             </Link>
           </div>
           <ul className="flex flex-col gap-3">
