@@ -6,12 +6,14 @@ anonymous ids. Judge rationales and dealbreaker flags stay server-side, since th
 
 from uuid import UUID
 
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from psycopg import AsyncConnection
 
 from app import repo
 from app.db import get_conn
-from app.schemas import Connections, Group, PairDetail
+from app.matching.projection import project_3d
+from app.schemas import Connections, Group, PairDetail, UserGraph, UserGraphLink, UserGraphNode
 
 router = APIRouter(prefix="/users/{user_id}", tags=["me"])
 
@@ -67,6 +69,63 @@ async def get_connections(user_id: UUID, conn: AsyncConnection = Depends(get_con
         group=Group(**group) if group else None,
         edges=edges,
     )
+
+
+@router.get("/graph", response_model=UserGraph)
+async def get_graph(user_id: UUID, axes: str | None = None, conn: AsyncConnection = Depends(get_conn)):
+    """Everyone in the universe placed in 3D by keyword scores, named the same way as /connections.
+
+    `axes` is three comma-separated keyword names to plot directly (0.5 = no signal sits at the origin);
+    without it, positions are a PCA of all keyword scores. Raw scores and dealbreakers stay server-side.
+    """
+    view = await get_connections(user_id, conn)
+    keywords = await (
+        await conn.execute("SELECT id, name FROM keywords WHERE universe_id = %s ORDER BY id", (view.universe.id,))
+    ).fetchall()
+    names = [k["name"] for k in keywords]
+    chosen = [a.strip() for a in axes.split(",")] if axes else None
+    if chosen is not None and (len(chosen) != 3 or any(a not in names for a in chosen)):
+        raise HTTPException(422, "axes must be three keyword names from this universe")
+
+    rows = await (
+        await conn.execute(
+            """
+            SELECT u.id AS user_id, array_agg(s.score ORDER BY s.keyword_id) AS scores
+            FROM users u JOIN keyword_scores s ON s.user_id = u.id
+            WHERE u.universe_id = %s GROUP BY u.id
+            """,
+            (view.universe.id,),
+        )
+    ).fetchall()
+    if not rows:
+        return UserGraph(keywords=names, axes=chosen, nodes=[], links=[])
+    matrix = np.array([r["scores"] for r in rows], dtype=float)
+    coords = (matrix[:, [names.index(a) for a in chosen]] - 0.5) * 2 if chosen else project_3d(matrix)
+
+    mine = {c.user_id: c for c in view.connections}
+    group = {m.user_id: m.full_name for m in view.group.members} if view.group else {}
+    nodes = []
+    for r, (x, y, z) in zip(rows, coords.tolist()):
+        uid, c = r["user_id"], mine.get(r["user_id"])
+        if uid == user_id:
+            kind, name = "me", view.user.full_name
+        elif uid in group:
+            kind, name = "group", group[uid]
+        elif c:
+            kind, name = "match", c.full_name
+        else:
+            kind, name = "pool", None
+        nodes.append(
+            UserGraphNode(
+                user_id=uid, name=name, kind=kind, x=x, y=y, z=z,
+                pair_id=c.pair_id if c else None,
+                vibe_score=c.vibe_score if c else None,
+                conflict=c.conflict if c else False,
+            )
+        )
+    links = [UserGraphLink(a=user_id, b=c.user_id, mine=True) for c in view.connections]
+    links += [UserGraphLink(a=e.a, b=e.b, mine=False) for e in view.edges]
+    return UserGraph(keywords=names, axes=chosen, nodes=nodes, links=links)
 
 
 @router.get("/pairs/{pair_id}", response_model=PairDetail)

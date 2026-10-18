@@ -62,24 +62,6 @@ class GraphPoint(BaseModel):
     group_id: UUID | None = None
 
 
-class KeywordOut(BaseModel):
-    id: int
-    name: str
-
-
-class PersonScores(BaseModel):
-    user_id: UUID
-    name: str
-    group_id: UUID | None = None
-    scores: list[float]  # aligned with KeywordMatrix.keywords
-    dealbreakers: list[int]  # keyword ids this person can't be grouped around
-
-
-class KeywordMatrix(BaseModel):
-    keywords: list[KeywordOut]
-    people: list[PersonScores]
-
-
 class Pair(BaseModel):
     id: UUID
     user_a: UUID
@@ -141,6 +123,35 @@ class Connections(BaseModel):
     connections: list[Connection]
     group: Group | None
     edges: list[Edge]
+
+
+class UserGraphNode(BaseModel):
+    """A person in the 3D view. Only you, your group, and your judged matches are named (pool: name is None)."""
+
+    user_id: UUID
+    name: str | None
+    kind: Literal["me", "group", "match", "pool"]
+    pair_id: UUID | None = None  # your pair with them, if your agents met
+    vibe_score: float | None = None
+    conflict: bool = False
+    x: float
+    y: float
+    z: float
+
+
+class UserGraphLink(BaseModel):
+    """A judged pair. Scores are only exposed on your own pairs, via the node."""
+
+    a: UUID
+    b: UUID
+    mine: bool
+
+
+class UserGraph(BaseModel):
+    keywords: list[str]  # names only, for the axis picker
+    axes: list[str] | None  # None = PCA of all keyword scores
+    nodes: list[UserGraphNode]
+    links: list[UserGraphLink]
 
 
 class PairMessage(BaseModel):

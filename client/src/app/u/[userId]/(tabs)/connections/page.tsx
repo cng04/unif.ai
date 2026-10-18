@@ -1,23 +1,41 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Blobs } from "@/components/atmosphere";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { AxisPicker } from "@/components/axis-picker";
 import { ConnectionsGraph } from "@/components/connections-graph";
+import { ConnectionsGraph3D } from "@/components/connections-graph-3d-lazy";
 import { CountUp } from "@/components/count-up";
 import { Glass, Meta, Stat, Title } from "@/components/ui";
 import { api, ApiError, type Connections } from "@/lib/api";
 
-export default function ConnectionsPage({ params }: PageProps<"/u/[userId]/connections">) {
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default function ConnectionsPage({ params, searchParams }: PageProps<"/u/[userId]/connections">) {
   return (
     <Suspense fallback={<Header title="finding your people" />}>
-      <ConnectionsScreen params={params} />
+      <ConnectionsScreen params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function ConnectionsScreen({ params }: { params: Promise<{ userId: string }> }) {
+async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ userId: string }>; searchParams: SearchParams }) {
   const { userId } = await params;
-  const data = await api.connections(userId).catch((e) => {
+  const query = await searchParams;
+  // ?view=3d swaps the ego graph for the whole universe in 3D; ?axes=a,b,c picks its keyword axes.
+  const view = query.view === "3d" ? "3d" : "2d";
+  const axes = typeof query.axes === "string" ? query.axes.split(",") : undefined;
+  const [data, graph] = await Promise.all([
+    api.connections(userId),
+    view === "3d"
+      ? api.graph(userId, axes).catch((e) => {
+          // Stale or hand-edited axes: fall back to the similarity layout.
+          if (e instanceof ApiError && e.status === 422) return api.graph(userId);
+          throw e;
+        })
+      : null,
+  ]).catch((e) => {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   });
@@ -37,17 +55,26 @@ async function ConnectionsScreen({ params }: { params: Promise<{ userId: string 
           { color: "periwinkle", x: "94%", y: "88%", size: 200, opacity: 0.6, blur: 48 },
         ]}
       />
-      <Header title={copy.title} />
+      <Header title={copy.title}>
+        <ViewToggle userId={userId} view={view} />
+      </Header>
 
       <div className="relative min-h-[360px] flex-1 md:min-h-[460px]">
         <div className="absolute inset-x-0 inset-y-2 md:inset-x-6">
-          <ConnectionsGraph data={data} />
+          {graph ? <ConnectionsGraph3D data={graph} userId={userId} /> : <ConnectionsGraph data={data} />}
         </div>
       </div>
 
       <div className="flex w-full flex-col gap-4 px-5 pt-3 md:mx-auto md:max-w-[520px] md:px-0">
+        {graph && (
+          <div className="flex justify-center">
+            <AxisPicker keywords={graph.keywords} axes={graph.axes} />
+          </div>
+        )}
         {data.connections.length > 0 && (
-          <p className="meta text-center text-ink/70">tap a line to read how your agents met</p>
+          <p className="meta text-center text-ink/70">
+            {graph ? "drag to turn · tap a line to read how your agents met" : "tap a line to read how your agents met"}
+          </p>
         )}
         <Glass className="flex justify-between px-[18px] py-3.5 md:px-6 md:py-4">
           <Stat value={<CountUp to={data.connections.length} />} label="agents met" />
@@ -59,12 +86,34 @@ async function ConnectionsScreen({ params }: { params: Promise<{ userId: string 
   );
 }
 
-function Header({ title }: { title: string }) {
+function Header({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <header className="flex flex-col gap-2.5 px-7 pt-8 md:px-10 md:pt-12">
-      <Meta>your connections</Meta>
-      <Title className="max-w-[260px] md:max-w-none">{title}</Title>
+    <header className="flex items-start justify-between gap-4 px-7 pt-8 md:px-10 md:pt-12">
+      <div className="flex flex-col gap-2.5">
+        <Meta>your connections</Meta>
+        <Title className="max-w-[260px] md:max-w-none">{title}</Title>
+      </div>
+      {children}
     </header>
+  );
+}
+
+/** "2d · 3d" pill: just links, so the page stays a server component and the view is shareable. */
+function ViewToggle({ userId, view }: { userId: string; view: "2d" | "3d" }) {
+  return (
+    <nav className="flex shrink-0 rounded-full border border-ink/25 p-0.5" aria-label="graph view">
+      {(["2d", "3d"] as const).map((v) => (
+        <Link
+          key={v}
+          href={v === "3d" ? `/u/${userId}/connections?view=3d` : `/u/${userId}/connections`}
+          scroll={false}
+          aria-current={view === v ? "page" : undefined}
+          className={`press micro rounded-full px-3 py-1.5 ${view === v ? "bg-ink text-paper" : "text-ink hover:bg-ink/5"}`}
+        >
+          {v}
+        </Link>
+      ))}
+    </nav>
   );
 }
 

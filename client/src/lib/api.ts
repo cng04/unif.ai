@@ -75,11 +75,31 @@ export type Profile = {
   };
 };
 
+/** Everyone placed in 3D by keyword scores. Only me, my group, and my judged matches carry a name. */
+export type UserGraph = {
+  keywords: string[];
+  axes: [string, string, string] | null;
+  nodes: {
+    user_id: string;
+    name: string | null;
+    kind: "me" | "group" | "match" | "pool";
+    pair_id: string | null;
+    vibe_score: number | null;
+    conflict: boolean;
+    x: number;
+    y: number;
+    z: number;
+  }[];
+  links: { a: string; b: string; mine: boolean }[];
+};
+
 export type InterviewMessage = { role: "user" | "assistant"; content: string };
 
 export const api = {
   connections: (userId: string) => request<Connections>(`/users/${userId}/connections`),
   pair: (userId: string, pairId: string) => request<PairDetail>(`/users/${userId}/pairs/${pairId}`),
+  graph: (userId: string, axes?: string[]) =>
+    request<UserGraph>(`/users/${userId}/graph${axes ? `?axes=${encodeURIComponent(axes.join(","))}` : ""}`),
   profile: (userId: string) => request<Profile>(`/users/${userId}/profile`),
   interview: (userId: string) => request<InterviewMessage[]>(`/users/${userId}/interview`),
   sendInterview: (userId: string, message: string) =>

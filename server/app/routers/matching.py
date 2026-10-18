@@ -9,7 +9,7 @@ from app.config import get_settings
 from app.db import get_conn
 from app.matching.pipeline import run_matching
 from app.matching.projection import project_3d
-from app.schemas import GraphPoint, Group, KeywordMatrix, Pair
+from app.schemas import GraphPoint, Group, Pair
 
 router = APIRouter(tags=["matching"])
 
@@ -50,30 +50,6 @@ async def get_graph(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)
         GraphPoint(user_id=r["user_id"], name=r["name"], group_id=r["group_id"], x=x, y=y, z=z)
         for r, (x, y, z) in zip(rows, coords.tolist())
     ]
-
-
-@router.get("/universes/{universe_id}/keywords", response_model=KeywordMatrix)
-async def get_keyword_matrix(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)):
-    """The raw N x k keyword scores behind /graph, for picking keyword axes or explaining a pair."""
-    keywords = await (
-        await conn.execute("SELECT id, name FROM keywords WHERE universe_id = %s ORDER BY id", (universe_id,))
-    ).fetchall()
-    people = await (
-        await conn.execute(
-            """
-            SELECT u.id AS user_id, u.full_name AS name, gm.group_id,
-                   array_agg(s.score ORDER BY s.keyword_id) AS scores,
-                   coalesce(array_agg(s.keyword_id) FILTER (WHERE s.dealbreaker), '{}') AS dealbreakers
-            FROM users u
-            JOIN keyword_scores s ON s.user_id = u.id
-            LEFT JOIN group_members gm ON gm.user_id = u.id
-            WHERE u.universe_id = %s
-            GROUP BY u.id, gm.group_id
-            """,
-            (universe_id,),
-        )
-    ).fetchall()
-    return KeywordMatrix(keywords=keywords, people=people)
 
 
 @router.get("/universes/{universe_id}/pairs", response_model=list[Pair])

@@ -100,6 +100,7 @@ unif.ai/
 │   ├── migrations/                     idempotent SQL patches for older databases
 │   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`), 30 fake people with
 │   │                                   profiles and interview transcripts
+│   ├── dev_graph_seed.sql              fake matching output for "LA Hacks Demo" (scores, pairs, chats, groups)
 │   └── docker-compose.yml              local Postgres; runs schema + seed on first boot only
 ├── agent/                              unifai_agent library
 │   ├── src/unifai_agent/
@@ -149,6 +150,8 @@ uv run uvicorn app.main:app --reload     # http://localhost:8000
 
 #    Optional: a fake "UI Demo" universe that looks post-matching; prints a login link for the web app
 uv run python -m scripts.seed_demo
+#    Or fake matching output for the 30-person "LA Hacks Demo" (no LLM credits needed):
+docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_graph_seed.sql
 
 # 3. Client
 cd client && npm install && npm run dev  # http://localhost:3001
