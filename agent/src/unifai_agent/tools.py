@@ -9,17 +9,14 @@ TOOL_DECLARATIONS: list[dict] = [
         "description": "Send a message to the other agent. This is the only way to speak to them.",
         "parameters": {
             "type": "OBJECT",
-            "properties": {"text": {"type": "STRING"}},
+            "properties": {
+                "text": {"type": "STRING", "description": "What the other agent sees."},
+                "note": {
+                    "type": "STRING",
+                    "description": "Optional private evidence about compatibility. Only the judge reads it.",
+                },
+            },
             "required": ["text"],
-        },
-    },
-    {
-        "name": "take_note",
-        "description": "Record private evidence about compatibility. The judge reads these notes.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {"observation": {"type": "STRING"}},
-            "required": ["observation"],
         },
     },
     {

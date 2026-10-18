@@ -10,7 +10,7 @@ from unifai_agent.prompts import SELF_REPORT_PROMPT
 from app import repo
 from app.db import get_conn, pool
 from app.deps import get_interviewer
-from app.schemas import ChatIn, ChatOut, SelfReportIn, User, UserCreate
+from app.schemas import ChatIn, ChatOut, SelfReportIn, SocialLinksIn, User, UserCreate
 from app.services import scraper
 
 router = APIRouter(tags=["onboarding"])
@@ -29,19 +29,7 @@ async def join_universe(
     conn: AsyncConnection = Depends(get_conn),
 ):
     await repo.get_universe(conn, universe_id)
-    user = await (
-        await conn.execute(
-            """
-            INSERT INTO users (universe_id, full_name, email, phone, social_links)
-            VALUES (%s, %s, %s, %s, %s) RETURNING *
-            """,
-            (universe_id, body.full_name, body.email, body.phone, Jsonb(body.social_links)),
-        )
-    ).fetchone()
-    await conn.execute(
-        "INSERT INTO agent_profiles (user_id, public) VALUES (%s, %s)",
-        (user["id"], Jsonb({"name": body.full_name})),
-    )
+    user = await repo.create_user(conn, universe_id, body.full_name, body.email, body.phone, body.social_links)
     if body.social_links:
         background.add_task(scrape_and_store, user["id"], body.full_name, body.social_links)
     return user
@@ -49,8 +37,26 @@ async def join_universe(
 
 async def scrape_and_store(user_id: UUID, full_name: str, links: dict[str, str]) -> None:
     scraped = await scraper.scrape_profiles(full_name, links)
-    async with pool.connection() as conn:
-        await repo.merge_raw_sources(conn, user_id, {"scraped": scraped})
+    if scraped:
+        async with pool.connection() as conn:
+            await repo.merge_scraped(conn, user_id, scraped)
+
+
+@router.post("/users/{user_id}/social-links")
+async def add_social_links(
+    user_id: UUID,
+    body: SocialLinksIn,
+    background: BackgroundTasks,
+    conn: AsyncConnection = Depends(get_conn),
+) -> dict[str, dict[str, str]]:
+    """Links shared later (e.g. over iMessage). Only new or changed links are scraped."""
+    user = await repo.get_user(conn, user_id)
+    previous = user["social_links"] or {}
+    fresh = {p: url for p, url in body.links.items() if previous.get(p) != url}
+    links = await repo.add_social_links(conn, user_id, body.links)
+    if fresh:
+        background.add_task(scrape_and_store, user_id, user["full_name"], fresh)
+    return {"social_links": links, "scraping": fresh}
 
 
 @router.post("/users/{user_id}/self-report")

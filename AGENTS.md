@@ -40,8 +40,9 @@ comparisons in code, not in prompts.
 
 ## Rules
 
-**Database.** There are no migrations. A schema change means editing `db/schema.sql`, updating `seed.sql` and
-any raw SQL in `repo.py` and routers, adding the reset steps to your PR description (`docker compose down -v`
+**Database.** There is no migration tool. A schema change means editing `db/schema.sql`, updating `seed.sql` and
+any raw SQL in `repo.py` and routers, adding an idempotent patch to `db/migrations/` for existing databases
+(`./run.sh migrate` applies them), adding the reset steps to your PR description (`docker compose down -v`
 locally, re-apply by hand on the shared instance), and noting it in `PROGRESS.md`. Do not add an ORM. Do not
 add a migration tool without a decision from the team; propose it in `PROGRESS.md` instead. Everything must stay
 reachable through `universes ON DELETE CASCADE`, and tests must delete only rows they created.
@@ -140,6 +141,19 @@ ORDER BY a.score * b.score DESC;
 Shared high scores explain the similarity. A `true` in `a_avoids` next to a `score_b` above 0.5 (or the
 reverse) explains a block. Availability slots are stored in `agent_profiles.availability`.
 
+## Web app (`client/`)
+
+Mobile-first. People reach it through a personal link from their agent: `/u/{user_id}` redirects to
+`/u/{user_id}/connections`. Tabs are `connections` (ego graph), `agent` (the interview chat, continued),
+and `you` (own profile plus group). `/u/{user_id}/pairs/{pair_id}` shows one agent-to-agent conversation.
+Pages are server components that call the API through `src/lib/api.ts` (`API_URL`, default
+`http://localhost:8000`), so the browser never talks to FastAPI directly. Design tokens mirror the Paper
+file and live in `src/app/globals.css`. There is no auth yet: the user id in the URL is the only identity.
+
+The app reads `GET /users/{id}/connections` and `GET /users/{id}/pairs/{pair_id}` (`server/app/routers/me.py`).
+They name only the user's own pairs and group members, return everyone else as anonymous ids, and never
+return judge rationales, dealbreaker flags, or private profile fields.
+
 ## Conventions
 
 - Raw SQL through async psycopg 3 (`app/db.py` pool, `app/repo.py`). There is no ORM.
@@ -161,14 +175,16 @@ reverse) explains a block. Availability slots are stored in `agent_profiles.avai
 
 - Local DB: `db/docker-compose.yml` runs the SQL files only on first boot. After changing the schema,
   run `docker compose down -v` to reset the volume. A shared Tiger Data instance needs the schema
-  re-applied by hand. There are no migrations.
+  re-applied by hand, or the `db/migrations/` patches applied (`./run.sh migrate`).
 - `server/` requires Python below 3.15, because OR-Tools has no 3.15 wheels yet.
 - The schema needs only the `vector` and `pgcrypto` extensions. No TimescaleDB-specific features are used.
 - `client/` runs a new Next.js version. Read `client/AGENTS.md` before writing frontend code.
-- Browser Use scraping is optional (`uv sync --extra scrape` in `server/`).
+- Browser Use scraping is optional (`uv sync --extra scrape` in `server/`). `tests/test_scraper.py` imports
+  it, so run the server tests with `uv run --extra scrape pytest`.
 - Failure handling in the pipeline: `extract_keywords` returns `[]` on error (the run then resets the universe to
   `onboarding`), `score_person` falls back to all-0.5 scores, and `review_groups` keeps a group with a neutral
   verdict if the group judge errors. `POST /universes/{id}/matching` claims the universe atomically
   (`repo.claim_matching`) and returns 409 if a run is already in progress.
-- Photon is a stub: it only logs, even when `PHOTON_API_KEY` is set.
+- Photon assigns shared iMessage lines at join (`assign_line`, needs `PHOTON_API_KEY` and `PHOTON_PROJECT_ID`),
+  but `send_message` is still a stub: match notifications only log.
 - `GET /pairs/{id}/messages` returns only `kind = 'message'` rows; agents' private `note` rows are never exposed.

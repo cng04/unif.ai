@@ -27,7 +27,7 @@ def test_agents_alternate_and_keep_notes_private():
     a = PersonaAgent(
         profile("a", "Cynthia"),
         ScriptedLLM([
-            LLMResponse(tool_calls=[ToolCall("take_note", {"observation": "opening"}), ToolCall("send_message", {"text": "hi"})]),
+            LLMResponse(tool_calls=[ToolCall("send_message", {"text": "hi", "note": "opening"})]),
             LLMResponse(tool_calls=[ToolCall("end_conversation", {"reason": "enough signal"})]),
         ]),
     )

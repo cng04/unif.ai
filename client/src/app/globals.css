@@ -1,26 +1,165 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Design tokens, mirrored from the Paper file ("Design system · Foundations").
+   Fogged-window warmth over a precise, minimal graph: grainy paper, out-of-focus colour, small
+   widely-spaced type. One accent (ember) for the moments that need a human. */
+@theme {
+  --color-paper: #f3f1ed;
+  --color-surface: rgb(255 255 255 / 28%);
+  --color-sheet: #fbfaf7;
+  --color-ink: #26241f;
+  --color-ink-muted: #6e6a61;
+  --color-ink-faint: #8c887e;
+  --color-line: rgb(38 36 31 / 12%);
+  --color-ember: #e27a50;
+  --color-ember-text: #c2582f;
+  --color-blob-ochre: #e2b36c;
+  --color-blob-ember: #e27a50;
+  --color-blob-glacier: #a8d6e0;
+  --color-blob-lichen: #8f8e70;
+  --color-blob-periwinkle: #8197cf;
+  --color-node: #26241f;
+  --color-node-pool: #cfcbc2;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --text-micro: 8.5px;
+  --text-micro--line-height: 12px;
+  --text-meta: 9.5px;
+  --text-meta--line-height: 12px;
+  --text-label: 11px;
+  --text-label--line-height: 14px;
+  --text-body: 14px;
+  --text-body--line-height: 21px;
+  --text-stat: 20px;
+  --text-stat--line-height: 28px;
+  --text-title: 21px;
+  --text-title--line-height: 32px;
+
+  --tracking-body: 0.02em;
+  --tracking-stat: 0.06em;
+  --tracking-label: 0.14em;
+  --tracking-meta: 0.16em;
+
+  --radius-sm: 8px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+
+  --container-mobile: 390px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-wrap: anywhere;
+}
+
+/* "( your connections )": the bracketed mono caption used throughout. */
+@utility meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+  line-height: var(--text-meta--line-height);
+  letter-spacing: var(--tracking-meta);
+  text-transform: lowercase;
+}
+
+@utility micro {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  line-height: var(--text-micro--line-height);
+  letter-spacing: var(--tracking-label);
+}
+
+/* ---- Motion: slow and quiet, like fog on glass. All of it switches off under reduced motion. ---- */
+
+@keyframes drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(3%, -4%) scale(1.06); }
+  66% { transform: translate(-4%, 2%) scale(0.96); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(0, -2.5px); }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
+
+@keyframes draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.92); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+}
+
+@utility drift {
+  animation: drift 26s ease-in-out infinite;
+}
+
+/* SVG node groups bob around their own center. */
+@utility float {
+  transform-box: fill-box;
+  animation: float 5s ease-in-out infinite;
+}
+
+@utility pulse-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pulse-ring 2.8s ease-out infinite;
+}
+
+/* For <line pathLength="1">: the edge draws itself outward from you. */
+@utility draw-in {
+  stroke-dasharray: 1;
+  animation: draw 0.9s cubic-bezier(0.3, 0.7, 0.2, 1) both;
+}
+
+@utility fade-in {
+  animation: fade-in 0.8s ease-out both;
+}
+
+@utility pop-in {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: pop 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+@utility rise-in {
+  animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Tactile press for anything tappable. */
+@utility press {
+  transition-property: transform, color, background-color, border-color, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

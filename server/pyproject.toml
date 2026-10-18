@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-scrape = ["browser-use>=0.5"]
+scrape = ["browser-use-sdk>=3.12"]
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.24"]

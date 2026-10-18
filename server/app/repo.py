@@ -42,6 +42,32 @@ async def merge_raw_sources(conn: AsyncConnection, user_id: UUID, patch: dict) -
     )
 
 
+async def add_social_links(conn: AsyncConnection, user_id: UUID, links: dict[str, str]) -> dict[str, str]:
+    """Merge links into the user's social_links (new values win) and return the merged set."""
+    row = await (
+        await conn.execute(
+            "UPDATE users SET social_links = social_links || %s WHERE id = %s RETURNING social_links",
+            (Jsonb(links), user_id),
+        )
+    ).fetchone()
+    if row is None:
+        raise HTTPException(404, "user not found")
+    return row["social_links"]
+
+
+async def merge_scraped(conn: AsyncConnection, user_id: UUID, scraped: dict[str, str]) -> None:
+    """Add per-platform scrape summaries without dropping platforms scraped earlier."""
+    await conn.execute(
+        """
+        UPDATE agent_profiles
+        SET raw_sources = jsonb_set(raw_sources, '{scraped}', COALESCE(raw_sources->'scraped', '{}'::jsonb) || %s),
+            updated_at = now()
+        WHERE user_id = %s
+        """,
+        (Jsonb(scraped), user_id),
+    )
+
+
 async def load_profiles(conn: AsyncConnection, universe_id: UUID) -> list[AgentProfile]:
     rows = await (
         await conn.execute(
@@ -78,3 +104,86 @@ async def load_onboarding_documents(conn: AsyncConnection, profiles: list[AgentP
         f"INTERVIEW:\n" + ("\n".join(transcripts.get(p.user_id, [])) or "(none)")
         for p in profiles
     ]
+
+# Onboarding status isn't stored; it's derived from what exists for the user.
+USER_STATUS_SQL = """
+    CASE
+        WHEN ap.private <> '{}'::jsonb THEN 'complete'
+        WHEN EXISTS (SELECT 1 FROM onboarding_messages om WHERE om.user_id = u.id) THEN 'chatting'
+        ELSE 'invited'
+    END
+"""
+
+USER_SORTS = {
+    "joined": "u.created_at",
+    "name": "lower(u.full_name)",
+    "phone": "u.phone",
+    "status": f"array_position(ARRAY['invited', 'chatting', 'complete'], {USER_STATUS_SQL})",
+}
+
+
+async def list_users_with_status(
+    conn: AsyncConnection, universe_id: UUID, sort: str = "joined", desc: bool = False
+) -> list[dict]:
+    order = USER_SORTS.get(sort, USER_SORTS["joined"])  # whitelisted, never raw input
+    cur = await conn.execute(
+        f"""
+        SELECT u.*, {USER_STATUS_SQL} AS status
+        FROM users u LEFT JOIN agent_profiles ap ON ap.user_id = u.id
+        WHERE u.universe_id = %s
+        ORDER BY {order} {"DESC" if desc else "ASC"}, u.id
+        """,
+        (universe_id,),
+    )
+    return await cur.fetchall()
+
+
+async def find_user_by_phone(conn: AsyncConnection, universe_id: UUID, phone: str) -> dict | None:
+    cur = await conn.execute("SELECT * FROM users WHERE universe_id = %s AND phone = %s", (universe_id, phone))
+    return await cur.fetchone()
+
+
+async def create_user(
+    conn: AsyncConnection,
+    universe_id: UUID,
+    full_name: str,
+    email: str | None = None,
+    phone: str | None = None,
+    social_links: dict | None = None,
+) -> dict:
+    user = await (
+        await conn.execute(
+            """
+            INSERT INTO users (universe_id, full_name, email, phone, social_links)
+            VALUES (%s, %s, %s, %s, %s) RETURNING *
+            """,
+            (universe_id, full_name, email, phone, Jsonb(social_links or {})),
+        )
+    ).fetchone()
+    await conn.execute(
+        "INSERT INTO agent_profiles (user_id, public) VALUES (%s, %s)", (user["id"], Jsonb({"name": full_name}))
+    )
+    return user
+
+
+async def load_group(conn: AsyncConnection, group: dict) -> dict:
+    """A `groups` row plus its members and events, shaped like `schemas.Group`."""
+    members = await (
+        await conn.execute(
+            """
+            SELECT u.id AS user_id, u.full_name FROM group_members gm
+            JOIN users u ON u.id = gm.user_id WHERE gm.group_id = %s
+            """,
+            (group["id"],),
+        )
+    ).fetchall()
+    events = await (
+        await conn.execute("SELECT name, url, venue, starts_at FROM events WHERE group_id = %s", (group["id"],))
+    ).fetchall()
+    return {
+        "id": group["id"],
+        "group_score": group["group_score"],
+        "rationale": group["rationale"],
+        "members": members,
+        "events": events,
+    }

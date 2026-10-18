@@ -27,6 +27,10 @@ class UserCreate(BaseModel):
     social_links: dict[str, str] = Field(default_factory=dict)
 
 
+class SocialLinksIn(BaseModel):
+    links: dict[str, str]
+
+
 class User(BaseModel):
     id: UUID
     universe_id: UUID
@@ -86,3 +90,54 @@ class Group(BaseModel):
     rationale: str | None
     members: list[GroupMember]
     events: list[EventOut]
+
+
+class UniverseSummary(BaseModel):
+    id: UUID
+    name: str
+    status: Literal["onboarding", "matching", "matched"]
+
+
+class Connection(BaseModel):
+    """A judged pair seen from one side: who the other person is and how it went."""
+
+    pair_id: UUID
+    user_id: UUID
+    full_name: str
+    vibe_score: float | None
+    logistics_fit: str | None
+    conflict: bool
+    in_group: bool
+
+
+class Edge(BaseModel):
+    a: UUID
+    b: UUID
+    vibe_score: float | None
+
+
+class Connections(BaseModel):
+    user: GroupMember
+    universe: UniverseSummary
+    others: list[UUID]
+    connections: list[Connection]
+    group: Group | None
+    edges: list[Edge]
+
+
+class PairMessage(BaseModel):
+    speaker_id: UUID
+    content: str
+    created_at: datetime
+
+
+class PairDetail(BaseModel):
+    id: UUID
+    other: GroupMember
+    vibe_score: float | None
+    logistics_fit: str | None
+    conflict: bool
+    in_group: bool
+    shared_keywords: list[str]
+    looking_for: str
+    messages: list[PairMessage]

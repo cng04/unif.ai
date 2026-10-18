@@ -18,6 +18,8 @@ CREATE TABLE users (
     full_name     TEXT NOT NULL,
     email         TEXT,
     phone         TEXT,
+    -- ASI:One sender address (agent1q...), for people who onboard through the ASI:One agent.
+    asi_address   TEXT,
     social_links  JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -113,6 +115,7 @@ CREATE TABLE events (
 );
 
 CREATE INDEX ON users (universe_id);
+CREATE INDEX ON users (asi_address);
 CREATE INDEX ON pairs (universe_id);
 CREATE INDEX ON pair_messages (pair_id);
 CREATE INDEX ON groups (universe_id);
