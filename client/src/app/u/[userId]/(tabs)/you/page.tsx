@@ -1,8 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { Blobs } from "@/components/atmosphere";
 import { Meta, ProfileSkeleton, Title } from "@/components/ui";
-import type { Group, Plan } from "@/lib/api";
 import { getConnections, getProfile } from "@/lib/cached";
 
 export default function YouPage({ params }: PageProps<"/u/[userId]/you">) {
@@ -61,17 +61,19 @@ async function YouScreen({ params }: { params: Promise<{ userId: string }> }) {
           )}
 
           {group && (
-            <>
-              <p className="micro pt-8 pb-1 text-ink-muted">( your group · {group.members.length} )</p>
-              <ul className="border-t border-line">
-                {group.members.map((m) => (
-                  <li key={m.user_id} className="border-b border-line py-2.5 text-label tracking-label lowercase">
-                    {m.user_id === userId ? "you" : m.full_name}
-                  </li>
-                ))}
-              </ul>
-              <Plans group={group} />
-            </>
+            // The group itself (members, plans) lives in the group flow; this just points there.
+            <Link
+              href={`/u/${userId}/group`}
+              className="press mt-8 flex items-center justify-between rounded-lg bg-sheet px-5 py-4 shadow-[0_1px_0_var(--color-line)] hover:-translate-y-0.5"
+            >
+              <span className="flex flex-col gap-1">
+                <span className="micro text-ink-muted">( your group · {group.members.length} )</span>
+                <span className="text-[15px] leading-6 font-light tracking-label lowercase">
+                  {group.members.filter((m) => m.user_id !== userId).map((m) => m.full_name).join(", ")}
+                </span>
+              </span>
+              <span aria-hidden className="text-ink-muted">→</span>
+            </Link>
           )}
         </section>
 
@@ -126,63 +128,4 @@ function Chips({ items }: { items: string[] }) {
       ))}
     </ul>
   );
-}
-
-/** The 3 plans the event search found for the group: a top-pick card, then compact rows. */
-function Plans({ group }: { group: Group }) {
-  if (group.plans_status === "pending") {
-    return <p className="micro pt-8 text-ink-muted">( your event agent is finding plans… )</p>;
-  }
-  const [top, ...rest] = group.events;
-  if (!top) return null;
-  return (
-    <section className="pt-8">
-      <p className="micro text-ink-muted">( your event agent found {group.events.length} plan{group.events.length === 1 ? "" : "s"} )</p>
-      {group.plans_summary && (
-        <p className="pt-1.5 text-body font-light tracking-body text-ink-muted">{group.plans_summary}</p>
-      )}
-      <a
-        href={top.url ?? undefined}
-        target="_blank"
-        rel="noreferrer"
-        className="press mt-4 flex flex-col gap-2.5 rounded-lg bg-sheet px-5 py-5 shadow-[0_1px_0_var(--color-line)] hover:-translate-y-0.5"
-      >
-        <span className="micro flex justify-between text-ink-muted">
-          <span>01 · top pick</span>
-          <span>via {top.source.toLowerCase()}</span>
-        </span>
-        <span className="text-[21px] leading-8 font-light tracking-label lowercase">{top.name}</span>
-        <PlanMeta plan={top} />
-        {top.reason && <span className="text-body font-light tracking-body text-ink-muted">{top.reason}</span>}
-      </a>
-      {rest.map((p, i) => (
-        <a
-          key={`${p.name}-${i}`}
-          href={p.url ?? undefined}
-          target="_blank"
-          rel="noreferrer"
-          className="press mt-2.5 flex items-center gap-4 rounded-lg border border-line bg-surface px-5 py-4 hover:-translate-y-0.5"
-        >
-          <span className="micro text-ink-muted">{String(i + 2).padStart(2, "0")}</span>
-          <span className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="truncate text-[15px] leading-6 font-light tracking-label lowercase">{p.name}</span>
-            <PlanMeta plan={p} />
-          </span>
-          <span aria-hidden className="text-ink-muted">›</span>
-        </a>
-      ))}
-    </section>
-  );
-}
-
-function PlanMeta({ plan }: { plan: Plan }) {
-  const when = plan.time_label ?? (plan.starts_at && formatDate(plan.starts_at));
-  const parts = [when, plan.venue?.toLowerCase(), plan.price].filter(Boolean);
-  return parts.length > 0 ? <span className="micro">{parts.join(" · ")}</span> : null;
-}
-
-function formatDate(iso: string) {
-  return new Date(iso)
-    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-    .toLowerCase();
 }

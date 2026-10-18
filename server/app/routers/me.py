@@ -15,7 +15,7 @@ from psycopg import AsyncConnection
 from app import repo
 from app.db import get_conn
 from app.matching.projection import project_3d
-from app.schemas import Connections, Group, PairDetail, UserGraph, UserGraphLink, UserGraphNode
+from app.schemas import Connections, Group, PairDetail, UserGraph, UserGraphLink, UserGraphNode, UserGroup
 
 router = APIRouter(prefix="/users/{user_id}", tags=["me"])
 
@@ -31,6 +31,24 @@ async def group_for(conn: AsyncConnection, user_id: UUID) -> dict | None:
         )
     ).fetchone()
     return await repo.load_group(conn, row) if row else None
+
+
+async def shared_keywords(conn: AsyncConnection, a: UUID, b: UUID, limit: int = 3) -> list[str]:
+    """Keywords both people score high on, strongest first: the "why two people matched" query from AGENTS.md."""
+    rows = await (
+        await conn.execute(
+            """
+            SELECT k.name FROM keyword_scores a
+            JOIN keyword_scores b USING (keyword_id)
+            JOIN keywords k ON k.id = keyword_id
+            WHERE a.user_id = %s AND b.user_id = %s AND a.score > 0.5 AND b.score > 0.5
+              AND NOT a.dealbreaker AND NOT b.dealbreaker
+            ORDER BY a.score * b.score DESC LIMIT %s
+            """,
+            (a, b, limit),
+        )
+    ).fetchall()
+    return [r["name"] for r in rows]
 
 
 @router.get("/connections", response_model=Connections)
@@ -159,20 +177,6 @@ async def get_pair(user_id: UUID, pair_id: UUID, conn: AsyncConnection = Depends
     public = await (
         await conn.execute("SELECT public FROM agent_profiles WHERE user_id = %s", (other_id,))
     ).fetchone()
-    # Keywords both people score high on, strongest first: the "why two people matched" query from AGENTS.md.
-    shared = await (
-        await conn.execute(
-            """
-            SELECT k.name FROM keyword_scores a
-            JOIN keyword_scores b USING (keyword_id)
-            JOIN keywords k ON k.id = keyword_id
-            WHERE a.user_id = %s AND b.user_id = %s AND a.score > 0.5 AND b.score > 0.5
-              AND NOT a.dealbreaker AND NOT b.dealbreaker
-            ORDER BY a.score * b.score DESC LIMIT 3
-            """,
-            (user_id, other_id),
-        )
-    ).fetchall()
     messages = await (
         await conn.execute(
             "SELECT speaker_id, content, created_at FROM pair_messages WHERE pair_id = %s AND kind = 'message' "
@@ -188,7 +192,81 @@ async def get_pair(user_id: UUID, pair_id: UUID, conn: AsyncConnection = Depends
         logistics_fit=pair["logistics_fit"],
         conflict=pair["conflict"],
         in_group=bool(group) and any(m["user_id"] == other_id for m in group["members"]),
-        shared_keywords=[r["name"] for r in shared],
+        shared_keywords=await shared_keywords(conn, user_id, other_id),
         looking_for=(public["public"] if public else {}).get("looking_for", ""),
         messages=messages,
+    )
+
+
+@router.get("/group", response_model=UserGroup)
+async def get_group(user_id: UUID, conn: AsyncConnection = Depends(get_conn)):
+    """The group screens: your group's members, why each fits you, its judged ties, and its plans. 404 until placed."""
+    group = await group_for(conn, user_id)
+    if group is None:
+        raise HTTPException(404, "not in a group")
+    ids = [m["user_id"] for m in group["members"]]
+    mine = {
+        r["other"]: r
+        for r in await (
+            await conn.execute(
+                "SELECT id, vibe_score, CASE WHEN user_a = %(me)s THEN user_b ELSE user_a END AS other "
+                "FROM pairs WHERE %(me)s IN (user_a, user_b)",
+                {"me": user_id},
+            )
+        ).fetchall()
+    }
+    intros = {
+        r["user_id"]: r["intro"]
+        for r in await (
+            await conn.execute(
+                "SELECT user_id, coalesce(public->>'intro', '') AS intro FROM agent_profiles WHERE user_id = ANY(%s)",
+                (ids,),
+            )
+        ).fetchall()
+    }
+    links = await (
+        await conn.execute(
+            "SELECT user_a AS a, user_b AS b, vibe_score FROM pairs WHERE user_a = ANY(%(ids)s) AND user_b = ANY(%(ids)s)",
+            {"ids": ids},
+        )
+    ).fetchall()
+    # Keywords every member scores high on and nobody avoids, ranked by the weakest member's score.
+    common = await (
+        await conn.execute(
+            """
+            SELECT k.name FROM keyword_scores s JOIN keywords k ON k.id = s.keyword_id
+            WHERE s.user_id = ANY(%(ids)s)
+            GROUP BY k.id, k.name
+            HAVING count(*) = %(n)s AND min(s.score) > 0.5 AND NOT bool_or(s.dealbreaker)
+            ORDER BY min(s.score) DESC LIMIT 4
+            """,
+            {"ids": ids, "n": len(ids)},
+        )
+    ).fetchall()
+
+    members = []
+    for m in group["members"]:
+        uid, pair = m["user_id"], mine.get(m["user_id"])
+        members.append(
+            {
+                **m,
+                "is_me": uid == user_id,
+                "pair_id": pair["id"] if pair else None,
+                "vibe_score": pair["vibe_score"] if pair else None,
+                "shared_keywords": [] if uid == user_id else await shared_keywords(conn, user_id, uid),
+                "intro": intros.get(uid, ""),
+            }
+        )
+    # You first, then whoever your agent got on with best.
+    members.sort(key=lambda m: (not m["is_me"], -(m["vibe_score"] or 0)))
+    return UserGroup(
+        group_id=group["id"],
+        group_score=group["group_score"],
+        agents_met=len(mine),
+        shared_keywords=[r["name"] for r in common],
+        members=members,
+        links=links,
+        plans_status=group["plans_status"],
+        plans_summary=group["plans_summary"],
+        events=group["events"],
     )

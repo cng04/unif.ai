@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
-from app.routers.me import get_connections, get_graph, get_pair
+from app.routers.me import get_connections, get_graph, get_group, get_pair
 
 
 async def add_user(conn: AsyncConnection, universe_id, name: str, looking_for: str = ""):
@@ -121,3 +121,27 @@ async def test_graph_names_only_my_people(test_db_conn, test_universe, world):
     with pytest.raises(HTTPException) as e:
         await get_graph(world["me"], "k0,nope,k2", test_db_conn)
     assert e.value.status_code == 422
+
+
+async def test_group_lists_members_and_hides_private_fields(test_db_conn, test_universe, world):
+    await add_scores(
+        test_db_conn,
+        test_universe,
+        {world["me"]: [0.9, 0.5, 0.1], world["maya"]: [0.8, 0.6, 0.2], world["ari"]: [0.1, 0.9, 0.5], world["jo"]: [0.5, 0.5, 0.9]},
+    )
+    group = await get_group(world["me"], test_db_conn)
+
+    assert [(m.full_name, m.is_me) for m in group.members] == [("Cyn", True), ("Maya", False)]
+    me, maya = group.members
+    assert maya.pair_id == world["with_maya"] and maya.vibe_score == 9.1
+    assert maya.shared_keywords == []  # every seeded keyword is marked as a dealbreaker
+    assert group.agents_met == 2
+    assert [(l.a, l.b) for l in group.links] == [tuple(sorted([world["me"], world["maya"]]))]
+    assert "secret" not in group.model_dump_json()
+
+
+async def test_group_is_404_when_not_placed(test_db_conn, world):
+    with pytest.raises(HTTPException) as e:
+        await get_group(world["ari"], test_db_conn)
+    assert e.value.status_code == 404
+

@@ -168,8 +168,9 @@ springs back to the place its scores give it. A press that moves under 5px count
 via react-three-fiber, loaded lazily) places the whole universe by keyword scores, either PCA or three keywords picked as
 axes (`?axes=a,b,c`).
 
-The app reads `GET /users/{id}/connections`, `GET /users/{id}/graph`, and `GET /users/{id}/pairs/{pair_id}`
-(`server/app/routers/me.py`).
+The app reads `GET /users/{id}/connections`, `GET /users/{id}/graph`, `GET /users/{id}/pairs/{pair_id}`, and
+`GET /users/{id}/group` (the `/u/{user_id}/group` reveal, meet and plans screens; `server/app/routers/me.py`).
+The `you` tab only links to the group; members and plans live in the group screens.
 They name only the user's own pairs and group members, return everyone else as anonymous ids, and never
 return judge rationales, dealbreaker flags, or private profile fields.
 

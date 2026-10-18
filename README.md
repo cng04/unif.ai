@@ -355,6 +355,7 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `GET /users/{id}/connections`           | One user's group and pairs; others as anonymous ids, no rationales   |
 | `GET /users/{id}/graph?axes=a,b,c`      | Everyone in 3D by keyword scores (PCA, or 3 picked keywords), named like `/connections` |
 | `GET /users/{id}/pairs/{pair_id}`       | One of the user's pairs, for the pair detail page                    |
+| `GET /users/{id}/group`                 | The user's group for the group screens: members, shared keywords, public intros, plans; 404 until placed |
 | `GET /invites/{code}`                   | Join page data: universe name, whether open, iMessage availability, ASI:One handle |
 | `POST /invites/{code}/join`             | Join from the client's join page (name, phone, consent)              |
 | `GET`/`POST /admin/api/universes`       | List universes with member/onboarded/group counts / create one (basic auth) |
