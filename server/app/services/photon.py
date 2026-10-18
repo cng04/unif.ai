@@ -6,7 +6,7 @@ import time
 import httpx
 
 from app.config import get_settings
-from app.services.ticketmaster import Event
+from app.services.event_search import Candidate
 
 log = logging.getLogger(__name__)
 
@@ -113,9 +113,10 @@ async def assign_line(phone: str, full_name: str) -> str | None:
         return None
 
 
-async def notify_group(members: list[dict], events: list[Event]) -> None:
+async def notify_group(members: list[dict], events: list[Candidate]) -> None:
     """members: user rows with full_name and phone."""
-    event_line = f" First idea: {events[0].name} ({events[0].url})" if events else ""
+    first = events[0] if events else None
+    event_line = f" First idea: {first.name}" + (f" ({first.url})" if first.url else "") if first else ""
     for member in members:
         if not member.get("phone"):
             continue

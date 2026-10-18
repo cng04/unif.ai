@@ -82,12 +82,18 @@ class EventOut(BaseModel):
     url: str | None
     venue: str | None
     starts_at: datetime | None
+    time_label: str | None = None
+    price: str | None = None
+    reason: str | None = None
+    source: str
 
 
 class Group(BaseModel):
     id: UUID
     group_score: float | None
     rationale: str | None
+    plans_status: Literal["pending", "ready", "none"]
+    plans_summary: str | None
     members: list[GroupMember]
     events: list[EventOut]
 

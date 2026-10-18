@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 from pydantic import BaseModel
@@ -37,6 +38,18 @@ async def find_events(keywords: list[str], city: str | None = None, per_keyword:
                     name=e["name"],
                     url=e.get("url"),
                     venue=venues[0].get("name") if venues else None,
-                    starts_at=e.get("dates", {}).get("start", {}).get("dateTime"),
+                    starts_at=local_start(e.get("dates", {})),
                 )
     return list(events.values())
+
+
+def local_start(dates: dict) -> datetime | None:
+    """Start time in the venue's own time zone, so its hour and weekday are what attendees see."""
+    raw = dates.get("start", {}).get("dateTime")
+    if not raw:
+        return None
+    starts_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    try:
+        return starts_at.astimezone(ZoneInfo(dates["timezone"])) if dates.get("timezone") else starts_at
+    except ZoneInfoNotFoundError:
+        return starts_at

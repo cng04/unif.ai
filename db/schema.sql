@@ -93,6 +93,10 @@ CREATE TABLE groups (
     universe_id  UUID NOT NULL REFERENCES universes(id) ON DELETE CASCADE,
     group_score  REAL,
     rationale    TEXT,
+    -- Event search runs after matching: pending -> ready (plans found) or none (nothing found).
+    plans_status  TEXT NOT NULL DEFAULT 'pending' CHECK (plans_status IN ('pending', 'ready', 'none')),
+    -- What the plans were picked for, e.g. "Picked for when you're all free, at $$ or under."
+    plans_summary TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -111,6 +115,11 @@ CREATE TABLE events (
     url            TEXT,
     venue          TEXT,
     starts_at      TIMESTAMPTZ,
+    -- Venue-local wall time, e.g. "sat 25 · 10:00", so the client never has to guess a time zone.
+    time_label     TEXT,
+    price          TEXT,
+    reason         TEXT,
+    rank           INT,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

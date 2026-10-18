@@ -170,8 +170,8 @@ WHERE p.universe_id = '00000000-0000-0000-0000-000000000001'
 ORDER BY p.id, c.turn;
 
 -- One group per cluster.
-INSERT INTO groups (id, universe_id, group_score, rationale)
-SELECT md5('dev-group-' || cluster)::uuid, '00000000-0000-0000-0000-000000000001', 8, 'dev seed: everyone shares the same core interests'
+INSERT INTO groups (id, universe_id, group_score, rationale, plans_status)
+SELECT md5('dev-group-' || cluster)::uuid, '00000000-0000-0000-0000-000000000001', 8, 'dev seed: everyone shares the same core interests', 'none'
 FROM (SELECT DISTINCT cluster FROM dev_user) c;
 
 INSERT INTO group_members (group_id, user_id)

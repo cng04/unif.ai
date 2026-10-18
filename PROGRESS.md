@@ -24,7 +24,7 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
 | Judge (pair + group)       | Done            | Pair judge is Jev (2 tests with a fake). Group judge is Gemini, untested. Error handling gaps (see below). |
 | Grouping (CP-SAT)          | Done            | Rewritten in `2cd6a5f` (OR-Tools). 4 unit tests. `review_groups` is untested. Far from optimal at 100+ people (see `AGENTS.md`). |
 | 3D projection + graph API  | Done            | 1 shape test.                                                                   |
-| Ticketmaster events        | Done            | Doesn't filter by city.                                                         |
+| Group plans (events)       | Done, untested live | Browser Use search with Ticketmaster fallback, 3 plans per group fitted to free time and budget. Never run end to end. |
 | Photon notifications       | **Stub**        | Logs only, even when a key is set (#9).                                        |
 | Client (Next.js)           | **Skeleton**    | Default create-next-app scaffold (`ff06aff`). No pages or API calls yet.        |
 | Auth                       | **Not started** | Every endpoint is public, including private profiles and agent notes.           |
@@ -69,10 +69,10 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
   old results, then keywords, then per-person scores + dealbreakers + availability (in parallel), then a
   hard filter for blocked pairs, then each person's top-M unblocked matches, then a conversation and judge
   per pair, then CP-SAT groups with no forbidden pairs (people who can't be placed are left out), then a
-  group review, then Ticketmaster events and a Photon notification. Status goes `matching` to `matched`,
-  or back to `onboarding` on failure.
+  group review. Status goes `matching` to `matched`, or back to `onboarding` on failure. After `matched`,
+  each group gets 3 plans (`plans.py`) and a Photon notification.
 - **Services**: `ticketmaster.py` (Discovery API), `photon.py` (stub that only logs), `scraper.py`
-  (Browser Use).
+  (Browser Use), `event_search.py` (Browser Use search for group plans).
 - **Config** (`config.py`): keyword_count 20, top_m 5, max_conversation_turns 12,
   max_concurrent_conversations 8, group size 4-8, group_solver_seconds 10. All can be overridden with env vars.
 
@@ -134,7 +134,8 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | 47 | [ ] `Makefile`: `db`, `db-reset`, `server`, `client`, `simulate`, `test`. | repo root | |
 | 48 | [ ] Generate TypeScript types from the API (`openapi-typescript http://localhost:8000/openapi.json`) so backend changes break the client build instead of breaking at demo time. | `client/` | |
 | 12 | [ ] Don't drop the message when `end_conversation` comes before `send_message` in the same response. | `agent/persona.py` | |
-| 28 | [ ] Ticketmaster: pass the group's most common city so events are local. | `ticketmaster.py`, `pipeline.py` | |
+| 28 | [x] ~~Ticketmaster: pass the group's most common city so events are local.~~ Done with group plans: a search area from members' `area`. | `plans.py` | |
+| 50 | [ ] **Plan voting.** "i'm in / can't" per plan, per-member status, and "goes ahead at N yeses" from the design. Needs a table and endpoints. | `db/`, `routers/`, client | |
 | 17 | [ ] After #8, check for over-blocking. Dealbreakers now forbid a pair in two places: the scoring prompt's dealbreaker keywords (hard filter) and the judge's `dealbreaker_conflicts`. Too many means lots of people left out. Tune the prompts if so. | `scoring.py`, `prompts.py` | |
 
 ### After the hackathon: cut for now
@@ -199,6 +200,11 @@ Decide these in the first hour.
 ## Changelog
 
 Add a line here for each change merged to `main`.
+
+- 2026-10-17: Group plans: after matching, each group gets 3 events or activities from a Browser Use web search
+  (Ticketmaster fallback), fitted in code to the group's shared free slot and lowest budget, shown on the `you` tab.
+  New `groups.plans_status`/`plans_summary` and `events.time_label`/`price`/`reason`/`rank` columns
+  (`db/migrations/002_group_plans.sql`), and `POST /groups/{id}/plans`. Closes #28; voting is #50.
 
 - 2026-10-17: `seed.sql` now has 40 celebrity profiles (athletes, actors, musicians, politicians, historical figures) in 8 clusters of 5 with dealbreaker clashes; `dev_graph_seed.sql` follows with 8 clusters.
 - 2026-10-17: OpenRouter can now stand in for both Gemini and Jev (one key runs the pipeline); conversations and `main.py` log at INFO.

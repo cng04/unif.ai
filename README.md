@@ -27,7 +27,7 @@ partitions people into groups.
 | Agent-to-agent interviews                    | Implemented; capped by turns and a concurrency limit.                  |
 | Compatibility judging (pair and group)       | Implemented (pair: Jev; group: LLM).                                   |
 | Group formation                              | Implemented (CP-SAT). Quality drops past about 100 people.             |
-| Real-world events                            | Partial: Ticketmaster lookup works if a key is set; no city filter.    |
+| Group plans (events)                         | Partial: 3 plans per group from a Browser Use web search (needs `SCRAPE_ENABLED`) or Ticketmaster, fitted to shared free time and budget. Never run end to end. No voting yet. |
 | Notifications                                | Partial: Photon assigns iMessage lines at join; match messages only log. |
 | Web client                                   | Per-user mobile pages (agent, connections, you, pair detail). No admin UI. |
 | Auth, consent, data deletion                 | Only `/admin` basic auth (`ADMIN_PASSWORD`). Everything else not started. |
@@ -119,10 +119,10 @@ unif.ai/
     │   ├── config.py, deps.py, db.py   settings and validation, model wiring, connection pool
     │   ├── schemas.py, repo.py         API models, shared SQL helpers
     │   ├── routers/                    universes.py, onboarding.py, matching.py, me.py, web.py
-    │   ├── matching/                   pipeline, keywords, scoring, pairing, groups, projection
-    │   └── services/                   ticketmaster.py, photon.py, scraper.py (optional)
+    │   ├── matching/                   pipeline, keywords, scoring, pairing, groups, plans, projection
+    │   └── services/                   ticketmaster.py, photon.py, scraper.py + event_search.py (optional)
     ├── scripts/seed_demo.py            fake post-matching "UI Demo" universe
-    ├── tests/                          test_matching.py, test_scraper.py; integration/ (skipped without a test DB)
+    ├── tests/                          test_matching.py, test_plans.py, test_scraper.py, test_event_search.py; integration/ (skipped without a test DB)
     └── .env.example
 ```
 
@@ -207,7 +207,8 @@ lists them. No secret has a default, and `.env` is gitignored. The onboarding bo
 | `ADMIN_PASSWORD`        | Before exposing the server     | HTTP basic auth for `/admin` (any username).                                       |
 | `CLIENT_URL`            | Optional                       | CORS origin. Default `http://localhost:3001`.                                      |
 | `PUBLIC_URL`            | Optional                       | Base for invite links (`/join/<code>`, served by this server). Default `http://localhost:8000`. |
-| `SCRAPE_ENABLED`, `BROWSER_USE_API_KEY` | Optional       | Scrape stored social links with Browser Use Cloud. Default off.                    |
+| `SCRAPE_ENABLED`, `BROWSER_USE_API_KEY` | Optional       | Scrape stored social links and search the web for group plans with Browser Use Cloud. Default off (plans then come from Ticketmaster). |
+| `PLANS_MAX_COST_USD`, `PLANS_TIMEOUT_S`, `PLANS_DAYS_AHEAD`, `PLANS_CANDIDATES`, `PLANS_CONCURRENCY` | Optional | Group plan search: defaults 0.30, 300, 14, 6, 4. |
 | `SCRAPE_MODEL`, `SCRAPE_MAX_COST_USD`, `SCRAPE_TIMEOUT_S`, `SCRAPE_SKIP_PLATFORMS` | Optional | Defaults `gemini-3-flash`, 0.05, 180, `instagram,tiktok,facebook`. |
 | `GEMINI_MODEL`          | Optional                       | Default `gemini-3.8-flash`.                                                        |
 | `JEV_MODEL`             | Optional                       | Default `jev-latest`.                                                              |
@@ -239,7 +240,7 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
 - **`deps.py`**: builds the cached `LLM`, `Jev`, `Interviewer` and `Judge`, choosing OpenRouter when its key is set.
 - **`matching/`**: the pipeline stages described below, orchestrated by `pipeline.run_matching`.
 - **`services/`**: Ticketmaster (httpx), Photon (iMessage line assignment; sending is a stub), Browser Use
-  scraper (optional, run as a background task after join).
+  scraper (optional, run as a background task after join), Browser Use event search for group plans (optional).
 - **Authentication and authorization:** only `/admin` is protected (basic auth with `ADMIN_PASSWORD`). Every
   JSON route is public, including private profiles and the `/users/{id}/...` views.
 - **Error handling**: a failed matching run resets the universe to `onboarding`. Within a run, a failed
@@ -286,7 +287,8 @@ Generated docs: <http://localhost:8000/docs>. No JSON endpoint requires authenti
 | `GET /universes/{id}/graph`             | 3D projected keyword scores per user, with group id                  |
 | `GET /universes/{id}/pairs`             | Judged pairs with scores and rationale                               |
 | `GET /pairs/{id}/messages`              | Pair transcript (messages only; private notes are hidden)            |
-| `GET /universes/{id}/groups`            | Groups with members, score, rationale and events                     |
+| `GET /universes/{id}/groups`            | Groups with members, score, rationale, plans status and up to 3 plans |
+| `POST /groups/{id}/plans`               | Re-run the plan search for one group (202; no notification). Should be admin-only once auth exists |
 | `GET /users/{id}/connections`           | One user's group and pairs; others as anonymous ids, no rationales   |
 | `GET /users/{id}/pairs/{pair_id}`       | One of the user's pairs, for the pair detail page                    |
 
@@ -315,7 +317,7 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
 ## Testing
 
 ```bash
-cd server && uv run --extra scrape pytest   # 18 tests + 3 DB tests; test_scraper.py needs the scrape extra
+cd server && uv run --extra scrape pytest   # 35 tests + 4 DB tests; test_scraper.py needs the scrape extra
 cd agent  && uv run pytest     # 10 tests
 cd client && npm run lint && npm run build
 cd onboarding && npm test
@@ -353,7 +355,7 @@ to be loaded with `schema.sql` by hand.
 | Pair/group judging              | Yes         | Group judge untested at scale            |                                  |                                             |
 | Keywords, scoring, filter, rank | Yes         | Never run on a real model                | Over-blocking tuning (#17)       |                                             |
 | Group formation                 | CP-SAT      | Weak at 100+ people                      | Greedy warm start; unplaced list |                                             |
-| Events                          | Ticketmaster|                                          | City filter                      |                                             |
+| Group plans                     | Browser Use search, Ticketmaster fallback | Never run end to end         | Voting ("i'm in"), live refresh |                                             |
 | Notifications                   | Line assignment | Match messages only log              | Real match messages via Photon   |                                             |
 | Auth / consent / deletion       |             | `/admin` basic auth                      | All                              | Auth approach; retention policy             |
 | Database / migrations           | Schema+seed | Idempotent SQL patches                   | Migration tool                   | Which tool                                  |

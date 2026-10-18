@@ -135,15 +135,30 @@ def seed(conn: psycopg.Connection) -> dict[str, str]:
         )
 
     group = conn.execute(
-        "INSERT INTO groups (universe_id, group_score, rationale) VALUES (%s, 0.84, 'Climbers who like a slow breakfast after.') RETURNING id",
+        """
+        INSERT INTO groups (universe_id, group_score, rationale, plans_status, plans_summary)
+        VALUES (%s, 0.84, 'Climbers who like a slow breakfast after.', 'ready',
+                'Picked for when you''re all free (weekend daytimes), at $$ or under.')
+        RETURNING id
+        """,
         (universe,),
     ).fetchone()["id"]
     for name in GROUP:
         conn.execute("INSERT INTO group_members (group_id, user_id) VALUES (%s, %s)", (group, ids[name]))
-    conn.execute(
-        "INSERT INTO events (group_id, name, venue, starts_at) VALUES (%s, 'Bouldering + breakfast', 'Mission Cliffs', %s)",
-        (group, now + timedelta(days=8)),
-    )
+    plans = [
+        ("Bouldering + breakfast", "Mission Cliffs", "$$", "Four of you climb, and everyone is free weekend mornings.", "meetup"),
+        ("Sunset walk, Bernal Hill", "Bernal Heights Park", "free", "An easy way for all of you to meet first.", "local guide"),
+        ("Taco crawl, 24th St", "24th St", "$$", "Three of you listed tacos.", "eventbrite"),
+    ]
+    for rank, (name, venue, price, reason, source) in enumerate(plans, 1):
+        starts_at = now + timedelta(days=7 + rank)
+        conn.execute(
+            """
+            INSERT INTO events (group_id, source, name, venue, starts_at, time_label, price, reason, rank)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (group, source, name, venue, starts_at, f"{starts_at:%a}".lower() + f" {starts_at.day} · {starts_at:%H:%M}", price, reason, rank),
+        )
     for role, text in INTERVIEW:
         conn.execute(
             "INSERT INTO onboarding_messages (user_id, role, content) VALUES (%s, %s, %s)", (ids["Cyn"], role, text)

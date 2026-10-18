@@ -114,7 +114,14 @@ text. A Noul (true/false) answer counts as yes above `YES = 0.5`.
    places as many people as possible, then keeps that count fixed and maximizes the total edge weight
    inside groups. People who can't be placed are left out. The group judge (Gemini) then re-checks each
    group and can drop one misfit.
-8. Ticketmaster events are found for each group's shared interests, and members are notified via Photon.
+8. The universe is marked `matched`. Then, outside the pipeline's DB connection, each group gets 3 plans
+   (`plans.py`, a few groups at a time; `groups.plans_status` is `pending` until done, then `ready` or `none`).
+   Code keeps every slot the most members are free in (empty availability counts as flexible), the lowest
+   budget tier in the group, and the top shared public interests. Gemini turns members' private `area` and
+   `travel` into one coarse search area; only that string, the interests, slot, dates and price cap go to
+   Browser Use (`services/event_search.py`, needs `SCRAPE_ENABLED`). Ticketmaster is the fallback. Code drops
+   candidates outside the slot (by venue-local time) or over budget, Gemini picks 3 with a one-line reason
+   built only from interest counts, and members are notified via Photon. `POST /groups/{id}/plans` re-runs it.
 
 **Known issue:** at around 100 or more people, CP-SAT hits `group_solver_seconds` far from optimal. In a
 synthetic benchmark with 5 judged edges per person, the edge weight kept inside groups was 45% at 30

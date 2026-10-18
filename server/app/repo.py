@@ -178,12 +178,20 @@ async def load_group(conn: AsyncConnection, group: dict) -> dict:
         )
     ).fetchall()
     events = await (
-        await conn.execute("SELECT name, url, venue, starts_at FROM events WHERE group_id = %s", (group["id"],))
+        await conn.execute(
+            """
+            SELECT name, url, venue, starts_at, time_label, price, reason, source FROM events
+            WHERE group_id = %s ORDER BY rank NULLS LAST, starts_at
+            """,
+            (group["id"],),
+        )
     ).fetchall()
     return {
         "id": group["id"],
         "group_score": group["group_score"],
         "rationale": group["rationale"],
+        "plans_status": group["plans_status"],
+        "plans_summary": group["plans_summary"],
         "members": members,
         "events": events,
     }
