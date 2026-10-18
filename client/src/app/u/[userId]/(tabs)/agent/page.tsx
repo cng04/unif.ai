@@ -36,7 +36,8 @@ async function AgentScreen({ params }: { params: Promise<{ userId: string }> }) 
         ]}
       />
 
-      <header className="flex items-center gap-3 border-b border-line px-5 pt-5 pb-4">
+      {/* Stays put while the chat scrolls: at the top on phones, under the desktop tab bar on wider screens. */}
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-paper/70 px-5 pt-5 pb-4 backdrop-blur-md md:top-[88px]">
         <div className="flex size-7 shrink-0 items-center justify-center rounded-full border border-ink/40">
           <span className="size-3 rounded-full bg-ink" />
         </div>
@@ -52,7 +53,9 @@ async function AgentScreen({ params }: { params: Promise<{ userId: string }> }) 
 
       <section className="flex flex-1 flex-col gap-3.5 px-5 pt-5 pb-4">
         {transcript.length === 0 && (
-          <p className="micro py-6 text-center text-ink-muted">( say hi to your agent )</p>
+          <p className="micro py-6 text-center text-ink-muted">
+            ( {data.onboarded ? "say hi to your agent" : "your onboarding chat will show up here"} )
+          </p>
         )}
         {transcript.map((m, i) => (
           <div
@@ -68,7 +71,14 @@ async function AgentScreen({ params }: { params: Promise<{ userId: string }> }) 
 
       {/* Stays reachable while scrolling a long chat: above the mobile tab bar, at the bottom on desktop. */}
       <div className="sticky bottom-[86px] z-10 px-5 pt-2 md:bottom-0 md:pb-8">
-        <ChatInput action={sendToAgent.bind(null, userId)} placeholder="message your agent…" />
+        {data.onboarded ? (
+          <ChatInput action={sendToAgent.bind(null, userId)} placeholder="message your agent…" />
+        ) : (
+          // Onboarding only happens in iMessage / ASI:One; this tab mirrors it until the profile is saved.
+          <p className="rounded-full border border-line bg-paper/70 px-5 py-3 text-center text-[12.5px] leading-[18px] font-light tracking-body text-ink-muted backdrop-blur-md">
+            finish setting up with your agent in iMessage. you can chat here once you&apos;re done.
+          </p>
+        )}
       </div>
     </main>
   );

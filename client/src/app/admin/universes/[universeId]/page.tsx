@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
+<<<<<<< Updated upstream
 import { RenameUniverseTitle, RunMatchingButton } from "@/components/admin-forms";
+=======
+import { RenameUniverse, RunMatchingButton } from "@/components/admin-forms";
+>>>>>>> Stashed changes
 import { AdminHeader, Caption, Chip, outline, Panel, shortDate } from "@/components/admin-ui";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { CopyButton } from "@/components/copy-button";
@@ -52,7 +56,11 @@ async function UniverseScreen({
       {universe.status === "matching" && <AutoRefresh seconds={10} />}
       <AdminHeader
         crumbs={["universes", universe.name]}
+<<<<<<< Updated upstream
         title={<RenameUniverseTitle key={universe.name} name={universe.name} action={renameUniverse.bind(null, universe.id)} />}
+=======
+        title={<RenameUniverse name={universe.name} action={renameUniverse.bind(null, universe.id)} />}
+>>>>>>> Stashed changes
         subtitle={`${universe.status} · created ${shortDate(universe.created_at)} · invite code ${universe.invite_code}`}
         actions={
           <>

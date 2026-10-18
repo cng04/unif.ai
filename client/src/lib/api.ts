@@ -64,6 +64,8 @@ export type Plan = {
 
 export type Connections = {
   user: Member;
+  /** Finished onboarding in iMessage / ASI:One; the agent chat opens after that. */
+  onboarded: boolean;
   universe: { id: string; name: string; status: UniverseStatus };
   others: string[];
   connections: Connection[];
@@ -141,6 +143,8 @@ export const api = {
   interview: (userId: string) => request<InterviewMessage[]>(`/users/${userId}/interview`),
   sendInterview: (userId: string, message: string) =>
     request<{ reply: string }>(`/users/${userId}/interview`, { method: "POST", body: JSON.stringify({ message }) }),
+  /** Rebuild the agent profile from every source (both chats, self-report, scraped accounts). One LLM call. */
+  rebuildProfile: (userId: string) => request<Profile>(`/users/${userId}/profile`, { method: "POST" }),
   universe: (universeId: string) => request<Universe>(`/universes/${universeId}`),
   users: (universeId: string) => request<UniverseUser[]>(`/universes/${universeId}/users`),
   universeGraph: (universeId: string) => request<GraphPoint[]>(`/universes/${universeId}/graph`),

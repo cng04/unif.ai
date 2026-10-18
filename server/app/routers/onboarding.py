@@ -1,7 +1,7 @@
 import asyncio
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 from unifai_agent import AgentProfile, Interviewer
@@ -75,13 +75,13 @@ async def get_interview(user_id: UUID, conn: AsyncConnection = Depends(get_conn)
 
 
 @router.post("/users/{user_id}/interview", response_model=ChatOut)
-async def interview_turn(
-    user_id: UUID,
-    body: ChatIn,
-    conn: AsyncConnection = Depends(get_conn),
-    interviewer: Interviewer = Depends(get_interviewer),
-):
+async def interview_turn(user_id: UUID, body: ChatIn, conn: AsyncConnection = Depends(get_conn)):
     await repo.get_user(conn, user_id)
+    # Onboarding happens in iMessage / ASI:One; chatting with the agent here opens once it's done.
+    # Checked before building the interviewer, so a refused message never needs an LLM client.
+    if not await repo.is_onboarded(conn, user_id):
+        raise HTTPException(409, "finish onboarding with your agent first")
+    interviewer = get_interviewer()
     await conn.execute(
         "INSERT INTO onboarding_messages (user_id, role, content) VALUES (%s, 'user', %s)", (user_id, body.message)
     )

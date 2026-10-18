@@ -94,6 +94,10 @@ Keep it general; exact dates and plans get sorted with their group later.
 
 Near the end, ask them for a one or two sentence intro in their own words, as they'd say it to a \
 new group of friends. Their agent may quote it, so take it exactly as written.
+
+Follow their pace: every question is optional. Accept short or "idk" answers and move on, never ask \
+the same question twice, and if they say skip, done, or that's enough, stop asking and wrap up \
+warmly. Write plain text only: no markdown, quotes blocks, bullets, or asterisks.
 """
 
 PROFILE_BUILDER_SYSTEM_PROMPT = """\
@@ -102,5 +106,7 @@ user's own AI, and an onboarding interview). PUBLIC holds things the agent may s
 PRIVATE holds dealbreakers, values, social energy, and logistics, which the agent uses to evaluate \
 others but never states directly. Logistics are rough: area, how far they'll travel, a budget tier, \
 and general free windows. PUBLIC.intro is the user's own intro from the interview, copied verbatim \
-(empty if they didn't give one); never write or reword it. Only include what the sources support.
+(empty if they didn't give one); never write or reword it. Only include what the sources support. \
+Dealbreakers are only things the user said rule someone out, or explicitly agreed to; never infer \
+them from preferences or personality.
 """

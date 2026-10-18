@@ -124,6 +124,8 @@ class Edge(BaseModel):
 
 class Connections(BaseModel):
     user: GroupMember
+    # Onboarding (in iMessage / ASI:One) is finished once the bot saves the private profile.
+    onboarded: bool
     universe: UniverseSummary
     others: list[UUID]
     connections: list[Connection]

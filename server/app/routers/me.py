@@ -63,6 +63,7 @@ async def get_connections(user_id: UUID, conn: AsyncConnection = Depends(get_con
     ).fetchall()
     return Connections(
         user={"user_id": user["id"], "full_name": user["full_name"]},
+        onboarded=await repo.is_onboarded(conn, user_id),
         universe=universe,
         others=[r["id"] for r in others],
         connections=[{**r, "in_group": r["user_id"] in group_ids} for r in mine],
