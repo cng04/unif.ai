@@ -49,14 +49,14 @@ async function UniverseList() {
                     {p.name}
                   </Link>
                 </td>
-                <td className="pr-4 font-mono text-[10px] tracking-[0.1em]">
+                <td className="pr-4 font-mono text-[11px] tracking-[0.1em]">
                   <span className={p.status === "matching" ? "text-ember-text" : ""}>{p.status}</span>
                 </td>
-                <td className="pr-4 font-mono text-[10px] tracking-[0.1em]">
+                <td className="pr-4 font-mono text-[11px] tracking-[0.1em]">
                   {p.onboarded} / {p.members}
                 </td>
-                <td className="pr-4 font-mono text-[10px] tracking-[0.1em]">{p.groups || "—"}</td>
-                <td className="font-mono text-[10px] tracking-[0.1em] text-ink-muted">{shortDate(p.created_at)}</td>
+                <td className="pr-4 font-mono text-[11px] tracking-[0.1em]">{p.groups || "—"}</td>
+                <td className="font-mono text-[11px] tracking-[0.1em] text-ink-muted">{shortDate(p.created_at)}</td>
               </tr>
             ))}
           </tbody>

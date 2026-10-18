@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Glass } from "./ui";
 
-const label = "font-mono text-[10.5px] tracking-[0.1em] lowercase";
+const label = "font-mono text-[11.5px] tracking-[0.1em] lowercase";
 
 /**
  * Legend card for the 3D view: "similarity" (PCA of every keyword) or three Jev keywords as x / y / z.

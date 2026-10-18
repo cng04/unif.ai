@@ -17,9 +17,9 @@ export function AdminHeader({
   return (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div className="flex flex-col gap-2">
-        <p className="font-mono text-[10px] leading-3 tracking-meta text-ink-muted">( {crumbs.join(" / ")} )</p>
+        <p className="font-mono text-[11px] leading-3 tracking-meta text-ink-muted">( {crumbs.join(" / ")} )</p>
         {typeof title === "string" ? <h1 className={titleClass}>{title}</h1> : title}
-        {subtitle && <p className="font-mono text-[10px] leading-3 tracking-label text-ink-muted">{subtitle}</p>}
+        {subtitle && <p className="font-mono text-[11px] leading-3 tracking-label text-ink-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
@@ -32,7 +32,7 @@ export function Panel({ children, className = "" }: { children: ReactNode; class
 }
 
 export function Caption({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <p className={`font-mono text-[10px] leading-3 tracking-meta text-ink-muted ${className}`}>( {children} )</p>;
+  return <p className={`font-mono text-[11px] leading-3 tracking-meta text-ink-muted ${className}`}>( {children} )</p>;
 }
 
 export function Chip({ children, tone = "plain" }: { children: ReactNode; tone?: "plain" | "ember" | "dashed" }) {
@@ -42,7 +42,7 @@ export function Chip({ children, tone = "plain" }: { children: ReactNode; tone?:
     dashed: "border-dashed border-ink/40 text-ink-muted",
   }[tone];
   return (
-    <span className={`inline-flex rounded-full border px-2 py-[3px] font-mono text-[9px] leading-3 tracking-[0.1em] ${styles}`}>
+    <span className={`inline-flex rounded-full border px-2 py-[3px] font-mono text-[10px] leading-3 tracking-[0.1em] ${styles}`}>
       {children}
     </span>
   );

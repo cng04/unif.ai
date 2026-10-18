@@ -61,7 +61,7 @@ async function AgentScreen({ params }: { params: Promise<{ userId: string }> }) 
             key={i}
             // Only the latest few messages animate, so a long history doesn't take ages to appear.
             style={{ animationDelay: `${Math.max(0, i - (transcript.length - 6)) * 90}ms` }}
-            className={`rise-in ${m.role === "user" ? "max-w-[280px] self-end md:max-w-[420px]" : "max-w-[300px] md:max-w-[440px]"}`}
+            className={`rise-in max-w-[82%] ${m.role === "user" ? "ml-[18%] self-end" : "mr-[18%] self-start"}`}
           >
             <Bubble side={m.role === "user" ? "you" : "them"}>{m.content}</Bubble>
           </div>

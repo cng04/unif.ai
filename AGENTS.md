@@ -162,7 +162,9 @@ Pages are server components that call the API through `src/lib/api.ts` (`API_URL
 file and live in `src/app/globals.css`. There is no auth yet: the user id in the URL is the only identity.
 
 The connections tab defaults to 3D, with a `2d · 3d` toggle (`?view=2d` for the ego graph). Tapping a match opens
-the agent conversation in a drawer (`?pair={pair_id}`, `components/pair-drawer.tsx`) instead of navigating. The 3D view (`components/connections-graph-3d.tsx`, three.js
+the agent conversation in a drawer (`?pair={pair_id}`, `components/pair-drawer.tsx`) instead of navigating. Both graphs put nodes on springs
+(`src/lib/elastic.ts`): the 2D view pans, zooms and keeps dragged dots where they're dropped; in 3D a dragged dot
+springs back to the place its scores give it. A press that moves under 5px counts as a tap. The 3D view (`components/connections-graph-3d.tsx`, three.js
 via react-three-fiber, loaded lazily) places the whole universe by keyword scores, either PCA or three keywords picked as
 axes (`?axes=a,b,c`).
 

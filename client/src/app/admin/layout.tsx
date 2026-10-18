@@ -20,7 +20,7 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
           <Link href="/admin" className="flex items-center gap-2.5 px-2.5 lg:pb-6">
             <LogoMark />
             <span className="text-[15px] leading-[18px] font-light tracking-meta">unif.ai</span>
-            <span className="hidden font-mono text-[9px] leading-3 tracking-[0.12em] text-ink-muted sm:inline">admin</span>
+            <span className="hidden font-mono text-[10px] leading-3 tracking-[0.12em] text-ink-muted sm:inline">admin</span>
           </Link>
           <Suspense fallback={null}>
             <AdminNav />

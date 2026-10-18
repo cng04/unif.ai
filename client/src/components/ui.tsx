@@ -16,7 +16,7 @@ export function Stat({ value, label, accent }: { value: ReactNode; label: ReactN
   return (
     <div className="flex flex-col gap-0.5">
       <span className={`text-stat font-light tracking-stat ${accent ? "text-ember-text" : ""}`}>{value}</span>
-      <span className="font-mono text-[10px] leading-[14px] tracking-[0.12em] text-ink/70 md:text-[10.5px]">{label}</span>
+      <span className="font-mono text-[11px] leading-[15px] tracking-[0.12em] text-ink/70 md:text-[11.5px]">{label}</span>
     </div>
   );
 }

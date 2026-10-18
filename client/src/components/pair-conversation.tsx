@@ -43,15 +43,16 @@ export function PairConversation({ pair, userId }: { pair: PairDetail; userId: s
         )}
         {pair.messages.map((m, i) => {
           const side = m.speaker_id === userId ? "you" : "them";
-          const firstOfSide = pair.messages.findIndex((x) => x.speaker_id === m.speaker_id) === i;
+          // Name the speaker whenever the turn changes, not only the first time.
+          const newTurn = pair.messages[i - 1]?.speaker_id !== m.speaker_id;
           return (
             // Replays the conversation: each message rises in after the one before it.
             <div
               key={i}
               style={{ animationDelay: `${250 + i * 160}ms` }}
-              className={`rise-in flex flex-col gap-[5px] ${side === "you" ? "max-w-[280px] items-end self-end md:max-w-[420px]" : "max-w-[290px] md:max-w-[420px]"}`}
+              className={`rise-in flex max-w-[82%] flex-col gap-[5px] ${side === "you" ? "ml-[18%] items-end self-end" : "mr-[18%] items-start self-start"} ${newTurn && i > 0 ? "mt-2" : ""}`}
             >
-              {firstOfSide && <SpeakerLabel side={side}>{side === "you" ? "your agent" : `${name}'s agent`}</SpeakerLabel>}
+              {newTurn && <SpeakerLabel side={side}>{side === "you" ? "your agent" : `${name}'s agent`}</SpeakerLabel>}
               <Bubble side={side}>{m.content}</Bubble>
             </div>
           );

@@ -202,6 +202,12 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Connections graphs: both views sit on a small spring layout (`client/src/lib/elastic.ts`). 2D pans,
+  zooms (wheel, pinch, buttons) and lets you drag any dot, which stays where dropped; 3D dots can be dragged and
+  spring back, PCA is rescaled per axis so people no longer clump, labels fade with depth, and your lines carry a
+  decorative pulse out (ember) and back (periwinkle). "me" is labelled "me (name)". Chat bubbles alternate sides
+  with an 18% margin and name the speaker on every turn. Type scale bumped (micro 10px, meta 10.5px, label 12px).
+  Checked with lint, build and SSR smoke tests; not yet checked by hand in a browser.
 - 2026-10-17: OpenRouter chat temperatures now belong to the rotated models rather than people: GPT-OSS is
   restrained (`0.50`), DeepSeek balanced (`0.80`), and GLM wild (`1.05`). Each pair samples ±`0.08` once and
   keeps that temperature for all turns; seeded profiles remain neutral (`0.70`).

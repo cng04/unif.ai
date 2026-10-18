@@ -77,7 +77,7 @@ async function UniverseScreen({
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-baseline justify-between gap-3 pb-3">
             <Caption>members · {stats.members}</Caption>
-            <div className="flex gap-3.5 font-mono text-[10px] leading-3 tracking-label">
+            <div className="flex gap-3.5 font-mono text-[11px] leading-3 tracking-label">
               <FilterLink universeId={universeId} value="all" current={show}>all</FilterLink>
               <FilterLink universeId={universeId} value="waiting" current={show}>not onboarded · {counts.waiting}</FilterLink>
               {matched && (
@@ -212,7 +212,7 @@ function StageCell({ stage: s }: { stage: Stage }) {
               : "border-[1.2px] border-ink bg-paper"
         }`}
       />
-      <span className={`font-mono text-[10px] leading-3 tracking-label ${active ? "text-ember-text" : "text-ink-muted"}`}>
+      <span className={`font-mono text-[11px] leading-3 tracking-label ${active ? "text-ember-text" : "text-ink-muted"}`}>
         {s.label}
       </span>
       <span className="text-stat leading-6 font-light tracking-[0.04em]">{s.value}</span>
@@ -254,7 +254,7 @@ const statusMark: Record<string, { icon: string; muted: boolean }> = {
 
 function MembersTable({ members, matched }: { members: UniverseDetail["members"]; matched: boolean }) {
   if (members.length === 0) return <Caption className="py-6">nobody here yet</Caption>;
-  const cell = "py-[11px] pr-4 font-mono text-[10px] leading-3 tracking-[0.1em] whitespace-nowrap";
+  const cell = "py-[11px] pr-4 font-mono text-[11px] leading-3 tracking-[0.1em] whitespace-nowrap";
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-left">
@@ -332,7 +332,7 @@ function Health({ universe }: { universe: UniverseDetail }) {
       )}
       <div className="flex flex-col gap-2 border-t border-line pt-4">
         <span className="font-mono text-meta leading-3 tracking-label text-ink-muted">invite link</span>
-        <code className="font-mono text-[10px] leading-4 break-all">{universe.invite_url}</code>
+        <code className="font-mono text-[11px] leading-4 break-all">{universe.invite_url}</code>
         <div>
           <CopyButton text={universe.invite_url} label="copy link" />
         </div>

@@ -73,10 +73,13 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
 
       <div className="flex w-full flex-col gap-4 px-5 pt-3 md:mx-auto md:max-w-[520px] md:px-0">
         {graph && <AxisPicker keywords={graph.keywords} axes={graph.axes} className="mx-auto md:hidden" />}
-        {/* Always the head count; once agents have met, also how to open their conversations. */}
-        <p className="text-center font-mono text-[10.5px] leading-4 tracking-[0.12em] text-ink/70 md:text-[11px]">
+        {/* Always the head count; once agents have met, also how to move around and open their conversations. */}
+        <p className="text-center font-mono text-[11.5px] leading-[18px] tracking-[0.12em] text-ink/70 md:text-[12px]">
           {data.others.length} {data.others.length === 1 ? "other" : "others"} in the universe
-          {data.connections.length > 0 && " · tap a line or a name to read how your agents met"}
+          {data.connections.length > 0 &&
+            (graph
+              ? " · drag to turn · drag a dot to pull it · tap a line or a name to read how your agents met"
+              : " · drag to move · drag a dot to rearrange · pinch or scroll to zoom · tap a line to read how your agents met")}
         </p>
         <Glass className="flex justify-between px-[18px] py-3.5 md:px-6 md:py-4">
           <Stat value={<CountUp to={data.connections.length} />} label="agents met" />
