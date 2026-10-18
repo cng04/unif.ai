@@ -1,0 +1,31 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`LA Hacks seed > matches the reviewed selection 1`] = `
+[
+  "kitchen:L:14 [cocktails, cooking, dinner parties]",
+  "study:L:13 [reading, science]",
+  "fitness:L:12 [competition, training]",
+  "outdoors:M:10 [hiking, wildlife]",
+  "boardgames:M:9 [board games]",
+  "music:M:9 [live music, songwriting]",
+  "arcade:M:6 [video games]",
+  "art:M:6 [museums, painting]",
+  "party:M:6 [late nights]",
+]
+`;
+
+exports[`LA Hacks seed > matches the reviewed selection 2`] = `[]`;
+
+exports[`UI Demo > matches the reviewed selection 1`] = `
+[
+  "kitchen:L:18 [cooking, long breakfasts]",
+  "climbing:L:11 [climbing]",
+  "outdoors:L:11 [hiking]",
+  "boardgames:L:9 [board games]",
+  "cinema:M:7 [film]",
+  "music:M:7 [live music]",
+  "fitness:M:5 [running]",
+]
+`;
+
+exports[`UI Demo > matches the reviewed selection 2`] = `[]`;
