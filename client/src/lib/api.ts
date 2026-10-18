@@ -16,11 +16,17 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   // Always fresh: this is live data (and dev's fetch cache would otherwise replay stale responses).
-  const res = await fetch(`${API_URL}${path}`, {
-    cache: "no-store",
-    ...init,
-    headers: { "content-type": "application/json", ...init?.headers },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      cache: "no-store",
+      ...init,
+      headers: { "content-type": "application/json", ...init?.headers },
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") throw new ApiError(504, "the api took too long");
+    throw e;
+  }
   if (!res.ok) {
     // FastAPI puts the reason in `detail` (e.g. "matching already in progress").
     const detail = await res.json().then((b) => (typeof b?.detail === "string" ? b.detail : null), () => null);
@@ -198,7 +204,9 @@ export const api = {
   /** Drop the look and let the agent choose again from what the person wrote. */
   resetLook: (userId: string) => request<Look>(`/users/${userId}/look`, { method: "DELETE" }),
   userWorld: (userId: string, since?: string) =>
-    request<WorldSnapshot | Unchanged>(`/users/${userId}/world${since ? `?since=${encodeURIComponent(since)}` : ""}`),
+    request<WorldSnapshot | Unchanged>(`/users/${userId}/world${since ? `?since=${encodeURIComponent(since)}` : ""}`, {
+      signal: AbortSignal.timeout(12_000),
+    }),
 };
 
 // ---- Admin (client/src/app/admin). The server checks ADMIN_PASSWORD on /admin/api; we forward the same one. ----
@@ -317,6 +325,7 @@ export const adminApi = {
   world: (id: string, since?: string) =>
     request<WorldSnapshot | Unchanged>(`/admin/api/universes/${id}/world${since ? `?since=${encodeURIComponent(since)}` : ""}`, {
       headers: adminHeaders(),
+      signal: AbortSignal.timeout(12_000),
     }),
   /** Real universes by default; demo ones (seeded fixtures, synthetic people) are listed separately. */
   universes: (mode: "real" | "demo" | "all" = "real") =>

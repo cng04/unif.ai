@@ -204,6 +204,9 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-18: The DB pool now allows 16 connections (it was capped at 4). Matching holds two for a whole run, which
+  was making the world snapshot wait out the pool timeout. World fetches give up after 12s instead of
+  leaving the page request open, and the admin chat stream flushes each line.
 - 2026-10-18: The admin sidebar has a universe switcher. Choosing one opens that universe on the same tab
   (overview, pool graph, groups, world, or add person).
 - 2026-10-18: Persona chats also rotate through `amazon/nova-micro-v1`, `deepseek/deepseek-v4.1-flash`,

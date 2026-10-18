@@ -21,8 +21,10 @@ async function WorldScreen({ params }: { params: Promise<{ universeId: string }>
   const { universeId } = await params;
   const initial = await adminApi.world(universeId).catch((e) => {
     if (e instanceof ApiError && (e.status === 404 || e.status === 422)) notFound();
+    if (e instanceof ApiError && e.status === 504) return null;
     throw e;
   });
+  if (initial == null) return <Caption>the world took too long to open. refresh in a moment.</Caption>;
   if ("unchanged" in initial) throw new Error("unexpected unchanged snapshot");
   return (
     <WorldCanvas
