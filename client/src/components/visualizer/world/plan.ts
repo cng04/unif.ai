@@ -10,9 +10,9 @@
 // - Trees, bushes, flowers and lamps dress the open land, spaced so they can never wall anything off.
 
 import {
-  circleSeats, hash, rng, type Activity, type Dir, type Furniture, type FurnitureKind, type Spot,
+  hash, rng, type Activity, type Dir, type Furniture, type FurnitureKind, type Spot,
 } from "./geometry";
-import { SHARED, SIZES, type FurnitureSlot, type Preset, type Tier, type Variant } from "./presets";
+import { SHARED, SIZES, type Preset, type Tier, type Variant } from "./presets";
 import type { Selection, Structure } from "./select";
 
 // Fixed size, big enough for every preset in the library at its largest tier; unused land is landscape.

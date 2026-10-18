@@ -2,7 +2,7 @@
 // overlays (bio card avatar) draw the same person. Each agent gets a palette and hair style from its user id.
 // Exported sheets live in design/sprites/ and on the "Sprites · in-game" artboard in Paper.
 
-import { hash, rng, type Dir } from "./layout";
+import { hash, rng, type Dir } from "./world/geometry";
 
 export const FRAME_W = 16;
 export const FRAME_H = 24;

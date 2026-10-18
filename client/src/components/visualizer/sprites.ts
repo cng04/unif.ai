@@ -3,7 +3,7 @@
 
 import { Rectangle, Texture } from "pixi.js";
 import { DIRS, FRAME_H, FRAME_W, POSES, paintSheet, paletteFor, type Palette, type Pose } from "./character";
-import type { Dir } from "./layout";
+import type { Dir } from "./world/geometry";
 
 export { FRAME_H, FRAME_W, POSES, type Pose } from "./character";
 

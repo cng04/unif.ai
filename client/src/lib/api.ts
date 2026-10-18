@@ -1,4 +1,5 @@
 import "server-only";
+import type { Unchanged, WorldSnapshot } from "@/components/visualizer/world/snapshot";
 
 // Server-side only: the browser never talks to the API directly, so there's no CORS or key exposure.
 const API_URL = process.env.API_URL ?? "http://localhost:8000";
@@ -178,6 +179,9 @@ export const api = {
   pairs: (universeId: string) => request<Pair[]>(`/universes/${universeId}/pairs`),
   groups: (universeId: string) => request<Group[]>(`/universes/${universeId}/groups`),
   pairMessages: (pairId: string) => request<PairMessage[]>(`/pairs/${pairId}/messages`),
+  /** The World as one participant may see it (no scores, dealbreakers, flags or rationales). */
+  userWorld: (userId: string, since?: string) =>
+    request<WorldSnapshot | Unchanged>(`/users/${userId}/world${since ? `?since=${encodeURIComponent(since)}` : ""}`),
 };
 
 // ---- Admin (client/src/app/admin). The server checks ADMIN_PASSWORD on /admin/api; we forward the same one. ----
@@ -272,6 +276,11 @@ export type AdminPair = {
 
 export const adminApi = {
   scores: (id: string) => request<UniverseScores>(`/admin/api/universes/${id}/scores`, { headers: adminHeaders() }),
+  /** The World snapshot; with `since` set to the last version, answers `{unchanged: true}` when nothing moved. */
+  world: (id: string, since?: string) =>
+    request<WorldSnapshot | Unchanged>(`/admin/api/universes/${id}/world${since ? `?since=${encodeURIComponent(since)}` : ""}`, {
+      headers: adminHeaders(),
+    }),
   universes: () => request<UniverseListItem[]>("/admin/api/universes", { headers: adminHeaders() }),
   createUniverse: (name: string, admin_email: string) =>
     request<UniverseSummary>("/admin/api/universes", {
