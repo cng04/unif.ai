@@ -103,7 +103,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | #  | Task | Where | Owner |
 | -- | ---- | ----- | ----- |
 | 5  | [x] Add `server/.env.example` (`DATABASE_URL`, `GEMINI_API_KEY`, `TICKETMASTER_API_KEY`, `PHOTON_API_KEY`, `CLIENT_URL`). Share the real keys in the team chat, never in the repo. | `server/` | |
-| 7  | [ ] **Seed about 20 varied profiles** (some clear mismatches and dealbreaker conflicts) so matching makes 3-4 groups. Include `onboarding_messages` for each user, since keywords and scoring now read the interview transcript too. | `db/seed.sql` | |
+| 7  | [x] Seeded two varied 40-person public-figure demos, each with profiles, deliberate mismatches and onboarding transcripts (`lahacks`, `encore40`). | `db/seed.sql`, `db/seed_celebrity_encore.sql` | Cursor |
 | 43 | [ ] **Fixture data for a finished matching run:** precomputed keywords, keyword scores, pairs + transcripts, groups, events for the seed universe. Frontend can build every page without running the pipeline, and it's the **demo fallback** if Gemini fails live. | `db/seed.sql` or `db/fixture_matched.sql` | |
 | 6  | [ ] **Build the client.** In demo order: create universe + invite QR, `/join/[code]` onboarding (name, paste self-report, interviewer chat), admin "start matching" + status, groups + events, then the 3D playground (#49) and pair transcripts. Read `client/AGENTS.md` first. | `client/` | |
 | 49 | [ ] **Keyword playground (3D).** A three.js scatter plot where the user picks 3 keywords as the X/Y/Z axes. Each point is one person in the universe, placed by their Jev keyword scores (0-1) on those 3 keywords. The viewer's own point is highlighted. People the viewer had a simulated chat with (a row in `pairs`) are colored; everyone else is grey. Clicking a colored point opens that agent-to-agent transcript (`GET /pairs/{id}/messages`, with `note` rows dropped per #2). Needs a new endpoint that returns the universe's keywords plus each user's raw per-keyword scores (`GET /universes/{id}/graph` only returns the 3D projection), and a way to know who the viewer is (user id from onboarding). | `client/`, `routers/matching.py` | |
@@ -208,6 +208,8 @@ Add a line here for each change merged to `main`.
   decorative pulse out (ember) and back (periwinkle). "me" is labelled "me (name)". Chat bubbles alternate sides
   with an 18% margin and name the speaker on every turn. Type scale bumped (micro 10px, meta 10.5px, label 12px).
   Checked with lint, build and SSR smoke tests; not yet checked by hand in a browser.
+- 2026-10-17: Added rerunnable `db/seed_celebrity_encore.sql`: a second 40-person universe (`encore40`) with
+  different real public figures, 40 fictional public-persona profiles, and 160 onboarding messages. Closes #7.
 - 2026-10-17: OpenRouter chat temperatures now belong to the rotated models rather than people: GPT-OSS is
   restrained (`0.50`), DeepSeek balanced (`0.80`), and GLM wild (`1.05`). Each pair samples ±`0.08` once and
   keeps that temperature for all turns; seeded profiles remain neutral (`0.70`).

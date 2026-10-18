@@ -15,7 +15,7 @@ it says so.
 An **admin** creates a **universe** (a hackathon, a club, a friend-of-friends pool) and shares an invite
 link. Each **participant** onboards, which produces a structured agent profile. The admin then starts
 matching, and the server finds compatible pairs, has their agents talk, judges the conversations, and
-partitions people into groups.
+partitions people into groups. 
 
 | Capability                                   | Status                                                                 |
 | -------------------------------------------- | ---------------------------------------------------------------------- |
@@ -126,6 +126,7 @@ unif.ai/
 │   ├── migrations/                     idempotent SQL patches for older databases
 │   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`): 40 playful celebrity
 │   │                                   profiles in 8 clusters of 5, with interviews and dealbreaker clashes
+│   ├── seed_celebrity_encore.sql       Rerunnable second 40-person public-figure demo (invite `encore40`)
 │   ├── dev_graph_seed.sql              fake matching output for that universe (scores, pairs, groups); run by hand
 │   └── docker-compose.yml              local Postgres; runs schema + seed on first boot only
 ├── agent/                              unifai_agent library
@@ -177,6 +178,8 @@ uv run uvicorn app.main:app --reload     # http://localhost:8000
 #    Optional demo data without running the models:
 uv run python -m scripts.seed_demo       # "UI Demo" universe that looks post-matching; prints /u/<id> links
 docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_graph_seed.sql   # fake results for "LA Hacks Demo"
+#    Second unmatched 40-person public-figure pool (safe to re-run):
+docker exec -i unifai-db psql -U unifai -d unifai < ../db/seed_celebrity_encore.sql
 
 # 3. Client (API_URL defaults to http://localhost:8000; set ADMIN_PASSWORD to the server's value if you set one)
 cd client && npm install && npm run dev  # http://localhost:3001, admin at /admin
@@ -362,7 +365,9 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
   tool or version tracking; that is an open decision.
 - **Persistence**: local data lives in the `pgdata` Docker volume.
 - **Seed data**: `seed.sql` creates the `lahacks` universe with 40 playful celebrity profiles (built from public
-  personas, not real data) in 8 clusters, with deliberate dealbreaker clashes. `dev_graph_seed.sql` adds fake
+  personas, not real data) in 8 clusters, with deliberate dealbreaker clashes. `seed_celebrity_encore.sql`
+  creates a separate, rerunnable 40-person pool of different real public figures (`encore40`); its profiles and
+  logistics are explicitly fictional demo sketches, not claims about private lives. `dev_graph_seed.sql` adds fake
   matching output for it so `/graph`, `/pairs` and `/groups` have data; `server/scripts/seed_demo.py` builds a
   separate post-matching "UI Demo" universe (invite `ui-demo`).
 - **Unused**: `agent_profiles.embedding` (vector(768)).
