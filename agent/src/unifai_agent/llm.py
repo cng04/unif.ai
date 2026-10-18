@@ -122,6 +122,8 @@ class OpenRouterLLM:
         attempts: int = 8,
         timeout: float = 180.0,
         rpm: int = 0,
+        chat_temperature: float | None = None,
+        temperature_jitter: float = 0.0,
     ):
         self.client = make_client(api_key, timeout)
         self.model = model
@@ -129,6 +131,9 @@ class OpenRouterLLM:
         self.max_tokens = max_tokens
         self.attempts = attempts
         self.limiter = limiter_for(model, rpm)
+        # Persona conversations bind one randomized temperature around this base for all turns in that pair.
+        self.chat_temperature = chat_temperature
+        self.temperature_jitter = temperature_jitter
 
     def generate(
         self,

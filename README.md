@@ -247,6 +247,8 @@ lists them. No secret has a default, and `.env` is gitignored. The onboarding bo
 | `JEV_MODEL`             | Optional                       | Default `jev-latest`.                                                              |
 | `OPENROUTER_MODEL`      | Optional                       | Keywords, interviewer and group judge. Default `google/gemini-2.5-flash-lite`.     |
 | `OPENROUTER_CHAT_MODEL` | Optional                       | Persona chats; comma-separate models to rotate pairs across them (each has its own rate limit). Default `openai/gpt-oss-20b,~deepseek/deepseek-v4-flash-latest,z-ai/glm-5.3-flash`. |
+| `OPENROUTER_CHAT_TEMPERATURES` | Optional                | One temperature per chat model, or one for all. Default `0.50,0.80,1.05`.          |
+| `OPENROUTER_CHAT_TEMPERATURE_JITTER` | Optional           | Uniform ± jitter sampled once per pair and held fixed for all turns. Default `0.08`. |
 | `OPENROUTER_CHAT_MAX_TOKENS` | Optional                  | Max output tokens per persona-chat turn (caps OpenRouter in-flight credit reservation). Default `512`. |
 | `OPENROUTER_JEV_MODEL`  | Optional                       | Native Jev System One model for scoring and the pair judge; versions can be comma-separated. Default `~typesafe/jev-latest,typesafe/jev-1.14,typesafe/jev-1.13`. |
 | `OPENROUTER_RPM`        | Optional                       | Per-model requests per minute; default 0 (unlimited). OpenRouter caps accounts at 20/min per model. |

@@ -202,6 +202,9 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: OpenRouter chat temperatures now belong to the rotated models rather than people: GPT-OSS is
+  restrained (`0.50`), DeepSeek balanced (`0.80`), and GLM wild (`1.05`). Each pair samples ±`0.08` once and
+  keeps that temperature for all turns; seeded profiles remain neutral (`0.70`).
 - 2026-10-17: Pair agents now complete all configured turns instead of ending early, and the agent-world
   animation restarts when a late transcript arrives and stays active long enough to show every line.
 - 2026-10-17: Candidate ranking now gives every person up to `TOP_M` outgoing proposals. Reciprocal proposals

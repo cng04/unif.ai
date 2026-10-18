@@ -2,9 +2,11 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import numpy as np
+import pytest
 
 from app.matching.groups import build_groups
 from app.matching.keywords import Keyword
+from app.matching.pairing import _temperature_for_chat
 from app.matching.pipeline import save_signals
 from app.matching.projection import project_3d
 from app.matching.scoring import (
@@ -265,6 +267,8 @@ def test_chat_llms_use_bounded_max_tokens_and_rotate_models(monkeypatch):
         lambda: Settings(
             openrouter_api_key="key",
             openrouter_chat_model="google/gemini-3.8-flash,google/gemini-3.7-flash",
+            openrouter_chat_temperatures="0.4,1.1",
+            openrouter_chat_temperature_jitter=0.08,
             openrouter_chat_max_tokens=512,
         ),
     )
@@ -273,6 +277,15 @@ def test_chat_llms_use_bounded_max_tokens_and_rotate_models(monkeypatch):
 
     assert [m.model for m in llms] == ["google/gemini-3.8-flash", "google/gemini-3.7-flash"]
     assert all(m.max_tokens == 512 for m in llms)
+    assert [m.chat_temperature for m in llms] == [0.4, 1.1]
+    assert all(m.temperature_jitter == 0.08 for m in llms)
+
+
+def test_pair_temperature_is_randomized_once_around_model_base(monkeypatch):
+    monkeypatch.setattr("app.matching.pairing.random.uniform", lambda low, high: 0.06)
+    llm = SimpleNamespace(chat_temperature=0.8, temperature_jitter=0.08)
+
+    assert _temperature_for_chat(llm) == pytest.approx(0.86)
 
 
 def test_openrouter_jev_ignores_chat_models_and_falls_back(monkeypatch, caplog):

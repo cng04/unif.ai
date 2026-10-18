@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # Persona chats only, the bulk of the tokens. Comma-separate several models to rotate pairs across them:
     # OpenRouter rate limits are per model, so each one adds its own requests-per-minute budget.
     openrouter_chat_model: str = "openai/gpt-oss-20b,~deepseek/deepseek-v4-flash-latest,z-ai/glm-5.3-flash"
+    # One per chat model (or one value for all): restrained GPT-OSS, balanced DeepSeek, wild GLM.
+    openrouter_chat_temperatures: str = "0.50,0.80,1.05"
+    openrouter_chat_temperature_jitter: float = 0.08  # sampled once per pair, then held fixed for all turns
     openrouter_chat_max_tokens: int = 512  # 1-3 sentence turns; keeps OpenRouter in-flight credit reservation low
     # Native Jev System One models on OpenRouter. Comma-separate versions to rotate requests across them.
     openrouter_jev_model: str = "~typesafe/jev-latest,typesafe/jev-1.14,typesafe/jev-1.13"
@@ -59,6 +62,13 @@ class Settings(BaseSettings):
     min_group_size: int = 4
     max_group_size: int = 8
     group_solver_seconds: float = 10.0
+
+    @field_validator("openrouter_chat_temperature_jitter")
+    @classmethod
+    def validate_openrouter_chat_temperature_jitter(cls, v: float) -> float:
+        if not 0 <= v <= 0.5:
+            raise ValueError("openrouter_chat_temperature_jitter must be between 0 and 0.5")
+        return v
 
     @field_validator("keyword_count")
     @classmethod

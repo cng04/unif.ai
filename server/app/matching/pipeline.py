@@ -121,7 +121,12 @@ async def run_matching(universe_id: UUID) -> None:
                 "Starting %d agent conversations with concurrency %d across chat models: %s",
                 len(candidates),
                 settings.max_concurrent_conversations,
-                ", ".join(getattr(model, "model", type(model).__name__) for model in chat_llms),
+                ", ".join(
+                    f"{getattr(model, 'model', type(model).__name__)}"
+                    f"@{getattr(model, 'chat_temperature', 'profile')}"
+                    f"±{getattr(model, 'temperature_jitter', 0)}"
+                    for model in chat_llms
+                ),
             )
 
             async def run_and_save_pair(n: int, i: int, j: int) -> None:

@@ -13,6 +13,22 @@ def _models(csv: str) -> list[str]:
     return [m.strip() for m in csv.split(",") if m.strip()]
 
 
+def _temperatures(csv: str, count: int) -> list[float | None]:
+    try:
+        values = [float(v.strip()) for v in csv.split(",") if v.strip()]
+    except ValueError as exc:
+        raise ValueError("OPENROUTER_CHAT_TEMPERATURES must contain numbers") from exc
+    if not values:
+        return [None] * count
+    if len(values) == 1:
+        values *= count
+    if len(values) != count:
+        raise ValueError("OPENROUTER_CHAT_TEMPERATURES must have one value or one value per chat model")
+    if any(v < 0 or v > 2 for v in values):
+        raise ValueError("OPENROUTER_CHAT_TEMPERATURES values must be between 0 and 2")
+    return values
+
+
 def _jev_models(csv: str) -> list[str]:
     configured = _models(csv)
     models = [m for m in configured if m.lstrip("~").startswith("typesafe/jev-")]
@@ -37,14 +53,17 @@ def get_chat_llms() -> list[LLM]:
     if not settings.openrouter_api_key:
         return [get_llm()]
     models = _models(settings.openrouter_chat_model)
+    temperatures = _temperatures(settings.openrouter_chat_temperatures, len(models))
     return [
         OpenRouterLLM(
             m,
             settings.openrouter_api_key,
             max_tokens=settings.openrouter_chat_max_tokens,
             rpm=settings.openrouter_rpm,
+            chat_temperature=temperature,
+            temperature_jitter=settings.openrouter_chat_temperature_jitter,
         )
-        for m in models
+        for m, temperature in zip(models, temperatures)
     ]
 
 

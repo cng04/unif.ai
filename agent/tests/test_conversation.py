@@ -7,8 +7,10 @@ class ScriptedLLM:
 
     def __init__(self, responses: list[LLMResponse]):
         self.responses = list(responses)
+        self.calls = []
 
     def generate(self, system, history, **kwargs) -> LLMResponse:
+        self.calls.append(kwargs)
         return self.responses.pop(0)
 
     def embed(self, texts):
@@ -58,3 +60,12 @@ def test_plain_text_reply_is_nudged_back_to_send_message():
     assert result.message == "I'm Cynthia"
     assert not result.ended
     assert agent.history == []
+
+
+def test_chat_temperature_override_replaces_profile_temperature():
+    llm = ScriptedLLM([say("hi")])
+    agent = PersonaAgent(profile("a", "Cynthia"), llm, temperature_override=1.03)
+
+    agent.respond()
+
+    assert llm.calls[0]["temperature"] == 1.03

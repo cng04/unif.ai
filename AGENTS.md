@@ -199,8 +199,10 @@ from stored rows; there is no stored progress or approval state. The older serve
   **OpenRouter mode:** if `OPENROUTER_API_KEY` is set, `server/app/deps.py` uses `OpenRouterLLM` for text and
   `OpenRouterJev` for typed questions through OpenRouter's native System One API. One key is enough to run the whole
   pipeline. Persona chats (`openrouter_chat_model`) and Jev versions (`openrouter_jev_model`) can take comma-separated
-  model lists and rotate pairs across them; `openrouter_rpm` paces each model under the account's cap. Jev model IDs
-  include `typesafe/jev-1.13`, `typesafe/jev-1.14`, and the `~typesafe/jev-latest` alias.
+  model lists and rotate pairs across them; `openrouter_chat_temperatures` assigns one sampling temperature per chat
+  model (or one for all), overriding profile temperature for those chats. Each pair samples once within
+  `openrouter_chat_temperature_jitter` of that base and keeps the result for every turn. `openrouter_rpm` paces each
+  model under the account's cap. Jev IDs include `typesafe/jev-1.13`, `typesafe/jev-1.14`, and `~typesafe/jev-latest`.
 - Jev works best with literal, single-judgment questions and a state that holds only what the question
   needs. Keep math, counting, and date comparisons in code. See the TypeSafe "jaggedness" docs.
 - Tuning knobs (`keyword_count`, `top_m`, turns, group sizes, `group_solver_seconds`) live in
