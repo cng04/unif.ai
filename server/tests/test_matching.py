@@ -75,6 +75,12 @@ def test_build_groups_places_people_with_no_judged_edges():
     assert all(4 <= len(g) <= 8 for g in groups)
 
 
+def test_default_group_size_allows_groups_of_three():
+    from app.config import Settings
+
+    assert Settings(_env_file=None).min_group_size == 3
+
+
 def test_build_groups_never_combines_forbidden_pairs():
     users = [f"u{i}" for i in range(8)]
     forbidden = {("u0", "u1")}

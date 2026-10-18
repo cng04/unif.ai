@@ -234,7 +234,7 @@ export function roomAt(floor: FloorId, x: number): Room {
   return ROOMS.find((r) => r.floor === floor && x >= r.x0 && x <= r.x1) ?? ROOMS.find((r) => r.floor === floor)!;
 }
 
-/** Eight tiles around a 2x2 centerpiece, ordered so 4-8 members spread evenly round the table. */
+/** Eight tiles around a 2x2 centerpiece, ordered so 3-8 members spread evenly round the table. */
 export function circleSeats(cx: number, cy: number, pose: "sit" | "act", activity: Activity): Spot[] {
   const top = [s(cx, cy - 1, "S", pose, activity), s(cx + 1, cy - 1, "S", pose, activity)];
   const bottom = [s(cx, cy + 2, "N", pose, activity), s(cx + 1, cy + 2, "N", pose, activity)];

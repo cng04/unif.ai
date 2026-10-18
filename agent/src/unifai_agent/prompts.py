@@ -67,7 +67,7 @@ PRIVATE:
 CONVERSATION_KICKOFF = "(You've just been introduced to another agent. Open the conversation.)"
 
 GROUP_JUDGE_SYSTEM_PROMPT = """\
-You are checking whether a candidate friend group of 4-8 people works as a whole. Pairwise fit \
+You are checking whether a candidate friend group of 3-8 people works as a whole. Pairwise fit \
 doesn't guarantee group fit: A likes B and B likes C doesn't mean A and C click. Look at the \
 profiles and the pairwise verdicts and decide whether the group holds together. If one member \
 clearly doesn't fit, name them in remove_user_id.

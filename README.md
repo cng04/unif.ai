@@ -1,7 +1,7 @@
 # unif.ai
 
 AI agents represent people, interview each other, and sort a pool of people into small friend groups
-(4-8) who can then meet in real life.
+(3-8) who can then meet in real life.
 
 This README is the canonical overview: what exists, how to run it, and how ready it is. `AGENTS.md` is the
 operating guide for AI coding agents (conventions, rules, pipeline internals). `PROGRESS.md` is the live
@@ -127,6 +127,7 @@ unif.ai/
 │   ├── seed.sql                        "LA Hacks Demo" universe (invite code `lahacks`): 40 playful celebrity
 │   │                                   profiles in 8 clusters of 5, with interviews and dealbreaker clashes
 │   ├── seed_celebrity_encore.sql       Rerunnable second 40-person public-figure demo (invite `encore40`)
+│   ├── seed_celebrity_fifteen.sql      Rerunnable 15-person public-figure demo (invite `celeb15`)
 │   ├── dev_graph_seed.sql              fake matching output for that universe (scores, pairs, groups); run by hand
 │   └── docker-compose.yml              local Postgres; runs schema + seed on first boot only
 ├── agent/                              unifai_agent library
@@ -180,6 +181,8 @@ uv run python -m scripts.seed_demo       # "UI Demo" universe that looks post-ma
 docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_graph_seed.sql   # fake results for "LA Hacks Demo"
 #    Second unmatched 40-person public-figure pool (safe to re-run):
 docker exec -i unifai-db psql -U unifai -d unifai < ../db/seed_celebrity_encore.sql
+#    Smaller unmatched 15-person public-figure pool (safe to re-run):
+docker exec -i unifai-db psql -U unifai -d unifai < ../db/seed_celebrity_fifteen.sql
 
 # 3. Client (API_URL defaults to http://localhost:8000; set ADMIN_PASSWORD to the server's value if you set one)
 cd client && npm install && npm run dev  # http://localhost:3001, admin at /admin
@@ -303,7 +306,7 @@ Starting a matching run returns 503 unless `OPENROUTER_API_KEY` or `TYPESAFE_API
    filled proposal slots first and similarity second; reciprocal proposals become one chat and the rejected direction
    goes to a next-best person. Incoming proposals do not count against the cap.
 6. **Chat and judge**: only candidate pairs get an agent conversation, then a Jev verdict (vibe 1-10, logistics, dealbreakers).
-7. **Groups** (CP-SAT): groups of 4-8 with no forbidden pair; place as many as possible, then maximize judged edge weight. Unplaced people are left out.
+7. **Groups** (CP-SAT): groups of 3-8 with no forbidden pair; place as many as possible, then maximize judged edge weight. Unplaced people are left out.
 8. **Group review** (Gemini) may drop one misfit; then events are looked up and members notified.
 
 Cost is bounded: at most `n * TOP_M` conversations (not n²), each with `MAX_CONVERSATION_TURNS` turns.
@@ -367,9 +370,10 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
 - **Seed data**: `seed.sql` creates the `lahacks` universe with 40 playful celebrity profiles (built from public
   personas, not real data) in 8 clusters, with deliberate dealbreaker clashes. `seed_celebrity_encore.sql`
   creates a separate, rerunnable 40-person pool of different real public figures (`encore40`); its profiles and
-  logistics are explicitly fictional demo sketches, not claims about private lives. `dev_graph_seed.sql` adds fake
-  matching output for it so `/graph`, `/pairs` and `/groups` have data; `server/scripts/seed_demo.py` builds a
-  separate post-matching "UI Demo" universe (invite `ui-demo`).
+  logistics are explicitly fictional demo sketches, not claims about private lives. `seed_celebrity_fifteen.sql`
+  creates a separate rerunnable 15-person pool (`celeb15`) for shorter live matching runs. `dev_graph_seed.sql`
+  adds fake matching output for `lahacks` so `/graph`, `/pairs` and `/groups` have data;
+  `server/scripts/seed_demo.py` builds a separate post-matching "UI Demo" universe (invite `ui-demo`).
 - **Unused**: `agent_profiles.embedding` (vector(768)).
 
 ## Testing

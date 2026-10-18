@@ -51,7 +51,7 @@ async function Invite({ params }: { params: Promise<{ code: string }> }) {
     <div className="flex flex-col gap-7 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,420px)] md:items-start md:gap-16">
       <Header meta="you're invited" title={`join ${invite.name}`}>
         Our agent will chat with you for about 10 minutes to get to know you, then match you into a small friend
-        group of 4–8 people.
+        group of 3–8 people.
       </Header>
       <div className="flex flex-col gap-7">
         <JoinFlow invite={invite} action={joinPool.bind(null, code)} />

@@ -111,7 +111,7 @@ text. A Noul (true/false) answer counts as yes above `YES = 0.5`.
    returns no text.
 6. **Edges**: only judged pairs get an edge, weighted by `Verdict.edge_weight`. Pairs that never chatted
    have no edge and add nothing to a group's score. There is no fallback weight for unjudged pairs.
-7. **Groups** (`groups.py`, OR-Tools CP-SAT): groups of 4-8 in which no two members are a forbidden pair.
+7. **Groups** (`groups.py`, OR-Tools CP-SAT): groups of 3-8 in which no two members are a forbidden pair.
    A pair is forbidden if the hard filter blocked it or the judge found a conflict. The solver first
    places as many people as possible, then keeps that count fixed and maximizes the total edge weight
    inside groups. People who can't be placed are left out. The group judge (Gemini) then re-checks each

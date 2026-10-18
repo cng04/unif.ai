@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     top_m: int = 4
     max_conversation_turns: int = 6
     max_concurrent_conversations: int = 50
-    min_group_size: int = 4
+    min_group_size: int = 3
     max_group_size: int = 8
     group_solver_seconds: float = 10.0
 
