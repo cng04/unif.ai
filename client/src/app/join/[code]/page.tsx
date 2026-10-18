@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "join · unif.ai" };
 
 export default function JoinPage({ params }: PageProps<"/join/[code]">) {
   return (
-    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-7 px-7 pt-12 pb-[max(40px,env(safe-area-inset-bottom))] md:pt-20">
+    <main className="mx-auto flex w-full max-w-[480px] flex-1 flex-col gap-7 px-7 pt-12 pb-[max(40px,env(safe-area-inset-bottom))] md:max-w-5xl md:px-10 md:pt-24">
       <Blobs
         blobs={[
           { color: "ochre", x: "70%", y: "12%", size: 260, opacity: 0.6, blur: 55 },
@@ -47,13 +47,16 @@ async function Invite({ params }: { params: Promise<{ code: string }> }) {
     );
   }
   return (
-    <>
+    // Desktop: the pitch on the left, the ways to join on the right.
+    <div className="flex flex-col gap-7 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,420px)] md:items-start md:gap-16">
       <Header meta="you're invited" title={`join ${invite.name}`}>
         Our agent will chat with you for about 10 minutes to get to know you, then match you into a small friend
         group of 4–8 people.
       </Header>
-      <JoinFlow invite={invite} action={joinPool.bind(null, code)} />
-    </>
+      <div className="flex flex-col gap-7">
+        <JoinFlow invite={invite} action={joinPool.bind(null, code)} />
+      </div>
+    </div>
   );
 }
 
@@ -61,7 +64,7 @@ function Header({ meta, title, children }: { meta: string; title: string; childr
   return (
     <header className="rise-in flex flex-col gap-3">
       <Meta>{meta.toLowerCase()}</Meta>
-      <Title className="text-[26px] leading-9">{title}</Title>
+      <Title className="text-[26px] leading-9 md:text-[44px] md:leading-[52px]">{title}</Title>
       <p className="text-body font-light tracking-body text-ink-muted">{children}</p>
     </header>
   );

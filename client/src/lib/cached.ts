@@ -1,6 +1,6 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
-import { api, ApiError, type Connections, type InterviewMessage, type Profile, type UserGraph } from "./api";
+import { api, ApiError, type Connections, type InterviewMessage, type Profile, type UserGraph, type UserGroup } from "./api";
 
 // Short-lived, per-user caches for the user pages. Giving reads a lifetime is what lets the tab bar prefetch the
 // other tabs (data included), so switching is instant; 10s revalidation keeps matching progress and new messages
@@ -51,4 +51,11 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   cacheLife(LIFE);
   cacheTag(userTag(userId));
   return orNull(api.profile(userId));
+}
+
+export async function getGroup(userId: string): Promise<UserGroup | null> {
+  "use cache";
+  cacheLife(LIFE);
+  cacheTag(userTag(userId));
+  return orNull(api.group(userId));
 }
