@@ -1,4 +1,4 @@
-"""Find events and activities for a group with one Browser Use Cloud run (install with the `scrape` extra).
+"""Find events and activities for a group with one Browser Use Cloud run (needs BROWSER_USE_API_KEY).
 
 The run searches public listing sites and returns structured candidates. It only ever sees a coarse search
 area, the group's shared public interests, a free-time window and a price cap: no names, nothing private.
@@ -84,13 +84,13 @@ def _clean(text: str, limit: int = 60) -> str:
 async def search_events(query: SearchQuery) -> list[Candidate]:
     """Return candidates from one Browser Use run, or [] when scraping is off or the run fails."""
     settings = get_settings()
-    if not settings.scrape_enabled or not settings.browser_use_api_key:
-        log.info("[event search disabled] needs SCRAPE_ENABLED and BROWSER_USE_API_KEY")
+    if not settings.browser_use_api_key:
+        log.info("[event search disabled] needs BROWSER_USE_API_KEY")
         return []
     try:
         from browser_use_sdk.v4 import AsyncBrowserUse
     except ImportError:
-        log.warning("browser-use-sdk not installed (uv sync --extra scrape); skipping event search")
+        log.warning("browser-use-sdk not installed (run uv sync in server/); skipping event search")
         return []
 
     task = TASK.format(

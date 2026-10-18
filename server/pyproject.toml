@@ -13,10 +13,9 @@ dependencies = [
     "ortools>=9.12",
     "typesafe-sdk>=0.7.5",
     "unifai-agent",
+    # Account scraping and group-plan search; they run whenever BROWSER_USE_API_KEY is set.
+    "browser-use-sdk>=3.12",
 ]
-
-[project.optional-dependencies]
-scrape = ["browser-use-sdk>=3.12"]
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.24"]

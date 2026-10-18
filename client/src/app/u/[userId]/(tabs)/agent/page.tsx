@@ -2,13 +2,14 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Blobs } from "@/components/atmosphere";
 import { ChatInput } from "@/components/chat-input";
-import { Bubble, PillLink } from "@/components/ui";
-import { api, ApiError, type UniverseStatus } from "@/lib/api";
+import { AgentSkeleton, Bubble, PillLink } from "@/components/ui";
+import type { UniverseStatus } from "@/lib/api";
+import { getConnections, getInterview } from "@/lib/cached";
 import { sendToAgent } from "./actions";
 
 export default function AgentPage({ params }: PageProps<"/u/[userId]/agent">) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<AgentSkeleton />}>
       <AgentScreen params={params} />
     </Suspense>
   );
@@ -22,10 +23,8 @@ const statusLabel: Record<UniverseStatus, string> = {
 
 async function AgentScreen({ params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
-  const [data, transcript] = await Promise.all([api.connections(userId), api.interview(userId)]).catch((e) => {
-    if (e instanceof ApiError && e.status === 404) notFound();
-    throw e;
-  });
+  const [data, transcript] = await Promise.all([getConnections(userId), getInterview(userId)]);
+  if (!data || !transcript) notFound();
 
   return (
     <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col md:pt-6">

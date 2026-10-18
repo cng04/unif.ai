@@ -4,6 +4,8 @@ Everything here is scoped to the requesting user: their own pairs and group by n
 anonymous ids. Judge rationales and dealbreaker flags stay server-side, since they quote private profiles.
 """
 
+import hashlib
+import math
 from uuid import UUID
 
 import numpy as np
@@ -72,6 +74,15 @@ async def get_connections(user_id: UUID, conn: AsyncConnection = Depends(get_con
     )
 
 
+def shell_point(user_id: UUID) -> dict[str, float]:
+    """A stable, roughly even spot on a shell of radius 0.55-0.95, derived from the user id (placeholder layout)."""
+    digest = hashlib.sha256(user_id.bytes).digest()
+    u, v, w = (int.from_bytes(digest[i : i + 4], "big") / 0xFFFFFFFF for i in (0, 4, 8))
+    theta, z = 2 * math.pi * u, 2 * v - 1  # uniform direction on the sphere
+    r, ring = 0.55 + 0.4 * w, math.sqrt(1 - z * z)
+    return {"x": r * ring * math.cos(theta), "y": r * ring * math.sin(theta), "z": r * z}
+
+
 @router.get("/graph", response_model=UserGraph)
 async def get_graph(user_id: UUID, axes: str | None = None, conn: AsyncConnection = Depends(get_conn)):
     """Everyone in the universe placed in 3D by keyword scores, named the same way as /connections.
@@ -99,7 +110,11 @@ async def get_graph(user_id: UUID, axes: str | None = None, conn: AsyncConnectio
         )
     ).fetchall()
     if not rows:
-        return UserGraph(keywords=names, axes=chosen, nodes=[], links=[])
+        # Matching hasn't scored anyone yet, so there's nothing to place people by. Still show who's here:
+        # you at the centre, everyone else (anonymous, as always) on a shell around you.
+        nodes = [UserGraphNode(user_id=user_id, name=view.user.full_name, kind="me", x=0.0, y=0.0, z=0.0)]
+        nodes += [UserGraphNode(user_id=uid, name=None, kind="pool", **shell_point(uid)) for uid in view.others]
+        return UserGraph(keywords=names, axes=chosen, nodes=nodes, links=[], placeholder=True)
     matrix = np.array([r["scores"] for r in rows], dtype=float)
     coords = (matrix[:, [names.index(a) for a in chosen]] - 0.5) * 2 if chosen else project_3d(matrix)
 

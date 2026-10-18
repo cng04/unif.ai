@@ -49,7 +49,6 @@ def test_scrape_profiles(monkeypatch):
     monkeypatch.setattr(bu, "AsyncBrowserUse", FakeClient)
     get_settings.cache_clear()
     monkeypatch.setenv("BROWSER_USE_API_KEY", "test")
-    monkeypatch.setenv("SCRAPE_ENABLED", "true")
     links = {
         "letterboxd": "https://letterboxd.com/cyn",
         "goodreads": "https://goodreads.com/cyn",  # times out -> cancelled
@@ -71,10 +70,3 @@ def test_scrape_disabled_without_key(monkeypatch):
     assert asyncio.run(scraper.scrape_profiles("Cyn", {"letterboxd": "https://letterboxd.com/cyn"})) == {}
     get_settings.cache_clear()
 
-
-def test_scrape_off_by_default(monkeypatch):
-    get_settings.cache_clear()
-    monkeypatch.setenv("BROWSER_USE_API_KEY", "test")
-    monkeypatch.delenv("SCRAPE_ENABLED", raising=False)
-    assert asyncio.run(scraper.scrape_profiles("Cyn", {"letterboxd": "https://letterboxd.com/cyn"})) == {}
-    get_settings.cache_clear()

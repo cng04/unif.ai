@@ -11,6 +11,7 @@ import { PairDrawer } from "@/components/pair-drawer";
 import { CountUp } from "@/components/count-up";
 import { Glass, Meta, Stat, Title } from "@/components/ui";
 import { api, ApiError, type Connections } from "@/lib/api";
+import { getConnections, getGraph } from "@/lib/cached";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -31,20 +32,12 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
   const axes = typeof query.axes === "string" ? query.axes.split(",") : undefined;
   const pairId = typeof query.pair === "string" ? query.pair : null;
   const [data, graph, pair] = await Promise.all([
-    api.connections(userId),
-    view === "3d"
-      ? api.graph(userId, axes).catch((e) => {
-          // Stale or hand-edited axes: fall back to the similarity layout.
-          if (e instanceof ApiError && e.status === 422) return api.graph(userId);
-          throw e;
-        })
-      : null,
+    getConnections(userId),
+    view === "3d" ? getGraph(userId, axes) : null,
     // A stale or someone else's pair id just means no drawer.
     pairId ? api.pair(userId, pairId).catch((e) => (e instanceof ApiError && [404, 422].includes(e.status) ? null : Promise.reject(e))) : null,
-  ]).catch((e) => {
-    if (e instanceof ApiError && e.status === 404) notFound();
-    throw e;
-  });
+  ]);
+  if (!data || (view === "3d" && !graph)) notFound();
   const copy = statusCopy(data);
   const strong = data.connections.filter((c) => !c.conflict && (c.vibe_score ?? 0) >= 7).length;
 
@@ -80,11 +73,11 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
 
       <div className="flex w-full flex-col gap-4 px-5 pt-3 md:mx-auto md:max-w-[520px] md:px-0">
         {graph && <AxisPicker keywords={graph.keywords} axes={graph.axes} className="mx-auto md:hidden" />}
-        {data.connections.length > 0 && (
-          <p className="text-center font-mono text-[10.5px] leading-4 tracking-[0.12em] text-ink/70 md:text-[11px]">
-            {graph ? "drag to turn · tap a line or a name to read how your agents met" : "tap a line to read how your agents met"}
-          </p>
-        )}
+        {/* Always the head count; once agents have met, also how to open their conversations. */}
+        <p className="text-center font-mono text-[10.5px] leading-4 tracking-[0.12em] text-ink/70 md:text-[11px]">
+          {data.others.length} {data.others.length === 1 ? "other" : "others"} in the universe
+          {data.connections.length > 0 && " · tap a line or a name to read how your agents met"}
+        </p>
         <Glass className="flex justify-between px-[18px] py-3.5 md:px-6 md:py-4">
           <Stat value={<CountUp to={data.connections.length} />} label="agents met" />
           <Stat value={<CountUp to={strong} />} label="strong matches" />

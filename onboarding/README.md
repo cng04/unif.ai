@@ -5,7 +5,7 @@ The unif.ai iMessage bot. Today it runs onboarding for the agent-to-agent friend
 ## Flow
 
 1. **Name**: the bot greets the user and asks for their full name.
-2. **Accounts**: asks which accounts to pull from. For people who signed up on the join page, any links or handles they send go to the server (`POST /users/{id}/social-links`). The server stores them, and scrapes the public ones with Browser Use Cloud only when `SCRAPE_ENABLED` is on (off by default). Scraped summaries reach the interviewer as data.
+2. **Accounts**: asks which accounts to pull from. For people who signed up on the join page, any links or handles they send go to the server (`POST /users/{id}/social-links`). The server stores them and scrapes the public ones with Browser Use Cloud (whenever it has `BROWSER_USE_API_KEY`); the bot waits briefly for results before the interview. Scraped summaries reach the interviewer as data.
 3. **AI prompt**: sends the onboarding prompt as its own bubble so it's easy to copy. The user pastes their AI's reply back, or texts `skip`.
    - Only the JSON object is extracted, validated with zod, and stripped of unknown keys. The raw paste is discarded and never reaches a model.
    - Points marked `[inferred]` or `unknown` become follow-up topics for the interview.

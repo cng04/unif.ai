@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { Profile, PROFILE_JSON_SCHEMA } from "./profile.ts";
+import { isNearlyEmpty, Profile, PROFILE_JSON_SCHEMA } from "./profile.ts";
 import type { Session } from "./store.ts";
 
 const client = new Anthropic();
@@ -56,7 +56,8 @@ You are chatting with the user in a messaging app (iMessage or ASI:One). Your jo
 
 How to write:
 - Sound like a curious friend, not a form. Lowercase is fine. No markdown, no bullet lists, no headers.
-- Keep each message short. One question per turn. If you want to send two bubbles, separate them with a blank line, but never more than two.
+- It's a real text conversation, not strict turns. Send as many short messages as feels natural (separate bubbles with a blank line), and read what they actually said before deciding what to do next. Ask one question at a time, though, and wait for the answer before the next one.
+- People often text in bursts. You don't have to reply to every message: if they seem to be mid-thought, reply with exactly <wait/> and nothing else, and you'll see what they send next.
 - React to what they actually said before moving on, and ask follow-ups that chase specifics ("which ramen place?" beats "what foods do you like?").
 - Don't summarize their answers back to them mid-conversation.
 
@@ -100,6 +101,10 @@ const submitProfileTool = {
   strict: true,
 } as unknown as Anthropic.Beta.Messages.BetaTool;
 
+/** The model replies "<wait/>" when the person seems mid-thought: send nothing and let their next message continue. */
+const WAIT = /^<wait\s*\/?>$/i;
+const isBubble = (b: string) => !!b && !WAIT.test(b);
+
 export interface TurnResult {
   bubbles: string[];
   profile: Profile | null;
@@ -121,8 +126,16 @@ export async function startInterview(s: Session): Promise<TurnResult> {
     "Start the interview now with your first question. You've already greeted them, so skip the intro.",
   ].join("\n\n");
   s.llm.push({ role: "user", content: context });
-  return run(s.llm, SYSTEM);
+  return run(s.llm, SYSTEM, hasMaterial(s));
 }
+
+/** Whether there's enough to build a real profile from, so a nearly empty submit_profile is a mistake. */
+const hasMaterial = (s: Session) => !!s.imported || s.interviewTurns >= 3;
+
+const NEARLY_EMPTY =
+  "That profile is nearly empty, but the imported profile and the conversation have plenty in them. Fill every field you can: " +
+  "use imported points (tagged observed_by_ai or inferred_by_ai) and what they said in chat, leaving out only things the user " +
+  "explicitly asked to drop. Then call submit_profile again.";
 
 export async function continueInterview(s: Session, text: string): Promise<TurnResult> {
   s.interviewTurns++;
@@ -151,7 +164,7 @@ export async function continueInterview(s: Session, text: string): Promise<TurnR
       content: "Time's up. Send a short closing line and call submit_profile now with what you have, using \"unknown\" for gaps.",
     } as Anthropic.Beta.Messages.BetaMessageParam);
   }
-  return run(s.llm, SYSTEM);
+  return run(s.llm, SYSTEM, hasMaterial(s));
 }
 
 /** Apply a free-text correction from the review step. Uses a fresh, single-purpose conversation. */
@@ -170,14 +183,29 @@ export async function reviseProfile(current: Profile, edit: string): Promise<Tur
  * Uses Claude when ANTHROPIC_API_KEY is set, otherwise OpenRouter. A session's history is in
  * that backend's message format, so don't switch keys mid-onboarding.
  */
-function run(messages: Anthropic.Beta.Messages.BetaMessageParam[], system: string): Promise<TurnResult> {
-  if (process.env.ANTHROPIC_API_KEY) return runClaude(messages, system);
+function run(
+  messages: Anthropic.Beta.Messages.BetaMessageParam[],
+  system: string,
+  requireContent = false,
+): Promise<TurnResult> {
+  if (process.env.ANTHROPIC_API_KEY) return runClaude(messages, system, requireContent);
   const compat = compatBackend();
-  if (compat) return runCompat(compat, messages as unknown as OpenAIMessage[], system);
+  if (compat) return runCompat(compat, messages as unknown as OpenAIMessage[], system, requireContent);
   throw new Error("Set ANTHROPIC_API_KEY, ASI_ONE_API_KEY or OPENROUTER_API_KEY");
 }
 
-async function runClaude(messages: Anthropic.Beta.Messages.BetaMessageParam[], system: string): Promise<TurnResult> {
+/** Why a submitted profile can't be accepted, or null if it's fine. */
+function rejectReason(parsed: ReturnType<typeof Profile.safeParse>, requireContent: boolean): string | null {
+  if (!parsed.success) return `Invalid profile, fix and call again: ${parsed.error.message}`;
+  if (requireContent && isNearlyEmpty(parsed.data)) return NEARLY_EMPTY;
+  return null;
+}
+
+async function runClaude(
+  messages: Anthropic.Beta.Messages.BetaMessageParam[],
+  system: string,
+  requireContent: boolean,
+): Promise<TurnResult> {
   const bubbles: string[] = [];
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await client.beta.messages.create({
@@ -200,7 +228,7 @@ async function runClaude(messages: Anthropic.Beta.Messages.BetaMessageParam[], s
 
     for (const block of res.content) {
       if (block.type === "text" && block.text.trim()) {
-        bubbles.push(...block.text.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean));
+        bubbles.push(...block.text.split(/\n\s*\n/).map((b) => b.trim()).filter(isBubble));
       }
     }
 
@@ -210,18 +238,13 @@ async function runClaude(messages: Anthropic.Beta.Messages.BetaMessageParam[], s
     if (!call) return { bubbles, profile: null };
 
     const parsed = Profile.safeParse(call.input);
+    // On the last attempt take what we get: review lets the user fix it, which beats an error bubble.
+    const reason = rejectReason(parsed, requireContent && attempt < 2);
     messages.push({
       role: "user",
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: call.id,
-          is_error: !parsed.success,
-          content: parsed.success ? "saved" : `Invalid profile, fix and call again: ${parsed.error.message}`,
-        },
-      ],
+      content: [{ type: "tool_result", tool_use_id: call.id, is_error: !!reason, content: reason ?? "saved" }],
     });
-    if (parsed.success) return { bubbles, profile: parsed.data };
+    if (!reason && parsed.success) return { bubbles, profile: parsed.data };
   }
   throw new Error("submit_profile failed validation 3 times");
 }
@@ -233,7 +256,12 @@ type OpenAIMessage =
   | { role: "assistant"; content: string | null; tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[] }
   | { role: "tool"; tool_call_id: string; content: string };
 
-async function runCompat(backend: CompatBackend, messages: OpenAIMessage[], system: string): Promise<TurnResult> {
+async function runCompat(
+  backend: CompatBackend,
+  messages: OpenAIMessage[],
+  system: string,
+  requireContent: boolean,
+): Promise<TurnResult> {
   const bubbles: string[] = [];
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch(backend.url, {
@@ -253,7 +281,7 @@ async function runCompat(backend: CompatBackend, messages: OpenAIMessage[], syst
     const msg = body.choices?.[0]?.message ?? {};
     messages.push({ role: "assistant", content: msg.content ?? null, ...(msg.tool_calls?.length && { tool_calls: msg.tool_calls }) });
     if (typeof msg.content === "string" && msg.content.trim()) {
-      bubbles.push(...msg.content.split(/\n\s*\n/).map((b: string) => b.trim()).filter(Boolean));
+      bubbles.push(...msg.content.split(/\n\s*\n/).map((b: string) => b.trim()).filter(isBubble));
     }
 
     const call = msg.tool_calls?.find((c: any) => c.function?.name === "submit_profile");
@@ -264,12 +292,10 @@ async function runCompat(backend: CompatBackend, messages: OpenAIMessage[], syst
       input = JSON.parse(call.function.arguments);
     } catch {}
     const parsed = Profile.safeParse(input);
-    messages.push({
-      role: "tool",
-      tool_call_id: call.id,
-      content: parsed.success ? "saved" : `Invalid profile, fix and call again: ${parsed.success ? "" : parsed.error.message}`,
-    });
-    if (parsed.success) return { bubbles, profile: parsed.data };
+    // On the last attempt take what we get: review lets the user fix it, which beats an error bubble.
+    const reason = rejectReason(parsed, requireContent && attempt < 2);
+    messages.push({ role: "tool", tool_call_id: call.id, content: reason ?? "saved" });
+    if (!reason && parsed.success) return { bubbles, profile: parsed.data };
   }
   throw new Error("submit_profile failed validation 3 times");
 }

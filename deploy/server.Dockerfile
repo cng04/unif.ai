@@ -5,7 +5,7 @@ ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1
 WORKDIR /app
 COPY agent/ agent/
 COPY server/pyproject.toml server/uv.lock server/
-RUN cd server && uv sync --frozen --no-dev --extra scrape --no-install-project
+RUN cd server && uv sync --frozen --no-dev --no-install-project
 COPY server/ server/
 WORKDIR /app/server
 EXPOSE 8000
