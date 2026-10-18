@@ -141,6 +141,7 @@ unif.ai/
 │   ├── seed_celebrity_encore.sql       Rerunnable second 40-person public-figure demo (invite `encore40`)
 │   ├── seed_celebrity_fifteen.sql      Rerunnable 15-person public-figure demo (invite `celeb15`)
 │   ├── dev_graph_seed.sql              fake matching output for that universe (scores, pairs, groups); run by hand
+│   ├── dev_events_seed.sql             fake plans (3 per group) for groups that have none; run by hand after it
 │   └── docker-compose.yml              local Postgres; runs schema + seed on first boot only
 ├── agent/                              unifai_agent library
 │   ├── src/unifai_agent/
@@ -192,6 +193,7 @@ uv run uvicorn app.main:app --reload     # http://localhost:8000
 #    Optional demo data without running the models:
 uv run python -m scripts.seed_demo       # "UI Demo" universe that looks post-matching; prints /u/<id> links
 docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_graph_seed.sql   # fake results for "LA Hacks Demo"
+docker exec -i unifai-db psql -U unifai -d unifai < ../db/dev_events_seed.sql  # fake plans for its groups
 #    Second unmatched 40-person public-figure pool (safe to re-run):
 docker exec -i unifai-db psql -U unifai -d unifai < ../db/seed_celebrity_encore.sql
 #    Smaller unmatched 15-person public-figure pool (safe to re-run):
