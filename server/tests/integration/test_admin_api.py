@@ -48,6 +48,7 @@ async def test_universe_detail_and_groups(test_db_conn: AsyncConnection, test_un
     assert universe["stats"]["members"] == 5
     assert universe["stats"]["onboarded"] == 4
     assert universe["stats"]["pairs"] == 3
+    assert universe["stats"]["running"] == 0
     assert (universe["stats"]["placed"], universe["stats"]["unplaced"]) == (3, 1)
     by_name = {m["full_name"]: m for m in universe["members"]}
     assert by_name["Ana"]["group"] == "g-01"

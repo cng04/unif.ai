@@ -67,7 +67,7 @@ async function UniverseScreen({
 
   return (
     <>
-      {universe.status === "matching" && <AutoRefresh seconds={10} />}
+      {universe.status === "matching" && <AutoRefresh seconds={2} />}
       <AdminHeader
         crumbs={["universes", universe.name]}
         title={<RenameUniverseTitle key={universe.name} name={universe.name} action={renameUniverse.bind(null, universe.id)} />}
@@ -188,8 +188,8 @@ function Pipeline({ universe }: { universe: UniverseDetail }) {
       : status === "matching"
         ? {
             label: "02 · matching · running",
-            value: <span className="animate-pulse">{stats.pairs} chats so far</span>,
-            sub: `${stats.keywords} keywords · ${stats.scored} scored`,
+            value: <span className="animate-pulse">{stats.running} chats in progress</span>,
+            sub: `${stats.pairs} finished · ${stats.keywords} keywords · ${stats.scored} scored`,
             extra: <AbortMatchingButton universeId={universe.id} />,
             state: "active",
             wide: true,

@@ -246,6 +246,7 @@ async def universe_detail(universe_id: UUID, conn: AsyncConnection = Depends(get
               (SELECT COUNT(DISTINCT s.user_id) FROM keyword_scores s JOIN users x ON x.id = s.user_id
                  WHERE x.universe_id = %(u)s) AS scored,
               (SELECT COUNT(*) FROM pairs p WHERE p.universe_id = %(u)s AND p.status = 'complete') AS pairs,
+              (SELECT COUNT(*) FROM pairs p WHERE p.universe_id = %(u)s AND p.status = 'running') AS running,
               (SELECT COUNT(*) FROM pairs p WHERE p.universe_id = %(u)s AND {CONFLICT}) AS conflicts,
               (SELECT AVG(p.vibe_score) FROM pairs p WHERE p.universe_id = %(u)s) AS avg_vibe,
               (SELECT COUNT(*) FROM events e JOIN groups g ON g.id = e.group_id WHERE g.universe_id = %(u)s) AS events,

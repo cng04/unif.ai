@@ -222,6 +222,7 @@ export type UniverseDetail = UniverseSummary & {
     keywords: number;
     scored: number;
     pairs: number;
+    running: number;
     conflicts: number;
     avg_vibe: number | null;
     groups: number;
