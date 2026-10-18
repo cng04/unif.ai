@@ -74,7 +74,7 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
       <div className="flex w-full flex-col gap-4 px-5 pt-3 md:mx-auto md:max-w-[520px] md:px-0">
         {graph && <AxisPicker keywords={graph.keywords} axes={graph.axes} className="mx-auto md:hidden" />}
         {/* Always the head count; once agents have met, also how to move around and open their conversations. */}
-        <p className="text-center font-mono text-[11.5px] leading-[18px] tracking-[0.12em] text-ink/70 md:text-[12px]">
+        <p className="text-center font-mono fs-11.5 lh-18 tracking-[0.12em] text-ink/70 md:fs-12">
           {data.others.length} {data.others.length === 1 ? "other" : "others"} in the universe
           {data.connections.length > 0 &&
             (graph
@@ -88,7 +88,7 @@ async function ConnectionsScreen({ params, searchParams }: { params: Promise<{ u
             className="press rise-in flex items-center justify-between rounded-md bg-ink px-[18px] py-3.5 text-paper"
           >
             <span className="flex flex-col gap-0.5">
-              <span className="text-[15px] leading-5 font-light tracking-[0.06em]">you have a group</span>
+              <span className="fs-15 leading-5 font-light tracking-[0.06em]">you have a group</span>
               <span className="font-mono text-micro leading-3 tracking-label text-paper/70">
                 {data.group.members.length} people · meet them and pick a plan
               </span>

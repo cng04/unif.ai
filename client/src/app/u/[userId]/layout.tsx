@@ -8,7 +8,7 @@ export default function UserLayout({ children }: LayoutProps<"/u/[userId]">) {
     <>
       <div className="sticky top-0 z-30 hidden bg-paper/70 backdrop-blur-md md:block">
         <header className="mx-auto flex h-[88px] w-full max-w-6xl items-center justify-between px-10">
-          <span className="text-[15px] tracking-[0.12em]">unif.ai</span>
+          <span className="fs-15 tracking-[0.12em]">unif.ai</span>
           <div className="w-[440px]">
             <Suspense fallback={<div className="h-11 rounded-full bg-ink" />}>
               <TabBar />

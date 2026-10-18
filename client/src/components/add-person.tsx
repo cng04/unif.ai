@@ -20,8 +20,8 @@ const PHASE_HINT = {
 } as const;
 
 const field =
-  "w-full rounded-[12px] border border-line bg-white/55 px-3.5 py-2.5 text-[13px] leading-4 font-light tracking-body outline-none placeholder:text-ink-faint focus:border-ink/40";
-const label = "font-mono text-[10px] leading-3 tracking-label text-ink-muted";
+  "w-full rounded-[12px] border border-line bg-white/55 px-3.5 py-2.5 fs-13 leading-4 font-light tracking-body outline-none placeholder:text-ink-faint focus:border-ink/40";
+const label = "font-mono fs-10 leading-3 tracking-label text-ink-muted";
 
 /** The whole screen remounts on "add another", which is the only way to clear useActionState. */
 export function AddPerson({ universeId, matching }: { universeId: string; matching: boolean }) {
@@ -57,7 +57,7 @@ function AddPersonForm({ universeId, matching, onReset }: { universeId: string; 
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Bob Example"
-              className={`${field} text-[16px] leading-5`}
+              className={`${field} fs-16 leading-5`}
             />
           </label>
           <div className="grid grid-cols-2 gap-3">
@@ -74,7 +74,7 @@ function AddPersonForm({ universeId, matching, onReset }: { universeId: string; 
             <span className={label}>socials · handle or link</span>
             {SOCIALS.map((p) => (
               <div key={p} className="flex items-center gap-2.5">
-                <span className="w-[66px] shrink-0 font-mono text-[10.5px] tracking-meta text-ink-faint">{p}</span>
+                <span className="w-[66px] shrink-0 font-mono fs-10.5 tracking-meta text-ink-faint">{p}</span>
                 <input
                   name={p}
                   autoComplete="off"
@@ -89,7 +89,7 @@ function AddPersonForm({ universeId, matching, onReset }: { universeId: string; 
           {Object.values(socials).some((v) => v.trim()) && (
             <label className="flex items-start gap-2.5 rounded-[12px] border border-dashed border-ink/25 px-3 py-2.5 fade-in">
               <input name="scrape_consent" type="checkbox" className="mt-0.5 accent-[var(--color-ink)]" />
-              <span className="text-[12px] leading-4 font-light tracking-body text-ink-muted">
+              <span className="fs-12 leading-4 font-light tracking-body text-ink-muted">
                 {first} agreed we can read these public profiles to build their agent.
               </span>
             </label>
@@ -104,8 +104,8 @@ function AddPersonForm({ universeId, matching, onReset }: { universeId: string; 
           </div>
           <ol className="flex flex-wrap gap-2">
             {PROMPTS.map((q, i) => (
-              <li key={q} className="rounded-full border border-line bg-white/40 px-3 py-1.5 text-[12px] leading-4 font-light tracking-body">
-                <span className="pr-1.5 font-mono text-[10px] text-ink-faint">0{i + 1}</span>
+              <li key={q} className="rounded-full border border-line bg-white/40 px-3 py-1.5 fs-12 leading-4 font-light tracking-body">
+                <span className="pr-1.5 font-mono fs-10 text-ink-faint">0{i + 1}</span>
                 {q}
               </li>
             ))}
@@ -155,7 +155,7 @@ function AddPersonForm({ universeId, matching, onReset }: { universeId: string; 
               readOnly={mic.listening}
               onChange={(e) => mic.setText(e.target.value)}
               placeholder="I'm into bouldering and bad sci-fi, can't stand people who are late, free most weeknights…"
-              className={`${field} min-h-[160px] flex-1 resize-y text-[15px] leading-6 ${mic.listening ? "text-ink-muted" : ""}`}
+              className={`${field} min-h-[160px] flex-1 resize-y fs-15 leading-6 ${mic.listening ? "text-ink-muted" : ""}`}
             />
           </label>
         </Panel>
@@ -165,7 +165,7 @@ function AddPersonForm({ universeId, matching, onReset }: { universeId: string; 
         {state.error && <p className="micro text-ember-text">{state.error}</p>}
         <button
           disabled={pending || !name.trim() || !mic.text.trim()}
-          className="press inline-flex items-center gap-2.5 rounded-full bg-ink px-6 py-3.5 text-[13px] leading-4 tracking-meta text-paper disabled:opacity-35"
+          className="press inline-flex items-center gap-2.5 rounded-full bg-ink px-6 py-3.5 fs-13 leading-4 tracking-meta text-paper disabled:opacity-35"
         >
           {pending ? (
             <>
@@ -249,14 +249,14 @@ function Added({
         </div>
         <h2 className="text-[34px] leading-[40px] font-light tracking-[0.06em] lowercase">{profile.name}</h2>
         {profile.intro && (
-          <p className="max-w-[56ch] text-[16px] leading-6 font-light tracking-body">&ldquo;{profile.intro}&rdquo;</p>
+          <p className="max-w-[56ch] fs-16 leading-6 font-light tracking-body">&ldquo;{profile.intro}&rdquo;</p>
         )}
         {!!profile.interests?.length && (
           <div className="flex flex-wrap gap-2">
             {profile.interests.map((t, i) => (
               <span
                 key={t}
-                className="rounded-full border border-line bg-white/55 px-3 py-1.5 text-[12.5px] leading-4 font-light tracking-body rise-in"
+                className="rounded-full border border-line bg-white/55 px-3 py-1.5 fs-12.5 leading-4 font-light tracking-body rise-in"
                 style={{ animationDelay: `${120 + i * 50}ms` }}
               >
                 {t}
@@ -277,7 +277,7 @@ function Added({
             .map(([k, v]) => (
               <div key={k} className="flex flex-col gap-1">
                 <dt className={label}>{k}</dt>
-                <dd className="text-[13.5px] leading-5 font-light tracking-body">{v}</dd>
+                <dd className="fs-13.5 leading-5 font-light tracking-body">{v}</dd>
               </div>
             ))}
         </dl>
@@ -288,7 +288,7 @@ function Added({
           <Caption>scan to follow along</Caption>
           <div className="size-[188px] rounded-[16px] bg-white/70 p-3.5 [&_svg]:size-full" dangerouslySetInnerHTML={{ __html: added.qr }} />
           <div className="flex max-w-full items-center gap-2">
-            <span className="truncate font-mono text-[10px] tracking-[0.06em] text-ink-muted">{added.link}</span>
+            <span className="truncate font-mono fs-10 tracking-[0.06em] text-ink-muted">{added.link}</span>
             <CopyButton text={added.link} />
           </div>
         </Panel>
@@ -297,7 +297,7 @@ function Added({
             type="button"
             disabled={busy || matching}
             onClick={() => act(() => runMatching(universeId), () => router.push(`/admin/universes/${universeId}`))}
-            className="press rounded-full bg-ink px-5 py-3.5 text-[13px] leading-4 tracking-meta text-paper disabled:opacity-40"
+            className="press rounded-full bg-ink px-5 py-3.5 fs-13 leading-4 tracking-meta text-paper disabled:opacity-40"
           >
             {matching ? "matching already running" : busy ? "starting…" : "match now ▸"}
           </button>

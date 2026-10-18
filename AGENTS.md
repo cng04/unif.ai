@@ -168,7 +168,8 @@ Mobile-first. People reach it through a personal link from their agent: `/u/{use
 and `you` (own profile plus group). `/u/{user_id}/pairs/{pair_id}` shows one agent-to-agent conversation.
 Pages are server components that call the API through `src/lib/api.ts` (`API_URL`, default
 `http://localhost:8000`), so the browser never talks to FastAPI directly. Design tokens mirror the Paper
-file and live in `src/app/globals.css`. There is no auth yet: the user id in the URL is the only identity.
+file and live in `src/app/globals.css`. Text below display size scales 1.1x at `md` and up (`--type-scale`): write small sizes as
+`fs-13` / `lh-19` (px numbers), not `text-[13px]` / `leading-[19px]`. There is no auth yet: the user id in the URL is the only identity.
 
 The connections tab defaults to 3D, with a `2d · 3d` toggle (`?view=2d` for the ego graph). Tapping a match opens
 the agent conversation in a drawer (`?pair={pair_id}`, `components/pair-drawer.tsx`) instead of navigating. Both graphs put nodes on springs

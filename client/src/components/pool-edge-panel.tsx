@@ -16,12 +16,12 @@ export function PoolEdgePanel({ pair, groupA, groupB }: { pair: AdminPair; group
     <aside className="rise-in flex max-h-[620px] flex-col gap-4 overflow-y-auto rounded-[20px] border border-line bg-sheet p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1.5">
-          <p className="font-mono text-[10px] tracking-meta text-ink-muted">( edge · {sameGroup ? groupA : "cross-group"} )</p>
-          <h2 className="text-[17px] leading-6 tracking-[0.08em] lowercase">
+          <p className="font-mono fs-10 tracking-meta text-ink-muted">( edge · {sameGroup ? groupA : "cross-group"} )</p>
+          <h2 className="fs-17 leading-6 tracking-[0.08em] lowercase">
             {pair.a.full_name} ↔ {pair.b.full_name}
           </h2>
         </div>
-        <button onClick={close} className="press font-mono text-[11px] text-ink-muted hover:text-ink" aria-label="Close">
+        <button onClick={close} className="press font-mono fs-11 text-ink-muted hover:text-ink" aria-label="Close">
           ✕
         </button>
       </div>
@@ -35,16 +35,16 @@ export function PoolEdgePanel({ pair, groupA, groupB }: { pair: AdminPair; group
             style={{ width: `${((pair.vibe_score ?? 0) / 10) * 100}%`, background: pair.conflict ? "var(--color-ember)" : "var(--color-ink)", opacity: 0.7 }}
           />
         </span>
-        <span className="font-mono text-[9.5px] tracking-label text-ink-muted">{outcome}</span>
+        <span className="font-mono fs-9.5 tracking-label text-ink-muted">{outcome}</span>
       </div>
-      <dl className="flex flex-col gap-2 border-t border-line pt-3 font-mono text-[10px] tracking-label">
+      <dl className="flex flex-col gap-2 border-t border-line pt-3 font-mono fs-10 tracking-label">
         <Row label="logistics" value={pair.logistics_fit ?? "—"} />
         <Row label="dealbreakers" value={pair.dealbreaker_flags.length ? pair.dealbreaker_flags.join("; ") : "none"} ember={pair.dealbreaker_flags.length > 0} />
         <Row label="ended" value={pair.end_reason ?? "—"} />
       </dl>
       <button
         onClick={() => setTranscript((v) => !v)}
-        className="press rounded-full bg-ink py-3 text-[11.5px] tracking-meta text-paper"
+        className="press rounded-full bg-ink py-3 fs-11.5 tracking-meta text-paper"
         disabled={pair.messages.length === 0}
       >
         {pair.messages.length === 0 ? "no transcript" : transcript ? "hide transcript" : "read transcript →"}
@@ -55,8 +55,8 @@ export function PoolEdgePanel({ pair, groupA, groupB }: { pair: AdminPair; group
             const fromA = m.speaker_id === pair.a.id;
             return (
               <li key={i} className={`flex flex-col gap-0.5 ${fromA ? "" : "items-end text-right"}`}>
-                <span className="font-mono text-[9px] tracking-label text-ink-muted">{(fromA ? pair.a : pair.b).full_name.toLowerCase()}&apos;s agent</span>
-                <span className={`max-w-[92%] rounded-[12px] px-3 py-2 text-[12.5px] leading-[18px] font-light ${fromA ? "border border-line bg-white/70" : "bg-ink text-paper"}`}>
+                <span className="font-mono fs-9 tracking-label text-ink-muted">{(fromA ? pair.a : pair.b).full_name.toLowerCase()}&apos;s agent</span>
+                <span className={`max-w-[92%] rounded-[12px] px-3 py-2 fs-12.5 lh-18 font-light ${fromA ? "border border-line bg-white/70" : "bg-ink text-paper"}`}>
                   {m.content}
                 </span>
               </li>

@@ -33,7 +33,7 @@ export function TabBar() {
             key={t.segment}
             href={`/u/${userId}/${t.segment}`}
             aria-current={on ? "page" : undefined}
-            className={`press relative flex flex-1 items-center justify-center rounded-full py-[11px] text-[11.5px] leading-[14px] tracking-meta duration-300 ${
+            className={`press relative flex flex-1 items-center justify-center rounded-full py-[11px] fs-11.5 lh-14 tracking-meta duration-300 ${
               on ? "text-ink" : "text-paper hover:text-paper/70"
             }`}
           >

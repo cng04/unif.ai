@@ -35,8 +35,8 @@ async function MeetThem({ params }: { params: Promise<{ userId: string }> }) {
           </Link>
           <span>1 of 3</span>
         </div>
-        <h1 className="text-title leading-[32px] font-light tracking-[0.12em] md:text-[34px] md:leading-10">meet them</h1>
-        <p className="text-[13px] leading-[19px] text-ink-muted">What you have in common with each of them, and how they&apos;d introduce themselves.</p>
+        <h1 className="text-title lh-32 font-light tracking-[0.12em] md:text-[34px] md:leading-10">meet them</h1>
+        <p className="fs-13 lh-19 text-ink-muted">What you have in common with each of them, and how they&apos;d introduce themselves.</p>
       </header>
 
       {/* Two cards per row on desktop. */}
@@ -47,15 +47,15 @@ async function MeetThem({ params }: { params: Promise<{ userId: string }> }) {
             <li key={m.user_id} className="rise-in flex flex-col gap-2.5 rounded-md bg-sheet/80 px-[18px] py-4" style={{ animationDelay: `${i * 80}ms` }}>
               <div className="flex items-center gap-2.5">
                 <span className="size-2.5 shrink-0 rounded-full bg-ink" />
-                <span className="text-[16px] leading-5 tracking-[0.08em] lowercase">{m.full_name}</span>
+                <span className="fs-16 leading-5 tracking-[0.08em] lowercase">{m.full_name}</span>
                 <span className="flex-1" />
                 <span className="font-mono text-label leading-3 tracking-[0.08em]" title={m.vibe_score == null ? "your agents didn't talk directly" : "how your agents' chat went"}>
                   {formatScore(m.vibe_score)}
                 </span>
               </div>
-              <p className="text-[13px] leading-[19px]">{why ?? "Your agents didn't talk directly; the group brought you together."}</p>
+              <p className="fs-13 lh-19">{why ?? "Your agents didn't talk directly; the group brought you together."}</p>
               {m.intro && (
-                <blockquote className="border-l-2 border-ember pl-3 text-[13px] leading-[19px] text-ink-muted">&ldquo;{m.intro}&rdquo;</blockquote>
+                <blockquote className="border-l-2 border-ember pl-3 fs-13 lh-19 text-ink-muted">&ldquo;{m.intro}&rdquo;</blockquote>
               )}
             </li>
           );

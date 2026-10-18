@@ -27,7 +27,7 @@ export function ChatInput({
           placeholder={pending ? "your agent is thinking…" : placeholder}
           disabled={pending}
           autoComplete="off"
-          className="min-w-0 flex-1 bg-transparent text-[13px] leading-4 font-light tracking-body outline-none placeholder:text-ink-faint"
+          className="min-w-0 flex-1 bg-transparent fs-13 leading-4 font-light tracking-body outline-none placeholder:text-ink-faint"
         />
         <button
           type="submit"

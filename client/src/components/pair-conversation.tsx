@@ -17,7 +17,7 @@ export function PairConversation({ pair, userId, wide = false }: { pair: PairDet
   const lookingFor = pair.looking_for && (
     <div className="flex flex-col gap-2.5 px-2 pt-1 pb-2.5">
       <p className="micro text-ink-muted">( what {name}&apos;s looking for )</p>
-      <p className="text-[17px] leading-[26px] font-light tracking-stat">{pair.looking_for}</p>
+      <p className="fs-17 lh-26 font-light tracking-stat">{pair.looking_for}</p>
     </div>
   );
 

@@ -35,7 +35,7 @@ export function AdminNav() {
           key={item.href}
           href={item.href}
           aria-current={item.on ? "page" : undefined}
-          className={`press rounded-[10px] px-3 py-[9px] text-[12px] leading-4 tracking-meta ${
+          className={`press rounded-[10px] px-3 py-[9px] fs-12 leading-4 tracking-meta ${
             item.on ? "bg-ink text-paper" : "hover:bg-ink/5"
           } ${item.nested ? "lg:ml-3" : ""}`}
         >

@@ -39,7 +39,7 @@ export function LookEditor({ userId, initial }: { userId: string; initial: Look 
     <div className="flex flex-col gap-4 py-1">
       <div className="flex items-center gap-4">
         <AgentAvatar userId={userId} look={look} selected={false} />
-        <p className="text-[13px] leading-5 font-light text-ink-muted">
+        <p className="fs-13 leading-5 font-light text-ink-muted">
           {look.source === "agent"
             ? "your agent picked this from what you told it. change anything that's off."
             : look.source === "you"
@@ -105,7 +105,7 @@ function Options({ label, options, value, onPick }: { label: string; options: st
             type="button"
             aria-pressed={value === i}
             onClick={() => onPick(i)}
-            className={`rounded-full border px-3 py-1 text-[12px] leading-4 tracking-label ${value === i ? "border-ink bg-ink text-paper" : "border-line text-ink-muted"}`}
+            className={`rounded-full border px-3 py-1 fs-12 leading-4 tracking-label ${value === i ? "border-ink bg-ink text-paper" : "border-line text-ink-muted"}`}
           >
             {o}
           </button>

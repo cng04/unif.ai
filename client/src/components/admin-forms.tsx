@@ -77,18 +77,18 @@ export function CreateUniverseForm({ action }: { action: (prev: ActionState, for
           required
           maxLength={120}
           placeholder="universe name, e.g. la hacks"
-          className="min-w-0 flex-1 rounded-full border border-line bg-white/55 px-4 py-2.5 text-[13px] font-light tracking-body outline-none placeholder:text-ink-faint focus:border-ink/40"
+          className="min-w-0 flex-1 rounded-full border border-line bg-white/55 px-4 py-2.5 fs-13 font-light tracking-body outline-none placeholder:text-ink-faint focus:border-ink/40"
         />
         <input
           name="admin_email"
           type="email"
           required
           placeholder="admin email"
-          className="min-w-0 flex-1 rounded-full border border-line bg-white/55 px-4 py-2.5 text-[13px] font-light tracking-body outline-none placeholder:text-ink-faint focus:border-ink/40"
+          className="min-w-0 flex-1 rounded-full border border-line bg-white/55 px-4 py-2.5 fs-13 font-light tracking-body outline-none placeholder:text-ink-faint focus:border-ink/40"
         />
         <button
           disabled={pending}
-          className="press rounded-full bg-ink px-5 py-2.5 text-[11.5px] tracking-meta text-paper disabled:opacity-50"
+          className="press rounded-full bg-ink px-5 py-2.5 fs-11.5 tracking-meta text-paper disabled:opacity-50"
         >
           {pending ? "creating…" : "create universe"}
         </button>
@@ -158,7 +158,7 @@ export function RenameUniverse({
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="press font-mono text-[10px] tracking-label text-ink-muted opacity-60 transition-opacity group-hover:opacity-100 hover:text-ink"
+          className="press font-mono fs-10 tracking-label text-ink-muted opacity-60 transition-opacity group-hover:opacity-100 hover:text-ink"
         >
           rename
         </button>
@@ -174,12 +174,12 @@ export function RenameUniverse({
         maxLength={120}
         autoFocus
         onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
-        className="min-w-0 rounded-full border border-line bg-white/60 px-4 py-1.5 text-[22px] leading-8 font-light tracking-[0.08em] lowercase outline-none focus:border-ink/40"
+        className="min-w-0 rounded-full border border-line bg-white/60 px-4 py-1.5 fs-22 leading-8 font-light tracking-[0.08em] lowercase outline-none focus:border-ink/40"
       />
-      <button disabled={pending} className="press rounded-full bg-ink px-4 py-2 text-[11.5px] tracking-meta text-paper disabled:opacity-50">
+      <button disabled={pending} className="press rounded-full bg-ink px-4 py-2 fs-11.5 tracking-meta text-paper disabled:opacity-50">
         {pending ? "saving…" : "save"}
       </button>
-      <button type="button" onClick={() => setEditing(false)} className="press px-2 py-2 text-[11.5px] tracking-meta text-ink-muted hover:text-ink">
+      <button type="button" onClick={() => setEditing(false)} className="press px-2 py-2 fs-11.5 tracking-meta text-ink-muted hover:text-ink">
         cancel
       </button>
       {state.error && <p className="micro w-full text-ember-text">{state.error}</p>}

@@ -453,7 +453,7 @@ function Graph({ data, layout }: { data: Connections; layout: Layout }) {
             key={b.label}
             onClick={b.run}
             aria-label={b.label}
-            className="press grid size-8 place-items-center rounded-full font-mono text-[15px] hover:bg-ink/5"
+            className="press grid size-8 place-items-center rounded-full font-mono fs-15 hover:bg-ink/5"
           >
             {b.glyph}
           </button>

@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Glass } from "./ui";
 
-const label = "font-mono text-[11.5px] tracking-[0.1em] lowercase";
+const label = "font-mono fs-11.5 tracking-[0.1em] lowercase";
 
 /**
  * Legend card for the 3D view: "similarity" (PCA of every keyword) or three Jev keywords as x / y / z.
@@ -69,7 +69,7 @@ export function AxisPicker({
           ))}
         </div>
       ) : (
-        <p className="text-[12px] leading-[17px] font-light tracking-body whitespace-normal text-ink-muted">
+        <p className="fs-12 lh-17 font-light tracking-body whitespace-normal text-ink-muted">
           closer together = more alike across every keyword your agents scored.
         </p>
       )}

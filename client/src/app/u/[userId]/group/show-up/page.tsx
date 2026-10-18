@@ -37,10 +37,10 @@ async function ShowUp({ params }: { params: Promise<{ userId: string }> }) {
           </Link>
           <span>3 of 3</span>
         </div>
-        <h1 className="text-title leading-[32px] font-light tracking-[0.12em] md:text-[34px] md:leading-10">
+        <h1 className="text-title lh-32 font-light tracking-[0.12em] md:text-[34px] md:leading-10">
           {plan ? "it's on." : "no plan yet"}
         </h1>
-        <p className="text-[13px] leading-[19px] text-ink-muted">
+        <p className="fs-13 lh-19 text-ink-muted">
           {plan
             ? "Your group locked this one in. Everyone got a text with the details."
             : `Once ${group.votes_needed} of you are in on a plan, it shows up here and everyone gets a text.`}
@@ -76,7 +76,7 @@ async function ShowUp({ params }: { params: Promise<{ userId: string }> }) {
       ) : (
         <Link
           href={`/u/${userId}/group/plans`}
-          className="press mx-5 self-start rounded-full border border-ink/25 px-4 py-2.5 text-[11.5px] tracking-meta md:mx-0"
+          className="press mx-5 self-start rounded-full border border-ink/25 px-4 py-2.5 fs-11.5 tracking-meta md:mx-0"
         >
           ← see the plans
         </Link>

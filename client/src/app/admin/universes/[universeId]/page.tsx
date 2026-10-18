@@ -98,7 +98,7 @@ async function UniverseScreen({
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-baseline justify-between gap-3 pb-3">
             <Caption>members · {stats.members}</Caption>
-            <div className="flex gap-3.5 font-mono text-[11px] leading-3 tracking-label">
+            <div className="flex gap-3.5 font-mono fs-11 leading-3 tracking-label">
               <FilterLink href={href({ show: "all" })} on={show === "all"}>all</FilterLink>
               <FilterLink href={href({ show: "waiting" })} on={show === "waiting"}>not onboarded · {counts.waiting}</FilterLink>
               {matched && (
@@ -265,7 +265,7 @@ function StageCell({ stage: s }: { stage: Stage }) {
               : "border-[1.2px] border-ink bg-paper"
         }`}
       />
-      <span className={`font-mono text-[11px] leading-3 tracking-label ${active ? "text-ember-text" : "text-ink-muted"}`}>
+      <span className={`font-mono fs-11 leading-3 tracking-label ${active ? "text-ember-text" : "text-ink-muted"}`}>
         {s.label}
       </span>
       <span className="text-stat leading-6 font-light tracking-[0.04em]">{s.value}</span>
@@ -319,7 +319,7 @@ function MembersTable({
   href: (next: { sort?: SortKey | null; dir?: Dir }) => string;
 }) {
   if (members.length === 0) return <Caption className="py-6">nobody here yet</Caption>;
-  const cell = "py-[11px] pr-4 font-mono text-[11px] leading-3 tracking-[0.1em] whitespace-nowrap";
+  const cell = "py-[11px] pr-4 font-mono fs-11 leading-3 tracking-[0.1em] whitespace-nowrap";
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-left">
@@ -332,7 +332,7 @@ function MembersTable({
                   <Link href={href({ sort: h, dir: sort === h && dir === "asc" ? "desc" : "asc" })} scroll={false} className={sort === h ? "text-ink" : "hover:text-ink"}>
                     {h}
                   </Link>
-                  <span className="inline-flex flex-col text-[7px] leading-[7px]">
+                  <span className="inline-flex flex-col fs-7 lh-7">
                     {(["asc", "desc"] as const).map((d) => (
                       <Link
                         key={d}
@@ -360,7 +360,7 @@ function MembersTable({
                 className="group rise-in border-b border-line transition-colors hover:bg-white/30"
                 style={{ animationDelay: `${Math.min(i, 20) * 25}ms` }}
               >
-                <td className="py-[11px] pr-4 text-[12.5px] leading-4 tracking-[0.08em] lowercase">
+                <td className="py-[11px] pr-4 fs-12.5 leading-4 tracking-[0.08em] lowercase">
                   <a href={`/u/${m.id}`} target="_blank" rel="noreferrer" className="hover:underline" title="open their page">
                     {m.full_name}
                     <span className="ml-1 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100">↗</span>
@@ -415,7 +415,7 @@ function Health({ universe }: { universe: UniverseDetail }) {
       )}
       <div className="flex flex-col gap-2 border-t border-line pt-4">
         <span className="font-mono text-meta leading-3 tracking-label text-ink-muted">invite link</span>
-        <code className="font-mono text-[11px] leading-4 break-all">{universe.invite_url}</code>
+        <code className="font-mono fs-11 leading-4 break-all">{universe.invite_url}</code>
         <div>
           <CopyButton text={universe.invite_url} label="copy link" />
         </div>
@@ -427,7 +427,7 @@ function Health({ universe }: { universe: UniverseDetail }) {
 function Metric({ value, label, accent }: { value: ReactNode; label: string; accent?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className={`text-[24px] leading-[30px] font-light tracking-[0.04em] ${accent ? "text-ember-text" : ""}`}>{value}</span>
+      <span className={`text-[24px] lh-30 font-light tracking-[0.04em] ${accent ? "text-ember-text" : ""}`}>{value}</span>
       <span className="font-mono text-meta leading-3 tracking-label text-ink-muted">{label}</span>
     </div>
   );
@@ -442,7 +442,7 @@ function Keywords({ keywords, scored }: { keywords: UniverseDetail["keywords"]; 
         {keywords.map((k, i) => (
           <li key={k.name} title={k.description ?? undefined} className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="text-[12px] leading-4 tracking-[0.08em] lowercase">{k.name}</span>
+              <span className="fs-12 leading-4 tracking-[0.08em] lowercase">{k.name}</span>
               <span className="font-mono text-meta leading-3 tracking-[0.1em] whitespace-nowrap text-ink-muted">
                 {k.high}
                 {k.dealbreakers > 0 && <span className="text-ember-text"> · {k.dealbreakers} avoid</span>}

@@ -6,12 +6,12 @@ import type { Invite } from "@/lib/api";
 import { Glass } from "./ui";
 
 const input =
-  "w-full rounded-full border border-line bg-white/60 px-[18px] py-3 text-[15px] font-light tracking-body outline-none transition-colors placeholder:text-ink-faint focus:border-ink/40";
+  "w-full rounded-full border border-line bg-white/60 px-[18px] py-3 fs-15 font-light tracking-body outline-none transition-colors placeholder:text-ink-faint focus:border-ink/40";
 // Without ASI_AGENT_URL on the server there's no direct link to the agent, so open ASI:One and name the handle.
 const ASI_ONE_HOME = "https://asi1.ai";
 
 const primary =
-  "press flex w-full items-center justify-center rounded-full bg-ink py-3.5 text-[12px] tracking-meta text-paper disabled:opacity-50";
+  "press flex w-full items-center justify-center rounded-full bg-ink py-3.5 fs-12 tracking-meta text-paper disabled:opacity-50";
 
 export function JoinFlow({
   invite,
@@ -90,7 +90,7 @@ function AsiCard({ invite, primary: isPrimary = false }: { invite: Invite; prima
       style={{ animationDelay: "120ms" }}
     >
       <p className="meta text-ink/70">( {isPrimary ? "join on asi:one" : "or join on asi:one"} )</p>
-      <ol className="flex flex-col gap-3 text-[13px] leading-[19px] font-light tracking-body">
+      <ol className="flex flex-col gap-3 fs-13 lh-19 font-light tracking-body">
         <li className="flex flex-col gap-2">
           <span>
             <span className="micro mr-2 text-ink-muted">01</span>copy your join code
@@ -98,7 +98,7 @@ function AsiCard({ invite, primary: isPrimary = false }: { invite: Invite; prima
           <button
             type="button"
             onClick={copy}
-            className="press flex items-center justify-between rounded-full border border-dashed border-ink/40 px-4 py-2.5 font-mono text-[12px] tracking-[0.08em] hover:bg-white/40"
+            className="press flex items-center justify-between rounded-full border border-dashed border-ink/40 px-4 py-2.5 font-mono fs-12 tracking-[0.08em] hover:bg-white/40"
           >
             {invite.asi_command}
             <span className="micro text-ink-muted">{copied ? "copied ✓" : "copy"}</span>
@@ -115,7 +115,7 @@ function AsiCard({ invite, primary: isPrimary = false }: { invite: Invite; prima
         rel="noopener noreferrer"
         // ASI:One links can't pre-fill a message, so copy the code on the way out.
         onClick={() => navigator.clipboard?.writeText(invite.asi_command)}
-        className={isPrimary ? primary : "press flex w-full items-center justify-center rounded-full border border-ink/25 py-3 text-[12px] tracking-meta hover:bg-white/40"}
+        className={isPrimary ? primary : "press flex w-full items-center justify-center rounded-full border border-ink/25 py-3 fs-12 tracking-meta hover:bg-white/40"}
       >
         {invite.asi_url ? <>copy code &amp; chat with {invite.asi_handle}</> : "copy code & open ASI:One"}
       </a>

@@ -44,7 +44,7 @@ async function AgentScreen({ params }: { params: Promise<{ userId: string }> }) 
           <span className="size-3 rounded-full bg-ink" />
         </div>
         <div className="flex flex-1 flex-col gap-0.5">
-          <span className="text-[13px] leading-4 tracking-label">your agent</span>
+          <span className="fs-13 leading-4 tracking-label">your agent</span>
           <span className="micro flex items-center gap-1.5 text-ink-muted">
             {data.universe.status === "matching" && <span className="size-[5px] rounded-full bg-ember" />}
             {statusLabel[data.universe.status]} · {data.connections.length} met
@@ -77,7 +77,7 @@ async function AgentScreen({ params }: { params: Promise<{ userId: string }> }) 
           <ChatInput action={sendToAgent.bind(null, userId)} placeholder="message your agent…" />
         ) : (
           // Onboarding only happens in iMessage / ASI:One; this tab mirrors it until the profile is saved.
-          <p className="rounded-full border border-line bg-paper/70 px-5 py-3 text-center text-[12.5px] leading-[18px] font-light tracking-body text-ink-muted backdrop-blur-md">
+          <p className="rounded-full border border-line bg-paper/70 px-5 py-3 text-center fs-12.5 lh-18 font-light tracking-body text-ink-muted backdrop-blur-md">
             finish setting up with your agent in iMessage. you can chat here once you&apos;re done.
           </p>
         )}
@@ -96,7 +96,7 @@ function AgentSidebar({ userId, data, profile }: { userId: string; data: Connect
     <aside className="sticky top-[112px] hidden flex-col gap-4 self-start pt-6 lg:flex">
       <section className="flex flex-col gap-3 rounded-md border border-line bg-white/45 px-5 py-4">
         <p className="micro text-ink-muted">( your agent )</p>
-        <p className="flex items-center gap-2 text-[15px] leading-5 font-light tracking-[0.04em]">
+        <p className="flex items-center gap-2 fs-15 leading-5 font-light tracking-[0.04em]">
           {data.universe.status === "matching" && <span className="size-[6px] rounded-full bg-ember" />}
           {statusLabel[data.universe.status]}
         </p>
@@ -109,7 +109,7 @@ function AgentSidebar({ userId, data, profile }: { userId: string; data: Connect
       {data.group && (
         <Link href={`/u/${userId}/group`} className="press flex flex-col gap-2.5 rounded-md bg-ink px-5 py-4 text-paper">
           <span className="micro text-paper/70">( your group · {data.group.members.length} )</span>
-          <span className="text-[13px] leading-[19px] tracking-[0.06em] lowercase">
+          <span className="fs-13 lh-19 tracking-[0.06em] lowercase">
             {data.group.members.filter((m) => m.user_id !== userId).map((m) => m.full_name).join(", ")}
           </span>
           <span className="font-mono text-label tracking-label">meet them →</span>
@@ -120,12 +120,12 @@ function AgentSidebar({ userId, data, profile }: { userId: string; data: Connect
         <section className="flex flex-col gap-3 rounded-md border border-line bg-white/45 px-5 py-4">
           <p className="micro text-ink-muted">( what i know )</p>
           {profile.public.looking_for && (
-            <p className="text-[13px] leading-[19px] font-light">{profile.public.looking_for}</p>
+            <p className="fs-13 lh-19 font-light">{profile.public.looking_for}</p>
           )}
           {interests.length > 0 && (
             <ul className="flex flex-wrap gap-1.5">
               {interests.map((t) => (
-                <li key={t} className="rounded-full border border-ink/20 px-2.5 py-1 text-[10.5px] tracking-label lowercase">
+                <li key={t} className="rounded-full border border-ink/20 px-2.5 py-1 fs-10.5 tracking-label lowercase">
                   {t}
                 </li>
               ))}

@@ -62,7 +62,7 @@ async function Reveal({ params }: { params: Promise<{ userId: string }> }) {
           )}
           <div className={`flex items-center justify-between ${group.shared_keywords.length ? "border-t border-line pt-1.5" : ""}`}>
             <span className="meta text-ink-muted">group chemistry</span>
-            <span className="text-[18px] leading-[22px] font-light">{formatScore(group.group_score)}</span>
+            <span className="fs-18 lh-22 font-light">{formatScore(group.group_score)}</span>
           </div>
         </section>
         <Link href={`/u/${userId}/group/meet`} className="press flex justify-center rounded-full bg-ink py-[15px] font-mono text-label leading-3 tracking-label text-sheet">

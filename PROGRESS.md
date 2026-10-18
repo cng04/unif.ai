@@ -204,6 +204,8 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-18: Larger text on desktop: sizes below 24px scale 1.1x at `md` and up via `--type-scale` in
+  `globals.css`; hard-coded `text-[Npx]` / `leading-[Npx]` became `fs-N` / `lh-N`. Mobile unchanged.
 - 2026-10-18: A rate-limited chat turn tries the next OpenRouter model immediately instead of sleeping until
   that model's minute resets. Chat speed changes only when this server code is deployed and restarted.
 - 2026-10-18: While matching is still reading keywords and nobody has a score yet, agents mill around the

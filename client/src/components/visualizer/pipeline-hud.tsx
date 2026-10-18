@@ -49,7 +49,7 @@ export function PipelineHud({
     <section aria-label="Pipeline" className={`${panel} flex flex-col gap-4 px-5 py-[18px] ${className}`}>
       <div className="flex items-center justify-between">
         <Caption className="text-ink-muted">pipeline</Caption>
-        <span className="font-mono text-[10px] leading-3 tracking-[0.14em] text-ink-muted">
+        <span className="font-mono fs-10 leading-3 tracking-[0.14em] text-ink-muted">
           {stage === "matched" ? "matched" : stage === "onboarding" ? "not started" : "running"}
         </span>
       </div>
@@ -68,10 +68,10 @@ export function PipelineHud({
                 />
                 {!last && <span className={`h-px flex-1 ${i < current ? "bg-ink" : "bg-line"}`} />}
               </div>
-              <span className={`font-sans text-[14px] leading-[18px] ${status === "active" ? "font-medium text-ember-text" : status === "done" ? "text-ink" : "text-ink-faint"}`}>
+              <span className={`font-sans fs-14 lh-18 ${status === "active" ? "font-medium text-ember-text" : status === "done" ? "text-ink" : "text-ink-faint"}`}>
                 {step.label}
               </span>
-              <span className={`font-mono text-[9.5px] leading-3 tracking-[0.14em] ${status === "active" ? "text-ember-text" : "text-ink-faint"}`}>{status}</span>
+              <span className={`font-mono fs-9.5 leading-3 tracking-[0.14em] ${status === "active" ? "text-ember-text" : "text-ink-faint"}`}>{status}</span>
             </li>
           );
         })}
@@ -84,7 +84,7 @@ export function PipelineHud({
               type="button"
               disabled={match.pending}
               onClick={match.onAbort}
-              className="press self-start rounded-full border border-ember bg-ember/10 px-3.5 py-[7px] font-mono text-[11px] leading-3 tracking-[0.14em] text-ember-text disabled:opacity-40"
+              className="press self-start rounded-full border border-ember bg-ember/10 px-3.5 py-[7px] font-mono fs-11 leading-3 tracking-[0.14em] text-ember-text disabled:opacity-40"
             >
               {match.pending ? "aborting…" : "abort matching"}
             </button>
@@ -93,21 +93,21 @@ export function PipelineHud({
               type="button"
               disabled={match.pending || !match.ready}
               onClick={match.onRun}
-              className="press self-start rounded-full bg-ink px-3.5 py-[7px] font-mono text-[11px] leading-3 tracking-[0.14em] text-paper disabled:opacity-40"
+              className="press self-start rounded-full bg-ink px-3.5 py-[7px] font-mono fs-11 leading-3 tracking-[0.14em] text-paper disabled:opacity-40"
             >
               {match.pending ? "starting…" : stage === "matched" ? "re-run matching" : "run matching"}
             </button>
           )}
           {!match.running && !match.ready && (
-            <span className="font-mono text-[9.5px] leading-3 tracking-[0.12em] text-ink-muted">need {match.needed} people onboarded</span>
+            <span className="font-mono fs-9.5 leading-3 tracking-[0.12em] text-ink-muted">need {match.needed} people onboarded</span>
           )}
-          {match.error && <span className="font-sans text-[13px] leading-4 text-ember-text">{match.error}</span>}
+          {match.error && <span className="font-sans fs-13 leading-4 text-ember-text">{match.error}</span>}
         </div>
       )}
 
       <div className="flex items-center justify-between border-t border-line pt-3.5">
         <Segmented options={SPEEDS} value={speed as (typeof SPEEDS)[number]} onChange={onSpeed} label="Speed" size="sm" render={(s) => `${s}×`} />
-        <label className="flex items-center gap-2 font-sans text-[13px] leading-4 text-ink">
+        <label className="flex items-center gap-2 font-sans fs-13 leading-4 text-ink">
           follow
           <Toggle on={following} disabled={!canFollow} label="Follow the selected agent" onChange={onFollow} />
         </label>

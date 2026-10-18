@@ -24,7 +24,7 @@ async function UniverseList({ searchParams }: { searchParams: Promise<Record<str
   const mode = (await searchParams).mode === "demo" ? "demo" : "real";
   const universes = await adminApi.universes(mode);
   const tabs = (
-    <div className="flex gap-3.5 pb-3 font-mono text-[10px] leading-3 tracking-label">
+    <div className="flex gap-3.5 pb-3 font-mono fs-10 leading-3 tracking-label">
       {(["real", "demo"] as const).map((m) => (
         <Link key={m} href={m === "real" ? "/admin" : "/admin?mode=demo"} className={m === mode ? "underline underline-offset-4" : "text-ink-muted hover:text-ink"}>
           {m === "real" ? "real universes" : "demo & test data"}
@@ -62,19 +62,19 @@ async function UniverseList({ searchParams }: { searchParams: Promise<Record<str
                 style={{ animationDelay: `${i * 40}ms` }}
               >
                 <td className="py-[11px] pr-4">
-                  <Link href={`/admin/universes/${p.id}`} className="text-[12.5px] leading-4 tracking-[0.08em] lowercase hover:underline">
+                  <Link href={`/admin/universes/${p.id}`} className="fs-12.5 leading-4 tracking-[0.08em] lowercase hover:underline">
                     {p.name}
                   </Link>
                 </td>
-                <td className="pr-4 font-mono text-[11px] tracking-[0.1em]">
+                <td className="pr-4 font-mono fs-11 tracking-[0.1em]">
                   <span className={p.status === "matching" ? "text-ember-text" : ""}>{p.status}</span>
                 </td>
-                <td className="pr-4 font-mono text-[11px] tracking-[0.1em]">
+                <td className="pr-4 font-mono fs-11 tracking-[0.1em]">
                   {p.onboarded} / {p.members}
                 </td>
-                <td className="pr-4 font-mono text-[11px] tracking-[0.1em]">{p.groups || "—"}</td>
-                <td className="pr-4 font-mono text-[11px] tracking-[0.1em] text-ink-muted">{shortDate(p.created_at)}</td>
-                <td className="font-mono text-[11px] tracking-[0.1em]">
+                <td className="pr-4 font-mono fs-11 tracking-[0.1em]">{p.groups || "—"}</td>
+                <td className="pr-4 font-mono fs-11 tracking-[0.1em] text-ink-muted">{shortDate(p.created_at)}</td>
+                <td className="font-mono fs-11 tracking-[0.1em]">
                   <Link href={`/admin/universes/${p.id}/world`} className="hover:underline">
                     world →
                   </Link>

@@ -40,7 +40,7 @@ export function PoolGraph({ data, universeId, pair }: { data: UniverseGraph; uni
     <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
       <Panel className="relative h-[620px] flex-1 overflow-hidden">
         <PoolGraph2D data={data} tints={tint} selected={personId} onPerson={setPersonId} />
-        <p className="pointer-events-none absolute bottom-3 left-4 flex gap-4 font-mono text-[9.5px] tracking-label text-ink-muted">
+        <p className="pointer-events-none absolute bottom-3 left-4 flex gap-4 font-mono fs-9.5 tracking-label text-ink-muted">
           <span>● in a group</span>
           <span>◌ unplaced</span>
           <span>··· no transcript</span>
@@ -64,7 +64,7 @@ export function PoolGraph({ data, universeId, pair }: { data: UniverseGraph; uni
         )}
         {!personId && pair && <PoolEdgePanel key={pair.id} pair={pair} groupA={groupOf.get(pair.a.id) ?? null} groupB={groupOf.get(pair.b.id) ?? null} />}
         <Panel className="flex flex-col gap-3 p-5">
-          <h2 className="font-mono text-[10px] tracking-meta text-ink-muted">
+          <h2 className="font-mono fs-10 tracking-meta text-ink-muted">
             ( everyone · {data.people.length}
             {unplaced ? ` · ${unplaced} unplaced` : ""} )
           </h2>
@@ -75,14 +75,14 @@ export function PoolGraph({ data, universeId, pair }: { data: UniverseGraph; uni
                   onClick={() => selectPerson(p.id === personId ? null : p.id)}
                   className={`flex w-full items-center justify-between gap-3 py-2 text-left transition-colors ${p.id === personId ? "text-ember-text" : "hover:text-ink-muted"}`}
                 >
-                <span className="flex items-center gap-2.5 text-[13px] tracking-[0.04em] lowercase">
+                <span className="flex items-center gap-2.5 fs-13 tracking-[0.04em] lowercase">
                   <span
                     className={`size-2.5 shrink-0 rounded-full ${p.group ? "" : "border border-ink-muted"}`}
                     style={p.group ? { background: tint.get(p.group) } : undefined}
                   />
                   {p.full_name}
                 </span>
-                <span className={`font-mono text-[10px] tracking-label ${p.group ? "text-ink-muted" : "text-ember-text"}`}>
+                <span className={`font-mono fs-10 tracking-label ${p.group ? "text-ink-muted" : "text-ember-text"}`}>
                   {p.group ?? "unplaced"}
                 </span>
                 </button>
@@ -93,22 +93,22 @@ export function PoolGraph({ data, universeId, pair }: { data: UniverseGraph; uni
 
         <Panel className="flex flex-col gap-3 p-5">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-mono text-[10px] tracking-meta text-ink-muted">( groups · {groups.length} )</h2>
-            <Link href={`/admin/universes/${universeId}/groups`} className="font-mono text-[10px] tracking-label text-ink-muted hover:text-ink">
+            <h2 className="font-mono fs-10 tracking-meta text-ink-muted">( groups · {groups.length} )</h2>
+            <Link href={`/admin/universes/${universeId}/groups`} className="font-mono fs-10 tracking-label text-ink-muted hover:text-ink">
               cards →
             </Link>
           </div>
           <ul className="flex flex-col gap-3">
             {groups.map((g) => (
               <li key={g.id} className="flex flex-col gap-1.5 border-b border-line pb-3 last:border-b-0 last:pb-0">
-                <div className="flex items-baseline justify-between font-mono text-[10.5px] tracking-label">
+                <div className="flex items-baseline justify-between font-mono fs-10.5 tracking-label">
                   <span className="flex items-center gap-2">
                     <span className="size-2.5 rounded-full" style={{ background: tint.get(g.label) }} />
                     {g.label} · {g.members.length}
                   </span>
                   <span className="text-ink-muted">chemistry {formatScore(g.avg)}</span>
                 </div>
-                <p className="text-[13px] leading-[19px] font-light tracking-[0.04em] lowercase">
+                <p className="fs-13 lh-19 font-light tracking-[0.04em] lowercase">
                   {g.members.map((m) => m.full_name).join(", ")}
                 </p>
               </li>
@@ -149,7 +149,7 @@ function PersonPanel({
     <aside className="rise-in flex max-h-[620px] flex-col gap-4 overflow-y-auto rounded-[20px] border border-line bg-sheet p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-1.5">
-          <p className="flex items-center gap-2 font-mono text-[10px] tracking-meta text-ink-muted">
+          <p className="flex items-center gap-2 font-mono fs-10 tracking-meta text-ink-muted">
             {person.group ? (
               <span className="pop-in size-2.5 rounded-full" style={{ background: tint.get(person.group) }} />
             ) : (
@@ -157,9 +157,9 @@ function PersonPanel({
             )}
             ( {person.group ?? "unplaced"} )
           </p>
-          <h2 className="text-[20px] leading-7 tracking-[0.08em] lowercase">{person.full_name}</h2>
+          <h2 className="fs-20 leading-7 tracking-[0.08em] lowercase">{person.full_name}</h2>
         </div>
-        <button onClick={onClose} className="press font-mono text-[11px] text-ink-muted hover:text-ink" aria-label="Close">
+        <button onClick={onClose} className="press font-mono fs-11 text-ink-muted hover:text-ink" aria-label="Close">
           ✕
         </button>
       </div>
@@ -173,13 +173,13 @@ function PersonPanel({
           <li key={t.id} className="rise-in" style={{ animationDelay: `${150 + i * 60}ms` }}>
             <button onClick={() => onPair(t.id)} className="press flex w-full flex-col gap-1.5 rounded-[10px] px-2 py-2 text-left hover:bg-ink/5">
               <span className="flex items-baseline justify-between gap-2">
-                <span className="text-[13px] tracking-[0.04em] lowercase">
+                <span className="fs-13 tracking-[0.04em] lowercase">
                   {t.other?.full_name}
-                  <span className="ml-2 font-mono text-[9.5px] tracking-label text-ink-muted">
+                  <span className="ml-2 font-mono fs-9.5 tracking-label text-ink-muted">
                     {t.conflict ? "ruled out" : t.other?.group === person.group && person.group ? "same group" : (t.other?.group ?? "unplaced")}
                   </span>
                 </span>
-                <span className={`font-mono text-[11px] ${t.conflict ? "text-ember-text" : ""}`}>
+                <span className={`font-mono fs-11 ${t.conflict ? "text-ember-text" : ""}`}>
                   {t.vibe_score != null ? <CountUp to={t.vibe_score} format={score} ms={700 + i * 60} /> : "—"}
                 </span>
               </span>
@@ -197,7 +197,7 @@ function PersonPanel({
             </button>
           </li>
         ))}
-        {ties.length === 0 && <p className="font-mono text-[10px] tracking-label text-ink-muted">no agent chats</p>}
+        {ties.length === 0 && <p className="font-mono fs-10 tracking-label text-ink-muted">no agent chats</p>}
       </ol>
     </aside>
   );
@@ -207,7 +207,7 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <dd className="text-[24px] leading-7 font-light tracking-[0.02em]">{value}</dd>
-      <dt className="font-mono text-[9px] tracking-label text-ink-muted">{label}</dt>
+      <dt className="font-mono fs-9 tracking-label text-ink-muted">{label}</dt>
     </div>
   );
 }

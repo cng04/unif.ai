@@ -19,8 +19,8 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
         <div className="flex min-w-0 items-center gap-4 lg:flex-col lg:items-stretch lg:gap-1">
           <Link href="/admin" className="flex items-center gap-2.5 px-2.5 lg:pb-6">
             <LogoMark />
-            <span className="text-[15px] leading-[18px] font-light tracking-meta">unif.ai</span>
-            <span className="hidden font-mono text-[10px] leading-3 tracking-[0.12em] text-ink-muted sm:inline">admin</span>
+            <span className="fs-15 lh-18 font-light tracking-meta">unif.ai</span>
+            <span className="hidden font-mono fs-10 leading-3 tracking-[0.12em] text-ink-muted sm:inline">admin</span>
           </Link>
           <Suspense fallback={null}>
             <AdminNav />

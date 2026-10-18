@@ -46,17 +46,17 @@ export function BioCard({
       <header className="flex items-center gap-3.5">
         <AgentAvatar userId={member.id} look={member.look} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 className="truncate font-sans text-[21px] leading-[26px] font-light tracking-[-0.01em] text-ink">
+          <h2 className="truncate font-sans fs-21 lh-26 font-light tracking-[-0.01em] text-ink">
             {member.name}
-            {isViewer && <span className="ml-2 font-mono text-[10px] tracking-[0.14em] text-ember-text">you</span>}
+            {isViewer && <span className="ml-2 font-mono fs-10 tracking-[0.14em] text-ember-text">you</span>}
           </h2>
-          <p className="truncate font-mono text-[9.5px] leading-3 tracking-[0.16em] whitespace-nowrap text-ink-faint">agent · {colorName(member.id)}</p>
+          <p className="truncate font-mono fs-9.5 leading-3 tracking-[0.16em] whitespace-nowrap text-ink-faint">agent · {colorName(member.id)}</p>
         </div>
         {info && <DotPill dark>{info.state}</DotPill>}
         <CloseButton onClick={onClose} />
       </header>
 
-      <p className="font-mono text-[10px] leading-3 tracking-[0.12em] text-ink-muted">
+      <p className="font-mono fs-10 leading-3 tracking-[0.12em] text-ink-muted">
         {info ? `in ${info.zone}` : "…"}
         {busyLine && ` · ${busyLine}`}
         {snapshot.viewer === null && (
@@ -70,7 +70,7 @@ export function BioCard({
       </p>
 
       {info?.talkingPair && (
-        <p className="font-mono text-[9.5px] leading-3 tracking-[0.14em] text-ink-muted">
+        <p className="font-mono fs-9.5 leading-3 tracking-[0.14em] text-ink-muted">
           {info.replaying ? "replaying a completed chat" : "talking now"}
         </p>
       )}
@@ -80,21 +80,21 @@ export function BioCard({
         {topScores.length ? (
           <ul className="flex flex-wrap gap-1.5">
             {topScores.map((k) => (
-              <li key={k.name} className="flex items-baseline gap-1.5 rounded-full border border-line px-[11px] py-[5px] font-sans text-[12px] leading-4 text-ink">
+              <li key={k.name} className="flex items-baseline gap-1.5 rounded-full border border-line px-[11px] py-[5px] font-sans fs-12 leading-4 text-ink">
                 {k.name}
-                {k.score !== null && <span className="font-mono text-[9.5px] text-ink-faint">{k.score.toFixed(2)}</span>}
+                {k.score !== null && <span className="font-mono fs-9.5 text-ink-faint">{k.score.toFixed(2)}</span>}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="font-sans text-[13px] text-ink-muted">{member.scored ? "no strong keywords" : "not scored yet"}</p>
+          <p className="font-sans fs-13 text-ink-muted">{member.scored ? "no strong keywords" : "not scored yet"}</p>
         )}
       </div>
 
       {member.looking_for && (
         <div className="flex flex-col gap-2">
           <Caption>looking for</Caption>
-          <p className="font-sans text-[14px] leading-[21px] text-ink">{member.looking_for}</p>
+          <p className="font-sans fs-14 lh-21 text-ink">{member.looking_for}</p>
         </div>
       )}
 
@@ -103,14 +103,14 @@ export function BioCard({
           <Caption>{group ? `${group.label ?? "group"} · ${snapshot.universe.status === "matched" ? "formed" : "forming"}` : "group"}</Caption>
           {group?.score != null && (
             <span className="flex items-baseline gap-1.5">
-              <span className="font-sans text-[20px] leading-6 font-light tracking-[0.06em] text-ink">{group.score.toFixed(1)}</span>
-              <span className="font-mono text-[9.5px] leading-3 text-ink-faint">group score</span>
+              <span className="font-sans fs-20 leading-6 font-light tracking-[0.06em] text-ink">{group.score.toFixed(1)}</span>
+              <span className="font-mono fs-9.5 leading-3 text-ink-faint">group score</span>
             </span>
           )}
         </div>
         {group ? (
           <>
-            <p className="font-sans text-[13px] leading-[19px] text-ink-muted">
+            <p className="font-sans fs-13 lh-19 text-ink-muted">
               {group.member_ids.map((id, i) => (
                 <span key={id}>
                   {i > 0 && " · "}
@@ -120,10 +120,10 @@ export function BioCard({
                 </span>
               ))}
             </p>
-            {group.events?.[0] && <p className="font-sans text-[13px] leading-4 text-ember-text">→ {group.events[0].name}</p>}
+            {group.events?.[0] && <p className="font-sans fs-13 leading-4 text-ember-text">→ {group.events[0].name}</p>}
           </>
         ) : (
-          <p className="font-sans text-[13px] leading-[19px] text-ink-muted">
+          <p className="font-sans fs-13 lh-19 text-ink-muted">
             {snapshot.groups.length ? "not in a group this round" : "groups haven't formed yet"}
           </p>
         )}
@@ -145,8 +145,8 @@ export function BioCard({
                     onClick={() => onOpenPair(p)}
                     className="press flex w-full items-center gap-3 px-1 py-2.5 text-left enabled:hover:bg-ink/[0.03]"
                   >
-                    <span className="w-[60px] shrink-0 truncate font-sans text-[14px] leading-[18px] text-ink">{names.get(other) ?? "someone"}</span>
-                    <span className="w-10 shrink-0 font-sans text-[16px] leading-5 font-light text-ink">
+                    <span className="w-[60px] shrink-0 truncate font-sans fs-14 lh-18 text-ink">{names.get(other) ?? "someone"}</span>
+                    <span className="w-10 shrink-0 font-sans fs-16 leading-5 font-light text-ink">
                       {p.vibe == null ? "—" : p.vibe.toFixed(1)}
                     </span>
                     <span className="flex flex-1 justify-end gap-1.5">
@@ -178,7 +178,7 @@ export function BioCard({
               ))}
             </ul>
           ) : (
-            <p className="font-sans text-[13px] leading-[19px] text-ink-muted">{member.scored ? "none flagged" : "not scored yet"}</p>
+            <p className="font-sans fs-13 lh-19 text-ink-muted">{member.scored ? "none flagged" : "not scored yet"}</p>
           )}
         </div>
       )}
@@ -186,8 +186,8 @@ export function BioCard({
       {snapshot.viewer === null && (
         <div className="flex flex-col gap-2">
           <Caption>dealbreaker flags from judged chats</Caption>
-          <p className="font-sans text-[13px] leading-[19px] text-ink">{flags.length ? flags.join(" · ") : mine.length ? "none raised" : "no judged chats yet"}</p>
-          <p className="font-mono text-[9.5px] leading-3 tracking-[0.12em] text-ink-faint">from the judge&apos;s read of chats, not profile answers</p>
+          <p className="font-sans fs-13 lh-19 text-ink">{flags.length ? flags.join(" · ") : mine.length ? "none raised" : "no judged chats yet"}</p>
+          <p className="font-mono fs-9.5 leading-3 tracking-[0.12em] text-ink-faint">from the judge&apos;s read of chats, not profile answers</p>
         </div>
       )}
     </section>

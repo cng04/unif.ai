@@ -16,7 +16,7 @@ export function Stat({ value, label, accent }: { value: ReactNode; label: ReactN
   return (
     <div className="flex flex-col gap-0.5">
       <span className={`text-stat font-light tracking-stat ${accent ? "text-ember-text" : ""}`}>{value}</span>
-      <span className="font-mono text-[11px] leading-[15px] tracking-[0.12em] text-ink/70 md:text-[11.5px]">{label}</span>
+      <span className="font-mono fs-11 lh-15 tracking-[0.12em] text-ink/70 md:fs-11.5">{label}</span>
     </div>
   );
 }
@@ -55,7 +55,7 @@ export function PillLink({ href, children }: { href: string; children: ReactNode
   return (
     <Link
       href={href}
-      className="press flex h-9 items-center rounded-full border border-ink/25 px-4 text-[11.5px] tracking-meta lowercase hover:bg-ink/5"
+      className="press flex h-9 items-center rounded-full border border-ink/25 px-4 fs-11.5 tracking-meta lowercase hover:bg-ink/5"
     >
       {children}
     </Link>
@@ -92,7 +92,7 @@ export function AgentSkeleton() {
       <div className="flex items-center gap-3 border-b border-line px-5 pt-5 pb-4">
         <span className="size-7 shrink-0 rounded-full border border-ink/20" />
         <div className="flex flex-1 flex-col gap-1.5">
-          <span className="text-[13px] leading-4 tracking-label">your agent</span>
+          <span className="fs-13 leading-4 tracking-label">your agent</span>
           <SkeletonBar className="h-2 w-24" />
         </div>
       </div>

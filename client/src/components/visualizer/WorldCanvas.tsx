@@ -22,7 +22,7 @@ import type { SnapshotPair, Unchanged, WorldSnapshot } from "./world/snapshot";
 const WorldStage = dynamic(() => import("./world-stage"), {
   ssr: false,
   loading: () => (
-    <div className="grid h-full place-items-center font-mono text-[11px] tracking-[0.16em] text-paper/40">( loading world )</div>
+    <div className="grid h-full place-items-center font-mono fs-11 tracking-[0.16em] text-paper/40">( loading world )</div>
   ),
 });
 
@@ -334,7 +334,7 @@ export function WorldCanvas({
                   type="button"
                   aria-label={aria}
                   onClick={run}
-                  className="press min-w-9 rounded-full px-3 py-[9px] font-mono text-[11px] leading-[14px] tracking-[0.14em] text-ink-muted hover:bg-ink/5"
+                  className="press min-w-9 rounded-full px-3 py-[9px] font-mono fs-11 lh-14 tracking-[0.14em] text-ink-muted hover:bg-ink/5"
                 >
                   {label}
                 </button>
@@ -344,7 +344,7 @@ export function WorldCanvas({
                   type="button"
                   aria-label="Follow my agent"
                   onClick={() => engine?.select(viewer, true)}
-                  className="press rounded-full bg-ink px-3 py-[9px] font-mono text-[11px] leading-[14px] tracking-[0.14em] text-paper"
+                  className="press rounded-full bg-ink px-3 py-[9px] font-mono fs-11 lh-14 tracking-[0.14em] text-paper"
                 >
                   follow me
                 </button>
@@ -353,7 +353,7 @@ export function WorldCanvas({
           </div>
 
           {snapshot.members.length === 0 && (
-            <p className="absolute inset-0 grid place-items-center font-mono text-[11px] tracking-[0.16em] text-paper/50">( nobody has joined yet )</p>
+            <p className="absolute inset-0 grid place-items-center font-mono fs-11 tracking-[0.16em] text-paper/50">( nobody has joined yet )</p>
           )}
         </div>
         {hud}
@@ -374,14 +374,14 @@ function TopBar({ snapshot, live }: { snapshot: WorldSnapshot; live: number }) {
       <div className="flex flex-wrap items-center gap-5">
         <div className="flex flex-col gap-[3px]">
           <Caption>universe</Caption>
-          <h1 className="font-sans text-[16px] leading-5 font-medium text-ink">{name}</h1>
+          <h1 className="font-sans fs-16 leading-5 font-medium text-ink">{name}</h1>
         </div>
-        <span className="flex items-center gap-2 rounded-full border border-line bg-sheet px-3.5 py-[7px] font-mono text-[11px] leading-[14px] tracking-[0.14em] text-ink">
+        <span className="flex items-center gap-2 rounded-full border border-line bg-sheet px-3.5 py-[7px] font-mono fs-11 lh-14 tracking-[0.14em] text-ink">
           <span className={`size-[7px] rounded-full ${dot} ${status === "matching" ? "animate-pulse" : ""}`} />
           {status}
         </span>
         {demo && (
-          <span className="rounded-full border border-dashed border-ink/40 px-3 py-[6px] font-mono text-[10px] leading-3 tracking-[0.14em] text-ink-muted">
+          <span className="rounded-full border border-dashed border-ink/40 px-3 py-[6px] font-mono fs-10 leading-3 tracking-[0.14em] text-ink-muted">
             demo data
           </span>
         )}
@@ -398,8 +398,8 @@ function TopBar({ snapshot, live }: { snapshot: WorldSnapshot; live: number }) {
 function Stat({ value, label, accent }: { value: number; label: string; accent?: boolean }) {
   return (
     <div className="flex flex-col items-end gap-1">
-      <dd className={`font-sans text-[20px] leading-6 font-light tracking-[0.06em] ${accent ? "text-ember-text" : "text-ink"}`}>{value}</dd>
-      <dt className="font-mono text-[9.5px] leading-3 tracking-[0.16em] text-ink-faint">{label}</dt>
+      <dd className={`font-sans fs-20 leading-6 font-light tracking-[0.06em] ${accent ? "text-ember-text" : "text-ink"}`}>{value}</dd>
+      <dt className="font-mono fs-9.5 leading-3 tracking-[0.16em] text-ink-faint">{label}</dt>
     </div>
   );
 }

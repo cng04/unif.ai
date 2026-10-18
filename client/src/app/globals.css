@@ -24,18 +24,18 @@
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  --text-micro: 10px;
-  --text-micro--line-height: 14px;
-  --text-meta: 10.5px;
-  --text-meta--line-height: 14px;
-  --text-label: 12px;
-  --text-label--line-height: 16px;
-  --text-body: 14px;
-  --text-body--line-height: 21px;
-  --text-stat: 20px;
-  --text-stat--line-height: 28px;
-  --text-title: 21px;
-  --text-title--line-height: 32px;
+  --text-micro: calc(10px * var(--type-scale));
+  --text-micro--line-height: calc(14px * var(--type-scale));
+  --text-meta: calc(10.5px * var(--type-scale));
+  --text-meta--line-height: calc(14px * var(--type-scale));
+  --text-label: calc(12px * var(--type-scale));
+  --text-label--line-height: calc(16px * var(--type-scale));
+  --text-body: calc(14px * var(--type-scale));
+  --text-body--line-height: calc(21px * var(--type-scale));
+  --text-stat: calc(20px * var(--type-scale));
+  --text-stat--line-height: calc(28px * var(--type-scale));
+  --text-title: calc(21px * var(--type-scale));
+  --text-title--line-height: calc(32px * var(--type-scale));
 
   --tracking-body: 0.02em;
   --tracking-stat: 0.06em;
@@ -47,6 +47,25 @@
   --radius-lg: 28px;
 
   --container-mobile: 390px;
+}
+
+/* Type was sized for phones; on desktop everything below display size reads 10% larger. Use fs-* / lh-*
+   (px values) instead of text-[Npx] / leading-[Npx] so new sizes follow the same scale. */
+:root {
+  --type-scale: 1;
+}
+@media (min-width: 768px) {
+  :root {
+    --type-scale: 1.1;
+  }
+}
+
+@utility fs-* {
+  font-size: calc(--value(number) * 1px * var(--type-scale));
+}
+
+@utility lh-* {
+  line-height: calc(--value(number) * 1px * var(--type-scale));
 }
 
 body {

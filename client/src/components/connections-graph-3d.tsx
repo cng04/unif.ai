@@ -283,12 +283,12 @@ export function ConnectionsGraph3D({ data, flat = false }: { data: UserGraph; fl
         {data.axes?.map((name, i) => (
           <Fragment key={i}>
             <span ref={track(`axis-hi-${i}`)} className="invisible absolute top-0 left-0">
-              <span className="block -translate-x-1/2 -translate-y-1/2 rounded-full border border-line bg-paper/85 px-2.5 py-1 font-mono text-[10.5px] tracking-[0.08em] whitespace-nowrap text-ink lowercase">
+              <span className="block -translate-x-1/2 -translate-y-1/2 rounded-full border border-line bg-paper/85 px-2.5 py-1 font-mono fs-10.5 tracking-[0.08em] whitespace-nowrap text-ink lowercase">
                 <span className="text-ink-faint">{"xyz"[i]} ·</span> more {name}
               </span>
             </span>
             <span ref={track(`axis-lo-${i}`)} className="invisible absolute top-0 left-0">
-              <span className="block -translate-x-1/2 -translate-y-1/2 font-mono text-[10px] tracking-[0.08em] whitespace-nowrap text-ink-faint lowercase">
+              <span className="block -translate-x-1/2 -translate-y-1/2 font-mono fs-10 tracking-[0.08em] whitespace-nowrap text-ink-faint lowercase">
                 less {name}
               </span>
             </span>
@@ -301,7 +301,7 @@ export function ConnectionsGraph3D({ data, flat = false }: { data: UserGraph; fl
               <span
                 className="block translate-x-[10px] -translate-y-1/2 whitespace-nowrap font-sans lowercase transition-colors"
                 style={{
-                  fontSize: n.kind === "match" ? 10.5 : 11,
+                  fontSize: `calc(${n.kind === "match" ? 10.5 : 11}px * var(--type-scale))`,
                   letterSpacing: "0.14em",
                   fontWeight: n.kind !== "match" || on ? 400 : 300,
                   color: on ? "var(--color-ember-text)" : n.kind === "match" ? "var(--color-ink-muted)" : "var(--color-ink)",
@@ -309,7 +309,7 @@ export function ConnectionsGraph3D({ data, flat = false }: { data: UserGraph; fl
               >
                 {n.kind === "me" ? "me" : n.name!.toLowerCase()}
                 {n.pair_id && (
-                  <span className="ml-[5px] font-mono" style={{ fontSize: 8.5, letterSpacing: "0.08em" }}>
+                  <span className="ml-[5px] font-mono" style={{ fontSize: "calc(8.5px * var(--type-scale))", letterSpacing: "0.08em" }}>
                     {n.conflict ? "not a fit" : formatScore(n.vibe_score)}
                   </span>
                 )}

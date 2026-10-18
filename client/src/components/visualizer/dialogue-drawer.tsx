@@ -45,7 +45,7 @@ export function DialogueDrawer({
       <header className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1.5">
           <Caption>dialogue</Caption>
-          <h2 className="font-sans text-[21px] leading-[26px] font-light tracking-[-0.01em] text-ink">
+          <h2 className="font-sans fs-21 lh-26 font-light tracking-[-0.01em] text-ink">
             <button type="button" className="hover:underline" onClick={() => onSelectAgent(pair.a)}>
               {nameOf(pair.a)}
             </button>
@@ -67,11 +67,11 @@ export function DialogueDrawer({
             <span className="font-sans text-[64px] leading-[64px] font-light tracking-[-0.03em] text-ink">
               {pair.vibe == null ? "—" : pair.vibe.toFixed(1)}
             </span>
-            <span className="font-mono text-[11px] leading-[14px] tracking-[0.14em] text-ink-faint">/ 10 vibe</span>
+            <span className="font-mono fs-11 lh-14 tracking-[0.14em] text-ink-faint">/ 10 vibe</span>
           </div>
           <div className="flex flex-col items-end gap-1.5">
-            <span className="font-mono text-[9.5px] leading-3 tracking-[0.16em] text-ink-faint">logistics</span>
-            <Pill tone={fitTone(pair.logistics ?? null, conflict)} className="px-[11px] py-1 text-[10px]">
+            <span className="font-mono fs-9.5 leading-3 tracking-[0.16em] text-ink-faint">logistics</span>
+            <Pill tone={fitTone(pair.logistics ?? null, conflict)} className="px-[11px] py-1 fs-10">
               {conflict ? "incompatible" : (pair.logistics ?? "—")}
             </Pill>
           </div>
@@ -91,7 +91,7 @@ export function DialogueDrawer({
       {pair.rationale && (
         <div className="flex flex-col gap-2">
           <Caption>judge&apos;s rationale</Caption>
-          <p className="font-sans text-[13px] leading-[19px] text-ink-muted">{pair.rationale}</p>
+          <p className="font-sans fs-13 lh-19 text-ink-muted">{pair.rationale}</p>
         </div>
       )}
 
@@ -99,7 +99,7 @@ export function DialogueDrawer({
         <button
           type="button"
           onClick={onReplay}
-          className="press self-start rounded-full border border-ink/25 px-3 py-1.5 font-mono text-[9.5px] leading-3 tracking-[0.14em] text-ink hover:bg-ink/5"
+          className="press self-start rounded-full border border-ink/25 px-3 py-1.5 font-mono fs-9.5 leading-3 tracking-[0.14em] text-ink hover:bg-ink/5"
         >
           re-enact in the world →
         </button>
@@ -113,24 +113,24 @@ export function DialogueDrawer({
             <span className="size-2 animate-pulse rounded-full bg-blob-ochre" />
             <span className="size-2 animate-pulse rounded-full bg-blob-glacier" />
             <span className="size-2 animate-pulse rounded-full bg-blob-periwinkle" />
-            <span className="ml-1 font-sans text-[13px] leading-4 text-ink-muted">
+            <span className="ml-1 font-sans fs-13 leading-4 text-ink-muted">
               {pair.line ? `${nameOf(pair.line.speaker_id).toLowerCase()}: ${pair.line.content}` : "talking now"}
             </span>
           </div>
         )}
         {Array.isArray(messages) ? (
           messages.length === 0 ? (
-            <p className="py-2 font-sans text-[14px] text-ink-muted">no messages saved for this chat</p>
+            <p className="py-2 font-sans fs-14 text-ink-muted">no messages saved for this chat</p>
           ) : (
             messages.map((m, i) => {
               const first = m.speakerId === pair.a;
               return (
                 <div key={i} className={`flex max-w-[290px] flex-col gap-1 ${first ? "items-start" : "items-end self-end"}`}>
-                  <span className="font-mono text-[9.5px] leading-3 tracking-[0.14em] text-ink-faint">
+                  <span className="font-mono fs-9.5 leading-3 tracking-[0.14em] text-ink-faint">
                     {nameOf(m.speakerId).toLowerCase()} · {clock(m.createdAt)}
                   </span>
                   <p
-                    className={`px-3.5 py-2.5 font-sans text-[14px] leading-[21px] text-ink ${
+                    className={`px-3.5 py-2.5 font-sans fs-14 lh-21 text-ink ${
                       first ? "rounded-[18px] rounded-bl-md bg-[#E2B36C3D]" : "rounded-[18px] rounded-br-md bg-[#A8D6E066]"
                     }`}
                   >
@@ -141,17 +141,17 @@ export function DialogueDrawer({
             })
           )
         ) : origin === "live" ? null : messages === "error" ? (
-          <p className="font-sans text-[13px] text-ink-muted">
+          <p className="font-sans fs-13 text-ink-muted">
             couldn&apos;t load the transcript.{" "}
             <button type="button" className="underline" onClick={onRetry}>
               try again
             </button>
           </p>
         ) : (
-          <p className="py-2 font-sans text-[13px] text-ink-muted">loading the transcript…</p>
+          <p className="py-2 font-sans fs-13 text-ink-muted">loading the transcript…</p>
         )}
         {origin === "live" && Array.isArray(messages) && (
-          <p className="font-mono text-[9.5px] leading-3 tracking-[0.14em] text-ink-faint">still talking</p>
+          <p className="font-mono fs-9.5 leading-3 tracking-[0.14em] text-ink-faint">still talking</p>
         )}
       </div>
     </aside>

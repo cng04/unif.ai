@@ -118,7 +118,7 @@ export function GroupGraph3D({ group }: { group: UserGroup }) {
         {group.members.map((m) => (
           <span key={m.user_id} ref={track(m.user_id)} className="invisible absolute top-0 left-0">
             <span
-              className={`block font-mono text-[11px] tracking-[0.12em] whitespace-nowrap text-ink lowercase ${
+              className={`block font-mono fs-11 tracking-[0.12em] whitespace-nowrap text-ink lowercase ${
                 m.is_me ? "-translate-x-1/2 translate-y-[14px]" : "translate-x-[12px] -translate-y-1/2"
               }`}
             >

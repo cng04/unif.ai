@@ -374,7 +374,7 @@ function Graph({ data, tints, selected, onPerson, W, H }: Props & { W: number; H
           { label: "zoom out", glyph: "−", run: () => zoomAt({ x: W / 2, y: H / 2 }, 1 / 1.3) },
           { label: "zoom in", glyph: "+", run: () => zoomAt({ x: W / 2, y: H / 2 }, 1.3) },
         ].map((b) => (
-          <button key={b.label} onClick={b.run} aria-label={b.label} className="press grid size-8 place-items-center rounded-full font-mono text-[15px] hover:bg-ink/5">
+          <button key={b.label} onClick={b.run} aria-label={b.label} className="press grid size-8 place-items-center rounded-full font-mono fs-15 hover:bg-ink/5">
             {b.glyph}
           </button>
         ))}

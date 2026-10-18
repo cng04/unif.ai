@@ -57,7 +57,7 @@ async function YouScreen({ params }: { params: Promise<{ userId: string }> }) {
         <section>
           {pub.looking_for && (
             <Row label="looking for">
-              <p className="text-[17px] leading-[26px] font-light tracking-stat">{pub.looking_for}</p>
+              <p className="fs-17 lh-26 font-light tracking-stat">{pub.looking_for}</p>
             </Row>
           )}
           {pub.interests.length > 0 && (
@@ -78,7 +78,7 @@ async function YouScreen({ params }: { params: Promise<{ userId: string }> }) {
             >
               <span className="flex flex-col gap-1">
                 <span className="micro text-ink-muted">( your group · {group.members.length} )</span>
-                <span className="text-[15px] leading-6 font-light tracking-label lowercase">
+                <span className="fs-15 leading-6 font-light tracking-label lowercase">
                   {group.members.filter((m) => m.user_id !== userId).map((m) => m.full_name).join(", ")}
                 </span>
               </span>

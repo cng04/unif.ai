@@ -10,7 +10,7 @@ export const panel = "rounded-[28px] border border-white/50 bg-[#FBFAF7E6] backd
 
 /** "( floor )", "( pipeline )": 9.5px Geist Mono, wide tracking. */
 export function Caption({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <p className={`font-mono text-[9.5px] leading-3 tracking-[0.16em] text-ink-faint ${className}`}>( {children} )</p>;
+  return <p className={`font-mono fs-9.5 leading-3 tracking-[0.16em] text-ink-faint ${className}`}>( {children} )</p>;
 }
 
 export type PillTone = "solid" | "outline" | "ember";
@@ -23,7 +23,7 @@ const PILL: Record<PillTone, string> = {
 
 export function Pill({ tone, children, className = "" }: { tone: PillTone; children: ReactNode; className?: string }) {
   return (
-    <span className={`inline-flex rounded-full px-[9px] py-[3px] font-mono text-[9.5px] leading-3 tracking-[0.12em] ${PILL[tone]} ${className}`}>
+    <span className={`inline-flex rounded-full px-[9px] py-[3px] font-mono fs-9.5 leading-3 tracking-[0.12em] ${PILL[tone]} ${className}`}>
       {children}
     </span>
   );
@@ -39,7 +39,7 @@ export function fitTone(fit: string | null, conflict = false): PillTone {
 export function DotPill({ children, dark = false, dot = "bg-ember" }: { children: ReactNode; dark?: boolean; dot?: string }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-[5px] font-mono text-[9.5px] leading-3 tracking-[0.14em] ${
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-[5px] font-mono fs-9.5 leading-3 tracking-[0.14em] ${
         dark ? "bg-ink text-paper" : "border border-line text-ink"
       }`}
     >
@@ -89,7 +89,7 @@ export function Segmented<T extends string | number>({
           type="button"
           aria-pressed={o === value}
           onClick={() => onChange(o)}
-          className={`press rounded-full font-mono text-[11px] leading-[14px] ${pad} ${o === value ? "bg-ink text-paper" : "text-ink-muted hover:bg-ink/5"}`}
+          className={`press rounded-full font-mono fs-11 lh-14 ${pad} ${o === value ? "bg-ink text-paper" : "text-ink-muted hover:bg-ink/5"}`}
         >
           {render(o)}
         </button>
@@ -104,7 +104,7 @@ export function CloseButton({ onClick, label = "Close" }: { onClick: () => void;
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="press grid size-7 shrink-0 place-items-center rounded-full border border-line font-mono text-[11px] text-ink-muted hover:bg-ink/5"
+      className="press grid size-7 shrink-0 place-items-center rounded-full border border-line font-mono fs-11 text-ink-muted hover:bg-ink/5"
     >
       ✕
     </button>

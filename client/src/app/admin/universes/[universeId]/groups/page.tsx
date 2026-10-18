@@ -45,7 +45,7 @@ async function GroupsScreen({
           <>
             <ViewToggle universeId={universeId} graph={graphView} />
             {data.groups.length > 0 && (
-              <span className="font-mono text-[11px] tracking-label text-ink-muted">
+              <span className="font-mono fs-11 tracking-label text-ink-muted">
                 {placed} placed · {data.leftovers.length} leftover{data.leftovers.length === 1 ? "" : "s"}
               </span>
             )}
@@ -83,7 +83,7 @@ async function GroupsScreen({
 function ViewToggle({ universeId, graph }: { universeId: string; graph: boolean }) {
   const base = `/admin/universes/${universeId}/groups`;
   const tab = (on: boolean) =>
-    `press rounded-full px-3 py-[5px] font-mono text-[11px] leading-3 tracking-label ${on ? "bg-ink text-paper" : "hover:bg-ink/5"}`;
+    `press rounded-full px-3 py-[5px] font-mono fs-11 leading-3 tracking-label ${on ? "bg-ink text-paper" : "hover:bg-ink/5"}`;
   return (
     <div className="flex rounded-full border border-line p-0.5" role="group" aria-label="view">
       <Link href={base} className={tab(!graph)} aria-current={!graph ? "page" : undefined}>
@@ -104,17 +104,17 @@ function GroupCard({ group: g, index }: { group: UniverseGroups["groups"][number
       style={{ animationDelay: `${index * 60}ms` }}
     >
       <header className="flex items-baseline justify-between gap-3">
-        <span className="font-mono text-[11px] leading-3 tracking-label">
+        <span className="font-mono fs-11 leading-3 tracking-label">
           {g.label} · {g.members.length}
         </span>
         {g.group_score != null && (
-          <span className="text-[22px] leading-7 font-light tracking-[0.04em]" title="group judge's score, 1-10">
+          <span className="fs-22 leading-7 font-light tracking-[0.04em]" title="group judge's score, 1-10">
             {Math.round(g.group_score)}
-            <span className="text-[13px] text-ink-muted">/10</span>
+            <span className="fs-13 text-ink-muted">/10</span>
           </span>
         )}
       </header>
-      <p className="font-mono text-[9.5px] leading-3 tracking-label text-ink-muted">
+      <p className="font-mono fs-9.5 leading-3 tracking-label text-ink-muted">
         {weak
           ? `weakest tie · ${weak.a.toLowerCase()}–${weak.b.toLowerCase()} ${formatScore(weak.vibe_score)}`
           : "no judged pairs inside this group"}
@@ -134,7 +134,7 @@ function GroupCard({ group: g, index }: { group: UniverseGroups["groups"][number
         ))}
       </ul>
       {g.rationale && (
-        <p className="text-[12.5px] leading-[19px] font-light tracking-body">
+        <p className="fs-12.5 lh-19 font-light tracking-body">
           <span className="text-ink-muted">✓ judge: </span>
           {g.rationale}
         </p>
@@ -142,7 +142,7 @@ function GroupCard({ group: g, index }: { group: UniverseGroups["groups"][number
       {g.events.length > 0 && (
         <ul className="flex flex-col gap-1 border-t border-line pt-3">
           {g.events.map((e) => (
-            <li key={e.name} className="font-mono text-[11px] leading-4 tracking-[0.1em]">
+            <li key={e.name} className="font-mono fs-11 leading-4 tracking-[0.1em]">
               →{" "}
               {e.url ? (
                 <a href={e.url} target="_blank" rel="noreferrer" className="hover:underline">
@@ -166,7 +166,7 @@ function Leftovers({ leftovers }: { leftovers: UniverseGroups["leftovers"] }) {
   return (
     <aside className="flex flex-col gap-3 rounded-[20px] border border-dashed border-ink/30 p-[18px] xl:w-[220px] xl:shrink-0">
       <Caption>leftovers · {leftovers.length}</Caption>
-      <p className="text-[12.5px] leading-[19px] font-light tracking-body text-ink-muted">
+      <p className="fs-12.5 lh-19 font-light tracking-body text-ink-muted">
         Onboarded but not placed: the solver couldn&apos;t fit them in a conflict-free group.
       </p>
       {leftovers.map((p, i) => (
@@ -179,8 +179,8 @@ function Leftovers({ leftovers }: { leftovers: UniverseGroups["leftovers"] }) {
           style={{ animationDelay: `${200 + i * 50}ms` }}
         >
           <span className="size-[11px] shrink-0 rounded-full border border-dashed border-ink/60" />
-          <span className="flex-1 text-[12px] tracking-[0.08em] lowercase">{p.full_name}</span>
-          <span className="font-mono text-[10px] tracking-[0.1em] text-ink-muted">
+          <span className="flex-1 fs-12 tracking-[0.08em] lowercase">{p.full_name}</span>
+          <span className="font-mono fs-10 tracking-[0.1em] text-ink-muted">
             {p.chats === 0 ? "no chats" : p.strong_ties ? `${p.strong_ties} strong` : `${p.chats} chat${p.chats === 1 ? "" : "s"}`}
           </span>
         </a>

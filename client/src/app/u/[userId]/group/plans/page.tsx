@@ -40,8 +40,8 @@ async function Plans({ params }: { params: Promise<{ userId: string }> }) {
           </Link>
           <span>2 of 3</span>
         </div>
-        <h1 className="text-title leading-[32px] font-light tracking-[0.12em] md:text-[34px] md:leading-10">pick a plan</h1>
-        <p className="text-[13px] leading-[19px] text-ink-muted">
+        <h1 className="text-title lh-32 font-light tracking-[0.12em] md:text-[34px] md:leading-10">pick a plan</h1>
+        <p className="fs-13 lh-19 text-ink-muted">
           {group.plans_summary ?? "Your event agent looked for things your whole group would be up for."}
           {!chosen && group.events.length > 0 && ` Tap "i'm in" on any you'd go to. Once ${group.votes_needed} of you are in on one, it's on and everyone gets a text.`}
         </p>
@@ -53,7 +53,7 @@ async function Plans({ params }: { params: Promise<{ userId: string }> }) {
           className="press mx-5 mb-4 flex items-center justify-between rounded-md bg-ink px-[18px] py-4 text-sheet md:mx-0 md:mb-6"
         >
           <span className="flex flex-col gap-1">
-            <span className="text-[15px] leading-5 font-light tracking-[0.06em]">it&apos;s on: {chosen.name.toLowerCase()}</span>
+            <span className="fs-15 leading-5 font-light tracking-[0.06em]">it&apos;s on: {chosen.name.toLowerCase()}</span>
             <span className="font-mono text-meta leading-3 tracking-meta text-sheet/70">{chosen.voters.length} of {group.members.length} in · see the plan</span>
           </span>
           <span aria-hidden>→</span>
@@ -104,9 +104,9 @@ function PlanCard({
         </span>
         <span>via {plan.source}</span>
       </div>
-      <h2 className={`font-light tracking-[0.08em] lowercase ${featured ? "text-[22px] leading-7" : "text-[16px] leading-6"}`}>{plan.name}</h2>
+      <h2 className={`font-light tracking-[0.08em] lowercase ${featured ? "fs-22 leading-7" : "fs-16 leading-6"}`}>{plan.name}</h2>
       {meta && <p className="font-mono text-label leading-3 tracking-[0.1em]">{meta}</p>}
-      {plan.reason && <p className="text-[13px] leading-[19px] font-light text-ink-muted">{plan.reason}</p>}
+      {plan.reason && <p className="fs-13 lh-19 font-light text-ink-muted">{plan.reason}</p>}
       {plan.url && (
         <a href={plan.url} target="_blank" rel="noreferrer" className="press self-start rounded-full border border-ink/25 px-4 py-2 font-mono text-label leading-3 tracking-label hover:bg-ink/5">
           details ↗
@@ -125,5 +125,5 @@ function PlanCard({
 }
 
 function Note({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-md border border-dashed border-ink/25 px-[18px] py-4 font-mono text-[10.5px] leading-4 tracking-label text-ink-muted">{children}</p>;
+  return <p className="rounded-md border border-dashed border-ink/25 px-[18px] py-4 font-mono fs-10.5 leading-4 tracking-label text-ink-muted">{children}</p>;
 }
