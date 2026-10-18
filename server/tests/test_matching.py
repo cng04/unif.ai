@@ -398,3 +398,62 @@ async def test_plan_lock_texts_each_member_once_with_their_link(monkeypatch):
             "plan-locked:e1:u1",
         )
     ]
+
+
+async def test_match_text_goes_to_imessage_or_asi_one_by_how_they_joined(monkeypatch):
+    from app.config import Settings
+    from app.services import asi, photon
+
+    sent = []
+
+    async def fake_photon(phone, text, key):
+        sent.append(("imessage", phone, key))
+        return True
+
+    async def fake_asi(address, text, key):
+        sent.append(("asi", address, key))
+        return True
+
+    monkeypatch.setattr(photon, "send_message", fake_photon)
+    monkeypatch.setattr(asi, "send_message", fake_asi)
+    monkeypatch.setattr(photon, "get_settings", lambda: Settings(client_url="https://app.test"))
+    members = [
+        {"user_id": "u1", "full_name": "A", "phone": "+1", "asi_address": None},
+        {"user_id": "u2", "full_name": "B", "phone": None, "asi_address": "agent1qabc"},
+        {"user_id": "u3", "full_name": "C", "phone": None, "asi_address": None},
+    ]
+    await photon.notify_group("g1", members, [])
+
+    key = photon.lineup_key(members)
+    assert sent == [("imessage", "+1", f"matched:{key}:u1"), ("asi", "agent1qabc", f"matched:{key}:u2")]
+
+
+def test_match_key_follows_the_lineup_not_the_group_id():
+    from app.services import photon
+
+    abc = [{"user_id": u} for u in ("a", "b", "c")]
+    assert photon.lineup_key(abc) == photon.lineup_key(list(reversed(abc)))
+    assert photon.lineup_key(abc) != photon.lineup_key(abc[:2] + [{"user_id": "d"}])
+
+
+async def test_asi_send_posts_to_the_relay_agent(monkeypatch):
+    import json
+
+    import httpx
+
+    from app.config import Settings
+    from app.services import asi
+
+    posts = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        posts.append(json.loads(request.content))
+        return httpx.Response(200, json={"sent": True, "error": ""})
+
+    monkeypatch.setattr(asi, "get_settings", lambda: Settings(asi_notify_url="http://agent.test/notify", relay_token="t"))
+    monkeypatch.setattr(asi, "_client", lambda: httpx.AsyncClient(transport=httpx.MockTransport(handle)))
+    assert await asi.send_message("agent1qabc", "hi", "matched:g:u") is True
+    assert posts == [{"address": "agent1qabc", "text": "hi", "key": "matched:g:u", "token": "t"}]
+
+    monkeypatch.setattr(asi, "_client", lambda: httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(500))))
+    assert await asi.send_message("agent1qabc", "hi", "k") is False

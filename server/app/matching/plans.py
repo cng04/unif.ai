@@ -205,7 +205,7 @@ async def load_members(conn: AsyncConnection, group_id: UUID) -> list[dict]:
     return await (
         await conn.execute(
             """
-            SELECT u.id AS user_id, u.full_name, u.phone, ap.public, ap.private, ap.temperature, ap.availability
+            SELECT u.id AS user_id, u.full_name, u.phone, u.asi_address, ap.public, ap.private, ap.temperature, ap.availability
             FROM group_members gm
             JOIN users u ON u.id = gm.user_id
             JOIN agent_profiles ap ON ap.user_id = u.id
@@ -295,7 +295,7 @@ async def plan_group(group_id: UUID, notify: bool = True) -> None:
 
     if notify and rows:
         try:
-            members = [{"user_id": r["user_id"], "full_name": r["full_name"], "phone": r["phone"]} for r in rows]
+            members = [{k: r[k] for k in ("user_id", "full_name", "phone", "asi_address")} for r in rows]
             await photon.notify_group(group_id, members, [c for c, _ in plans])
         except Exception:
             log.exception("notifying group %s failed", group_id)
@@ -366,7 +366,7 @@ async def announce_lock(group_id: UUID, event_id: UUID) -> None:
             event = await (await conn.execute("SELECT * FROM events WHERE id = %s", (event_id,))).fetchone()
             members = await (
                 await conn.execute(
-                    "SELECT u.id AS user_id, u.full_name, u.phone FROM group_members gm JOIN users u ON u.id = gm.user_id "
+                    "SELECT u.id AS user_id, u.full_name, u.phone, u.asi_address FROM group_members gm JOIN users u ON u.id = gm.user_id "
                     "WHERE gm.group_id = %s",
                     (group_id,),
                 )

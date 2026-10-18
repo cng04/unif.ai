@@ -1,11 +1,13 @@
-"""Notify matched users over iMessage via Photon. Falls back to logging until the API key is set."""
+"""Notify matched users over iMessage via Photon, or ASI:One for people who onboarded there. Logs until keys are set."""
 
+import hashlib
 import logging
 import time
 
 import httpx
 
 from app.config import get_settings
+from app.services import asi
 from app.services.event_search import Candidate
 
 log = logging.getLogger(__name__)
@@ -164,30 +166,45 @@ async def assign_line(phone: str, full_name: str) -> str | None:
         return None
 
 
+async def deliver(member: dict, text: str, key: str) -> bool:
+    """Message one member wherever they onboarded: iMessage if we have their phone, else ASI:One."""
+    if member.get("phone"):
+        return await send_message(member["phone"], text, key)
+    if member.get("asi_address"):
+        return await asi.send_message(member["asi_address"], text, key)
+    return False
+
+
 def group_link(user_id) -> str:
     return f"{get_settings().client_url.rstrip('/')}/u/{user_id}/group"
 
 
+def lineup_key(members: list[dict]) -> str:
+    """Same people, same key: matching re-runs make new group ids, but an unchanged group shouldn't be re-texted."""
+    ids = ",".join(sorted(str(m["user_id"]) for m in members))
+    return hashlib.sha256(ids.encode()).hexdigest()[:16]
+
+
 async def notify_group(group_id, members: list[dict], events: list[Candidate]) -> None:
-    """Tell each member who they matched with. members: user rows with user_id, full_name and phone."""
+    """Tell each member who they matched with. members: user rows with user_id, full_name, phone and asi_address.
+
+    Keyed by the lineup, not the group id, so re-running matching only texts people whose group changed.
+    """
     first = events[0] if events else None
+    lineup = lineup_key(members)
     idea = f" First idea: {first.name}." if first else ""
     for member in members:
-        if not member.get("phone"):
-            continue
         others = ", ".join(m["full_name"] for m in members if m is not member)
         text = f"You've been matched with {others}!{idea} Meet them and pick a plan: {group_link(member['user_id'])}"
-        await send_message(member["phone"], text, f"matched:{group_id}:{member['user_id']}")
+        await deliver(member, text, f"matched:{lineup}:{member['user_id']}")
 
 
 async def notify_plan_locked(group_id, event: dict, members: list[dict], going: int) -> None:
     """Tell each member which plan the group locked in. event: an events row; members as in notify_group."""
     where = ", ".join(x for x in (event.get("time_label"), event.get("venue")) if x)
     for member in members:
-        if not member.get("phone"):
-            continue
         text = (
             f"It's on: {event['name']}" + (f", {where}" if where else "") + f". {going} of {len(members)} are in."
             f" Details: {group_link(member['user_id'])}/show-up"
         )
-        await send_message(member["phone"], text, f"plan-locked:{event['id']}:{member['user_id']}")
+        await deliver(member, text, f"plan-locked:{event['id']}:{member['user_id']}")

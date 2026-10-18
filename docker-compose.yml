@@ -25,6 +25,7 @@ services:
     env_file: server/.env
     environment:
       DATABASE_URL: postgresql://unifai:${POSTGRES_PASSWORD:-unifai}@db:5432/unifai
+      ASI_NOTIFY_URL: http://asi-agent:8001/notify
     ports:
       - "${SERVER_PORT:-8000}:8000"
     depends_on: { db: { condition: service_healthy } }

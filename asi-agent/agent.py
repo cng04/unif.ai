@@ -2,7 +2,8 @@
 
 People chat with this agent in ASI:One. Each message is forwarded to the bot's local HTTP channel
 (onboarding/, run with CHANNELS=http), which runs the onboarding flow and writes the final profile to
-Postgres. This file only carries messages; it holds no onboarding logic or state.
+Postgres. The server also posts to /notify on this agent to message people first (e.g. "you've been
+matched"). This file only carries messages; it holds no onboarding logic or state.
 """
 
 import os
@@ -11,7 +12,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import httpx
-from uagents import Agent, Context, Protocol
+from uagents import Agent, Context, Model, Protocol
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
     ChatMessage,
@@ -78,6 +79,33 @@ async def on_chat(ctx: Context, sender: str, msg: ChatMessage):
 @chat.on_message(ChatAcknowledgement)
 async def on_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
     pass
+
+
+class Notify(Model):
+    address: str  # the person's ASI:One agent address (users.asi_address)
+    text: str
+    key: str  # idempotency key: each key is sent at most once
+    token: str = ""  # RELAY_TOKEN (REST handlers don't see headers, so it rides in the body)
+
+
+class NotifyResult(Model):
+    sent: bool
+    error: str = ""
+
+
+@agent.on_rest_post("/notify", Notify, NotifyResult)
+async def on_notify(ctx: Context, req: Notify) -> NotifyResult:
+    """Message someone who onboarded over ASI:One. Called by the server, not by ASI:One users."""
+    if RELAY_TOKEN and req.token != RELAY_TOKEN:
+        return NotifyResult(sent=False, error="bad token")
+    if not req.address.startswith("agent1"):
+        return NotifyResult(sent=False, error="not an agent address")
+    sent_key = f"notified:{req.key}"
+    if ctx.storage.get(sent_key):
+        return NotifyResult(sent=True)  # already sent under this key
+    await ctx.send(req.address, reply(req.text))
+    ctx.storage.set(sent_key, True)
+    return NotifyResult(sent=True)
 
 
 agent.include(chat, publish_manifest=True)

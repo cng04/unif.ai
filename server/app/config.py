@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     # ASI:One onboarding agent: its chat page and @handle, shown on the join page.
     asi_agent_url: str = "https://agentverse.ai/agents/details/agent1q2m667tk62j0fttv52areu03q3slpeqphuapztr0gm5c7dmlj3jhq3k5k4m/profile"
     asi_agent_handle: str = "@unifyai-onboarding"
+    # The relay agent's /notify endpoint, used to message ASI:One users first (match + plan texts). Empty = log only.
+    asi_notify_url: str = "http://127.0.0.1:8001/notify"
+    # Same RELAY_TOKEN as asi-agent/.env, if set there.
+    relay_token: str = ""
     admin_password: str = ""
     client_url: str = "http://localhost:3001"
     # Where /join/<code> is served (this server), used to build invite links.
