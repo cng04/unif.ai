@@ -232,3 +232,10 @@ from stored rows; there is no stored progress or approval state. The older serve
 - Photon assigns shared iMessage lines at join (`assign_line`, needs `PHOTON_API_KEY` and `PHOTON_PROJECT_ID`),
   but `send_message` is still a stub: match notifications only log.
 - `GET /pairs/{id}/messages` returns only `kind = 'message'` rows; agents' private `note` rows are never exposed.
+- Pairs have a `status`: the pipeline inserts `running` when a chat starts and sets `complete` (with the verdict
+  and transcript) when it's judged. Anything that reads judged pairs must filter `status = 'complete'`.
+  `universes.matching_stage` (keywords / scoring / chats / groups) is set during a run and cleared when it ends.
+- `universes.is_demo` marks seeded fixtures and synthetic universes; keep demo and real data apart in lists.
+- World snapshot (`server/app/routers/world.py`): the participant view must never carry keyword scores,
+  dealbreakers, judge flags or rationales, or other people's pair ids. World generation
+  (`client/src/components/visualizer/world/`) may only use fields both views share, so everyone sees one world.

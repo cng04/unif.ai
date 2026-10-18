@@ -345,6 +345,9 @@ Generated docs: <http://localhost:8000/docs>. Only `/admin/api/*` requires authe
 | `GET`/`POST /admin/api/universes`       | List universes with member/onboarded/group counts / create one (basic auth) |
 | `GET /admin/api/universes/{id}`         | Overview: stats, members with onboarding status, keywords (basic auth) |
 | `GET /admin/api/universes/{id}/groups`  | Groups with labels and weakest tie, plus leftovers (basic auth)      |
+| `GET /admin/api/universes/{id}/world?since=` | World snapshot for the agent world: members (onboarding/busy, public fields, top keywords, scores), keywords with crowd sizes, pairs (`running`/`complete`), groups, matching stage; `{unchanged: true}` when `since` matches (basic auth) |
+| `GET /users/{id}/world?since=`          | The same World as that participant may see it: no scores, dealbreakers, flags or rationales; other people's pairs without ids or verdicts |
+| `GET /admin/api/universes?mode=real\|demo\|all` | Universe list filtered by `is_demo` (basic auth) |
 | `GET /admin/api/universes/{id}/scores`  | Keyword vectors for the agent world: per member, score per keyword and the keywords flagged as dealbreakers (basic auth; no private text) |
 
 HTML pages (not in `/docs`): `GET /admin`, `POST /admin/universes`, `GET /admin/universes/{id}` (basic auth),
@@ -381,7 +384,7 @@ Postgres with `vector` and `pgcrypto`; `db/schema.sql` is the source of truth.
 ```bash
 cd server && uv run pytest   # 43 tests; 6 need DATABASE_URL_TEST
 cd agent  && uv run pytest                  # 11 tests
-cd client && npm run lint && npm run build
+cd client && npm run lint && npm run build && npm test   # npm test: Vitest unit tests for World generation
 cd onboarding && npm test
 ```
 
