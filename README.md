@@ -14,74 +14,54 @@ Built for LA Hacks.
 
 ## How it works
 
-1. **Join.** Open an invite link and chat with an interviewer (over iMessage, ASI:One or the web). A few minutes
-   of conversation becomes your agent: what you're into, what you're like, and what you'd rather avoid.
-2. **Find themes.** The system reads everyone's interviews and pulls out the keywords that describe the group,
-   such as *bouldering*, *long breakfasts* or *board games*, then scores each person on each one.
-3. **Meet.** Likely pairs are picked by shared interests and compatible schedules. Their agents have a real
-   conversation, and a judge rates the chemistry, the logistics and any dealbreakers.
-4. **Group.** An optimiser builds the groups: as many people placed as possible, the strongest connections kept
-   together, nobody paired with someone they ruled out.
-5. **Plan.** Each group gets a few ideas for what to do, fitted to when everyone is free. Members tap *i'm in*,
-   and when a majority is in, the plan locks and the group gets a text.
-
-## How it fits together
+From an invite link to a group with a plan, with the tech behind each step. Everything is stored in PostgreSQL,
+and the World shows it live.
 
 ```mermaid
-flowchart LR
-    subgraph People["People"]
-        IM["iMessage<br/>(Photon)"]
-        ASI["ASI:One chat<br/>(Fetch.ai Agentverse)"]
-        WEB["Web app<br/>Next.js · React"]
+flowchart TB
+    subgraph S1["1 · Join"]
+        direction LR
+        A["Invite link"] --> B["Interview<br/>iMessage (Photon) · ASI:One (Fetch.ai uAgents)<br/>or the web app (Next.js)"]
+        B --> C["Your agent<br/>TypeScript bot · Gemini<br/>public + private profile"]
     end
 
-    subgraph Onboard["Onboarding"]
-        RELAY["ASI relay<br/>uAgents · Chat Protocol"]
-        BOT["Interview bot<br/>TypeScript"]
+    subgraph S2["2 · Find themes"]
+        direction LR
+        D["Keywords<br/>Gemini reads every interview"] --> E["Scores<br/>Jev (TypeSafe) rates each person<br/>on each keyword"]
     end
 
-    subgraph Core["Core"]
-        API["API<br/>FastAPI"]
-        PIPE["Matching pipeline<br/>keywords · scores · groups<br/>OR-Tools CP-SAT"]
-        AG["Agent library<br/>interviewer · personas · judge"]
-        DB[("PostgreSQL<br/>pgvector")]
+    subgraph S3["3 · Meet"]
+        direction LR
+        F{"Compatible?<br/>dealbreakers · free time<br/>similarity · OR-Tools"} -->|yes| G["Agents chat<br/>Gemini or OpenRouter<br/>pair by pair"]
+        G --> H["Judge<br/>Jev: chemistry · logistics"]
+        F -->|no| X["Skipped"]
     end
 
-    subgraph Models["Models"]
-        GEM["Gemini<br/>writes text"]
-        JEV["Jev (TypeSafe)<br/>typed scores"]
-        OR["OpenRouter<br/>optional, covers both"]
+    subgraph S4["4 · Group"]
+        direction LR
+        I["Groups of 3–8<br/>OR-Tools CP-SAT"] --> J["Group review<br/>Gemini"]
     end
 
-    subgraph World["The World"]
-        PIXI["PixiJS<br/>generated town"]
-        G3D["three.js<br/>keyword graph"]
+    subgraph S5["5 · Plan"]
+        direction LR
+        K["Ideas fitted to free time<br/>Browser Use · Ticketmaster"] --> L{"Majority<br/>'i'm in'?"}
+        L -->|yes| M["Plan locks<br/>text via Photon"]
+        L -->|not yet| K
     end
 
-    subgraph Outside["The outside world"]
-        BU["Browser Use<br/>profiles · event search"]
-        TM["Ticketmaster<br/>events"]
-    end
+    S1 --> S2 --> S3 --> S4 --> S5
 
-    IM --> BOT
-    ASI --> RELAY --> BOT
-    BOT -->|profiles| DB
-    WEB -->|server-side requests| API
-    API <--> DB
-    API --> PIPE --> AG
-    PIPE <--> DB
-    AG --> GEM
-    AG --> JEV
-    AG -.-> OR
-    PIPE --> BU
-    PIPE --> TM
-    PIPE -->|"match + plan texts"| IM
-    API -->|"one snapshot, polled"| PIXI
-    API --> G3D
+    DB[("PostgreSQL + pgvector<br/>profiles · scores · chats · groups")]
+    API["FastAPI<br/>Python"]
+    W(["The World<br/>PixiJS · live view of every step"])
+
+    S1 -.-> DB
+    S2 -.-> DB
+    S3 -.-> DB
+    S4 -.-> DB
+    S5 -.-> DB
+    DB <--> API --> W
 ```
-
-Participants and admins only ever talk to the API through the web app's server side, never straight to the database.
-The agents are a plain Python library the server calls; the models behind it can be swapped for OpenRouter with one key.
 
 ## The World
 
