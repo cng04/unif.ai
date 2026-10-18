@@ -24,7 +24,15 @@ def get_chat_llms() -> list[LLM]:
     if not settings.openrouter_api_key:
         return [get_llm()]
     models = _models(settings.openrouter_chat_model)
-    return [OpenRouterLLM(m, settings.openrouter_api_key, rpm=settings.openrouter_rpm) for m in models]
+    return [
+        OpenRouterLLM(
+            m,
+            settings.openrouter_api_key,
+            max_tokens=settings.openrouter_chat_max_tokens,
+            rpm=settings.openrouter_rpm,
+        )
+        for m in models
+    ]
 
 
 @lru_cache
@@ -33,13 +41,12 @@ def get_jevs() -> list[Jev]:
     settings = get_settings()
     if not settings.openrouter_api_key:
         return [jev_client(settings.typesafe_api_key, settings.jev_model)]
-    models = _models(settings.openrouter_jev_model) or [settings.openrouter_model]
+    models = _models(settings.openrouter_jev_model) or ["~typesafe/jev-latest"]
     return [
         OpenRouterJev(
             settings.openrouter_api_key,
             m,
             rpm=settings.openrouter_rpm,
-            reasoning_effort=settings.openrouter_jev_reasoning,
         )
         for m in models
     ]

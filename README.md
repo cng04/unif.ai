@@ -99,7 +99,7 @@ flowchart LR
 | ASI agent  | Python 3.11+, uagents, httpx                                                                      | ASI:One relay to the onboarding bot              |
 | Server     | Python 3.11-3.14, FastAPI, uvicorn, pydantic-settings, psycopg 3 (+pool), httpx, numpy, OR-Tools | API, config, raw-SQL access, CP-SAT grouping     |
 | Agent lib  | google-genai, pydantic, httpx, typesafe-sdk                                                       | Gemini calls, schemas, Jev client, OpenRouter    |
-| Models     | Gemini (`gemini-3.8-flash` by default), Jev (`jev-latest`), or OpenRouter (`google/gemini-3.8-flash`) | Text generation; typed scoring and judging       |
+| Models     | Gemini (`gemini-3.8-flash`), Jev (`jev-latest`), or OpenRouter (Gemini plus `~typesafe/jev-latest`) | Text generation; typed scoring and judging       |
 | Database   | Postgres 17 with pgvector and pgcrypto; local image `timescale/timescaledb-ha:pg17`               | Storage. No TimescaleDB-specific features used. |
 | Tooling    | uv (Python), npm (client, bot), pytest + pytest-asyncio, Docker Compose                           | Dependencies, tests, full-stack runs             |
 | Optional   | browser-use (`scrape` extra)                                                                      | Scrape social profiles                           |
@@ -245,15 +245,15 @@ lists them. No secret has a default, and `.env` is gitignored. The onboarding bo
 | `SCRAPE_MODEL`, `SCRAPE_MAX_COST_USD`, `SCRAPE_TIMEOUT_S`, `SCRAPE_SKIP_PLATFORMS` | Optional | Defaults `gemini-3-flash`, 0.05, 180, `instagram,tiktok,facebook`. |
 | `GEMINI_MODEL`          | Optional                       | Default `gemini-3.8-flash`.                                                        |
 | `JEV_MODEL`             | Optional                       | Default `jev-latest`.                                                              |
-| `OPENROUTER_MODEL`      | Optional                       | Keywords, interviewer, judges, Jev stand-in. Default `google/gemini-3.8-flash`.    |
-| `OPENROUTER_CHAT_MODEL` | Optional                       | Persona chats; comma-separate models to rotate pairs across them (each has its own rate limit). Default `google/gemini-3.8-flash`. |
-| `OPENROUTER_JEV_MODEL`  | Optional                       | Jev stand-in for scoring and the pair judge, comma-separated to rotate. Empty = `OPENROUTER_MODEL`. |
+| `OPENROUTER_MODEL`      | Optional                       | Keywords, interviewer and group judge. Default `deepseek/deepseek-v4.1-flash`.     |
+| `OPENROUTER_CHAT_MODEL` | Optional                       | Persona chats; comma-separate models to rotate pairs across them (each has its own rate limit). Default `deepseek/deepseek-v4.1-flash`. |
+| `OPENROUTER_CHAT_MAX_TOKENS` | Optional                  | Max output tokens per persona-chat turn (caps OpenRouter in-flight credit reservation). Default `512`. |
+| `OPENROUTER_JEV_MODEL`  | Optional                       | Native Jev System One model for scoring and the pair judge; versions can be comma-separated. Default `~typesafe/jev-latest,typesafe/jev-1.14,typesafe/jev-1.13`. |
 | `OPENROUTER_RPM`        | Optional                       | Per-model requests per minute; default 0 (unlimited). OpenRouter caps accounts at 20/min per model. |
-| `OPENROUTER_JEV_REASONING` | Optional                    | Reasoning effort for scoring and the pair judge. Default `low`.                    |
 | `KEYWORD_COUNT`         | Optional                       | Default 20 (allowed 5-50).                                                         |
-| `TOP_M`                 | Optional                       | Candidates per person, default 5 (1-20).                                           |
-| `MAX_CONVERSATION_TURNS`| Optional                       | Default 12 (4-30).                                                                 |
-| `MAX_CONCURRENT_CONVERSATIONS` | Optional                | Default 8 (1-32).                                                                  |
+| `TOP_M`                 | Optional                       | Candidates per person, default 4 (1-20).                                           |
+| `MAX_CONVERSATION_TURNS`| Optional                       | Default 6 (4-30).                                                                  |
+| `MAX_CONCURRENT_CONVERSATIONS` | Optional                | Default 50 (1-256).                                                                |
 | `MIN_GROUP_SIZE` / `MAX_GROUP_SIZE` | Optional           | Defaults 4 and 8; min must not exceed max.                                         |
 | `GROUP_SOLVER_SECONDS`  | Optional                       | CP-SAT time limit, default 10 (1-300).                                             |
 | `DATABASE_URL_TEST`     | Tests only                     | Throwaway Postgres for `server/tests/integration/`. Tests are skipped without it.  |

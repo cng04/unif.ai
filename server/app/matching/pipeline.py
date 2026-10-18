@@ -111,11 +111,15 @@ async def run_matching(universe_id: UUID) -> None:
                 time.time() - stage_start,
             )
 
-            # Stage 6: Agent conversations and judge
+            # Stage 6: Agent conversations and judge (stream each pair to DB as it completes)
             stage_start = time.time()
-            results = await asyncio.gather(
-                *(
-                    limited(
+            verdicts: dict[PairKey, Verdict] = {}
+            failed_conversations: list[tuple[str, str]] = []
+            db_lock = asyncio.Lock()
+
+            async def run_and_save_pair(n: int, i: int, j: int) -> None:
+                try:
+                    transcript, verdict = await limited(
                         simulate_pair,
                         chat_llms[n % len(chat_llms)],
                         judges[n % len(judges)],
@@ -123,22 +127,16 @@ async def run_matching(universe_id: UUID) -> None:
                         profiles[j],
                         settings.max_conversation_turns,
                     )
-                    for n, (i, j) in enumerate(candidates)
-                ),
-                return_exceptions=True,
-            )
-
-            verdicts: dict[PairKey, Verdict] = {}
-            failed_conversations = []
-            for (i, j), result in zip(candidates, results):
-                if isinstance(result, Exception):
-                    log.exception("pair %s/%s failed", ids[i], ids[j], exc_info=result)
+                except Exception:
+                    log.exception("pair %s/%s failed", ids[i], ids[j])
                     failed_conversations.append((ids[i], ids[j]))
-                    continue
-                transcript, verdict = result
+                    return
                 key = pair_key(ids[i], ids[j])
-                await save_pair(conn, universe_id, key, transcript, verdict)
+                async with db_lock:
+                    await save_pair(conn, universe_id, key, transcript, verdict)
                 verdicts[key] = verdict
+
+            await asyncio.gather(*(run_and_save_pair(n, i, j) for n, (i, j) in enumerate(candidates)))
             if failed_conversations:
                 log.warning("Conversations failed for %d pairs", len(failed_conversations))
             log.info("Completed %d agent conversations (took %.2fs)", len(verdicts), time.time() - stage_start)
@@ -205,28 +203,36 @@ async def save_signals(
     conn: AsyncConnection, universe_id: UUID, ids: list[str], keywords: list[Keyword], signals: Signals
 ) -> None:
     await conn.execute("DELETE FROM keywords WHERE universe_id = %s", (universe_id,))
-    keyword_ids = []
-    for kw in keywords:
-        row = await (
-            await conn.execute(
-                "INSERT INTO keywords (universe_id, name, description) VALUES (%s, %s, %s) RETURNING id",
-                (universe_id, kw.name, kw.description),
+    rows = await (
+        await conn.execute(
+            "INSERT INTO keywords (universe_id, name, description) "
+            "SELECT %s, unnest(%s::text[]), unnest(%s::text[]) RETURNING id",
+            (universe_id, [kw.name for kw in keywords], [kw.description for kw in keywords]),
+        )
+    ).fetchall()
+    keyword_ids = [r["id"] for r in rows]
+    score_rows = [
+        (user_id, kid, float(signals.scores[i, k]), bool(signals.dealbreakers[i, k]))
+        for i, user_id in enumerate(ids)
+        for k, kid in enumerate(keyword_ids)
+    ]
+    if score_rows:
+        await conn.execute(
+            "INSERT INTO keyword_scores (user_id, keyword_id, score, dealbreaker) "
+            "SELECT unnest(%s::uuid[]), unnest(%s::uuid[]), unnest(%s::double precision[]), unnest(%s::boolean[])",
+            (
+                [r[0] for r in score_rows],
+                [r[1] for r in score_rows],
+                [r[2] for r in score_rows],
+                [r[3] for r in score_rows],
+            ),
+        )
+    if ids:
+        async with conn.cursor() as cur:
+            await cur.executemany(
+                "UPDATE agent_profiles SET availability = %s WHERE user_id = %s",
+                [(sorted(slots), user_id) for user_id, slots in zip(ids, signals.availability)],
             )
-        ).fetchone()
-        keyword_ids.append(row["id"])
-    async with conn.cursor() as cur:
-        await cur.executemany(
-            "INSERT INTO keyword_scores (user_id, keyword_id, score, dealbreaker) VALUES (%s, %s, %s, %s)",
-            [
-                (user_id, kid, float(signals.scores[i, k]), bool(signals.dealbreakers[i, k]))
-                for i, user_id in enumerate(ids)
-                for k, kid in enumerate(keyword_ids)
-            ],
-        )
-        await cur.executemany(
-            "UPDATE agent_profiles SET availability = %s WHERE user_id = %s",
-            [(sorted(slots), user_id) for user_id, slots in zip(ids, signals.availability)],
-        )
     await conn.commit()
 
 
@@ -252,11 +258,18 @@ async def save_pair(
         )
     ).fetchone()
     await conn.execute("DELETE FROM pair_messages WHERE pair_id = %s", (row["id"],))
-    rows = [(row["id"], uid, "message", text) for uid, text in transcript.messages]
-    rows += [(row["id"], uid, "note", note) for uid, notes in transcript.notes.items() for note in notes]
-    async with conn.cursor() as cur:
-        await cur.executemany(
-            "INSERT INTO pair_messages (pair_id, speaker_id, kind, content) VALUES (%s, %s, %s, %s)", rows
+    rows = [(uid, "message", text) for uid, text in transcript.messages]
+    rows += [(uid, "note", note) for uid, notes in transcript.notes.items() for note in notes]
+    if rows:
+        await conn.execute(
+            "INSERT INTO pair_messages (pair_id, speaker_id, kind, content) "
+            "SELECT %s, unnest(%s::uuid[]), unnest(%s::text[]), unnest(%s::text[])",
+            (
+                row["id"],
+                [uid for uid, _, _ in rows],
+                [kind for _, kind, _ in rows],
+                [content for _, _, content in rows],
+            ),
         )
     await conn.commit()
 
@@ -268,9 +281,10 @@ async def save_group(conn: AsyncConnection, universe_id: UUID, members: list[str
             (universe_id, verdict.group_score, verdict.rationale),
         )
     ).fetchone()
-    async with conn.cursor() as cur:
-        await cur.executemany(
-            "INSERT INTO group_members (group_id, user_id) VALUES (%s, %s)", [(row["id"], m) for m in members]
+    if members:
+        await conn.execute(
+            "INSERT INTO group_members (group_id, user_id) SELECT %s, unnest(%s::uuid[])",
+            (row["id"], members),
         )
     await conn.commit()
     return row["id"]

@@ -201,3 +201,25 @@ async def test_photon_logs_instead_of_raising(monkeypatch):
 
     monkeypatch.setattr(photon, "get_settings", lambda: Settings(photon_api_key="key"))
     await photon.send_message("+15550001111", "hi")
+
+
+def test_chat_llms_use_bounded_max_tokens_and_rotate_models(monkeypatch):
+    from app import deps
+    from app.config import Settings
+
+    deps.get_chat_llms.cache_clear()
+    monkeypatch.setattr(
+        deps,
+        "get_settings",
+        lambda: Settings(
+            openrouter_api_key="key",
+            openrouter_chat_model="google/gemini-3.8-flash,google/gemini-3.7-flash",
+            openrouter_chat_max_tokens=512,
+        ),
+    )
+    llms = deps.get_chat_llms()
+    deps.get_chat_llms.cache_clear()
+
+    assert [m.model for m in llms] == ["google/gemini-3.8-flash", "google/gemini-3.7-flash"]
+    assert all(m.max_tokens == 512 for m in llms)
+

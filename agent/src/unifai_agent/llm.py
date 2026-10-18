@@ -116,7 +116,7 @@ def _json_schema(schema: Any) -> Any:
 class OpenRouterLLM:
     def __init__(
         self,
-        model: str = "google/gemini-3.8-flash",
+        model: str = "deepseek/deepseek-v4.1-flash",
         api_key: str | None = None,
         max_tokens: int = 4096,
         attempts: int = 8,

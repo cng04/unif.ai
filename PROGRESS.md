@@ -48,7 +48,7 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
   judge), `end_conversation`, `check_availability`, `lookup_profile`, `ask_my_human` (stub).
 - **`persona.py`**: `PersonaAgent.respond()` loops over tool calls, up to `max_steps` (4), until the
   agent sends a message or ends the conversation.
-- **`conversation.py`**: `run_conversation(a, b, max_turns=12)` alternates speakers and returns a
+- **`conversation.py`**: `run_conversation(a, b, max_turns=6)` alternates speakers and returns a
   `Transcript` (messages, private notes, end reason).
 - **`judge.py`**: `Judge.evaluate` returns a `Verdict` (vibe 1-10, dealbreaker conflicts, logistics fit,
   rationale). `Verdict.edge_weight` is 0 when there's any dealbreaker or the logistics are
@@ -73,8 +73,8 @@ noticeably better or safer. **After the hackathon** means it's cut for now. See 
   each group gets 3 plans (`plans.py`) and a Photon notification.
 - **Services**: `ticketmaster.py` (Discovery API), `photon.py` (stub that only logs), `scraper.py`
   (Browser Use), `event_search.py` (Browser Use search for group plans).
-- **Config** (`config.py`): keyword_count 20, top_m 5, max_conversation_turns 12,
-  max_concurrent_conversations 8, group size 4-8, group_solver_seconds 10. All can be overridden with env vars.
+- **Config** (`config.py`): keyword_count 20, top_m 4, max_conversation_turns 6,
+  max_concurrent_conversations 50, group size 4-8, group_solver_seconds 10. All can be overridden with env vars.
 
 ### `db/`
 - `schema.sql`: universes, users, agent_profiles (with an unused `embedding vector(768)`),
@@ -119,6 +119,7 @@ in order), so feel free to reference them in chat and PRs. New tasks start at #5
 | 11 | [ ] Prepend `CONVERSATION_KICKOFF` to the opening agent's history so it never starts with an `assistant` message. Check in #8 whether Gemini actually complains; skip this if it doesn't. | `agent/persona.py` | |
 | 44 | [ ] **Deploy early** (server, client, shared DB) and redeploy as features land, so "works on my machine" problems show up early. | — | |
 | 50 | [x] Include FastAPI CLI dependencies for deployment startup. | `server/pyproject.toml`, `server/uv.lock` | Codex |
+| 52 | [x] Route OpenRouter scoring and pair judging through Jev's native System One API instead of emulating typed decisions with a generative chat model. | `agent/jev.py`, `server/app/deps.py` | Cursor |
 | 45 | [ ] **`DEMO.md`:** exact click path, which universe and invite code, time per step, who presents, and what to do if a live call fails (switch to the #43 fixture). | repo root | |
 
 ### Should: the demo is noticeably better or safer
@@ -203,6 +204,8 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: #52 OpenRouter now uses native Jev (`~typesafe/jev-latest`) through the System One endpoint for calibrated scoring and pair judging.
+- 2026-10-17: Faster matching defaults (`top_m=4`, `max_conversation_turns=6`, `max_concurrent_conversations=50`), 512-token cap and multi-model Flash rotation defaults for OpenRouter chat, and batched/streamed DB writes (`save_signals`, `save_pair`, `save_group`).
 - 2026-10-17: Tiger Data scripts: `db/migrate-tiger.sh` applies `db/migrations/` to the shared DB and `db/tiger-sql.sh`
   edits its data (psql shell, or SQL with a rolled-back dry run before commit). Both, and `db/push-to-tiger.sh`,
   share `db/tiger-lib.sh` and read `TIGER_DATABASE_URL` from `db/.env`. Tested against the local DB as target.

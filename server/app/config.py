@@ -12,15 +12,15 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.8-flash"
     typesafe_api_key: str = ""
     jev_model: str = "jev-latest"
-    openrouter_api_key: str = ""  # when set, OpenRouter replaces both Gemini and TypeSafe's Jev
-    openrouter_model: str = "google/gemini-3.8-flash"
+    openrouter_api_key: str = ""  # when set, both text generation and Jev are billed through OpenRouter
+    openrouter_model: str = "deepseek/deepseek-v4.1-flash"
     # Persona chats only, the bulk of the tokens. Comma-separate several models to rotate pairs across them:
     # OpenRouter rate limits are per model, so each one adds its own requests-per-minute budget.
-    openrouter_chat_model: str = "google/gemini-3.8-flash"
-    # Jev stand-in for scoring and the pair judge, comma-separated to rotate the same way. Empty = openrouter_model.
-    openrouter_jev_model: str = ""
+    openrouter_chat_model: str = "deepseek/deepseek-v4.1-flash"
+    openrouter_chat_max_tokens: int = 512  # 1-3 sentence turns; keeps OpenRouter in-flight credit reservation low
+    # Native Jev System One models on OpenRouter. Comma-separate versions to rotate requests across them.
+    openrouter_jev_model: str = "~typesafe/jev-latest,typesafe/jev-1.14,typesafe/jev-1.13"
     openrouter_rpm: int = 0  # per-model requests per minute; 0 = unlimited (new OpenRouter accounts get 20)
-    openrouter_jev_reasoning: str = "low"  # reasoning effort for the Jev stand-in (scoring and pair judge)
     ticketmaster_api_key: str = ""
     # Links are always stored; they're only scraped when this is on (costs Browser Use credit). It also turns on
     # the Browser Use event search for group plans; without it, plans come from Ticketmaster only.
@@ -53,9 +53,9 @@ class Settings(BaseSettings):
     join_on_client: bool = False
 
     keyword_count: int = 20
-    top_m: int = 5
-    max_conversation_turns: int = 12
-    max_concurrent_conversations: int = 8
+    top_m: int = 4
+    max_conversation_turns: int = 6
+    max_concurrent_conversations: int = 50
     min_group_size: int = 4
     max_group_size: int = 8
     group_solver_seconds: float = 10.0
