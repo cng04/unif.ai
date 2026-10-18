@@ -150,6 +150,16 @@ body {
   animation: pop 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) both;
 }
 
+@keyframes grow-x {
+  from { transform: scaleX(0); }
+}
+
+/* Bars fill in from the left. */
+@utility draw-bar {
+  transform-origin: left;
+  animation: grow-x 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 @utility rise-in {
   animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }

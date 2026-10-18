@@ -35,12 +35,15 @@ class Settings(BaseSettings):
     # Shared-line seats on your Photon plan (Free: 10, Pro: 100). At the limit, joins go to ASI:One.
     photon_seat_limit: int = 10
     # ASI:One onboarding agent: its chat page and @handle, shown on the join page.
-    asi_agent_url: str = ""
+    asi_agent_url: str = "https://agentverse.ai/agents/details/agent1q2m667tk62j0fttv52areu03q3slpeqphuapztr0gm5c7dmlj3jhq3k5k4m/profile"
     asi_agent_handle: str = "@unifyai-onboarding"
     admin_password: str = ""
     client_url: str = "http://localhost:3001"
     # Where /join/<code> is served (this server), used to build invite links.
     public_url: str = "http://localhost:8000"
+    # Redirect /join/<code> to the web app's join page (CLIENT_URL/join/<code>) instead of rendering HTML here.
+    # Needs the client deployed publicly; off by default because the Docker stack doesn't run it.
+    join_on_client: bool = False
 
     keyword_count: int = 20
     top_m: int = 5

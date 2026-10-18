@@ -161,6 +161,17 @@ The app reads `GET /users/{id}/connections`, `GET /users/{id}/graph`, and `GET /
 They name only the user's own pairs and group members, return everyone else as anonymous ids, and never
 return judge rationales, dealbreaker flags, or private profile fields.
 
+The onboarding bot sends that link once dealbreakers are confirmed (`onboarding/src/flow.ts`, `APP_URL` in
+`onboarding/.env`; unset means no link is sent).
+
+**Admin** (`/admin`): universes list, universe overview (pipeline strip, members, keywords, run matching), and
+groups, under `/admin/universes/{id}`. It reads
+`/admin/api/*` (`server/app/routers/admin_api.py`). Both the `/admin` pages (`src/proxy.ts`) and the API ask for
+HTTP basic auth with `ADMIN_PASSWORD` when it's set; the client forwards its own `ADMIN_PASSWORD` to the API, so
+set the same value in both. Pipeline stages, group labels (`g-01`...), weakest ties and leftovers are all derived
+from stored rows; there is no stored progress or approval state. The older server-rendered admin
+(`server/app/routers/web.py`) still works, since the Docker stack doesn't deploy the client yet.
+
 ## Conventions
 
 - Raw SQL through async psycopg 3 (`app/db.py` pool, `app/repo.py`). There is no ORM.

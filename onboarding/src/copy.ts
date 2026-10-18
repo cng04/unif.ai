@@ -84,12 +84,16 @@ export const NO_DEALBREAKERS_ASK = [
   'is there anything? reply "none" if not',
 ];
 
-export const DONE = (pool?: string) => [
+export const DONE = (pool?: string, appLink?: string) => [
   pool ? `you're all set ✨ your profile is saved and you're in ${pool}` : "you're all set ✨ your profile is saved",
+  ...(appLink ? [`this is your page, where you can watch your group come together as agents meet: ${appLink}`] : []),
   "I'll message you here when I've found a group I think you'll actually enjoy",
 ];
 
-export const ALREADY_DONE = 'you\'re already onboarded! reply "restart" if you want to redo your profile';
+export const ALREADY_DONE = (appLink?: string) =>
+  appLink
+    ? `you're already onboarded! your page is here: ${appLink}\nreply "restart" if you want to redo your profile`
+    : 'you\'re already onboarded! reply "restart" if you want to redo your profile';
 
 export const TEXT_ONLY = "I can only read text for now, mind typing that out?";
 

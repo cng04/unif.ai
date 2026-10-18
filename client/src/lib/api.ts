@@ -17,7 +17,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { "content-type": "application/json", ...init?.headers },
   });
-  if (!res.ok) throw new ApiError(res.status, `${init?.method ?? "GET"} ${path} -> ${res.status}`);
+  if (!res.ok) {
+    // FastAPI puts the reason in `detail` (e.g. "matching already in progress").
+    const detail = await res.json().then((b) => (typeof b?.detail === "string" ? b.detail : null), () => null);
+    throw new ApiError(res.status, detail ?? `${init?.method ?? "GET"} ${path} -> ${res.status}`);
+  }
   return res.json();
 }
 
@@ -104,4 +108,100 @@ export const api = {
   interview: (userId: string) => request<InterviewMessage[]>(`/users/${userId}/interview`),
   sendInterview: (userId: string, message: string) =>
     request<{ reply: string }>(`/users/${userId}/interview`, { method: "POST", body: JSON.stringify({ message }) }),
+};
+
+// ---- Admin (client/src/app/admin). The server checks ADMIN_PASSWORD on /admin/api; we forward the same one. ----
+
+const adminHeaders = (): HeadersInit => {
+  const password = process.env.ADMIN_PASSWORD;
+  return password ? { authorization: `Basic ${btoa(`admin:${password}`)}` } : {};
+};
+
+export type UniverseSummary = {
+  id: string;
+  name: string;
+  status: UniverseStatus;
+  invite_code: string;
+  invite_url: string;
+  created_at: string;
+};
+
+export type UniverseListItem = UniverseSummary & { members: number; onboarded: number; groups: number };
+
+export type OnboardingStatus = "invited" | "chatting" | "complete";
+
+export type UniverseDetail = UniverseSummary & {
+  stats: {
+    members: number;
+    onboarded: number;
+    keywords: number;
+    scored: number;
+    pairs: number;
+    conflicts: number;
+    avg_vibe: number | null;
+    groups: number;
+    placed: number;
+    unplaced: number;
+    events: number;
+    groups_with_events: number;
+  };
+  members: {
+    id: string;
+    full_name: string;
+    contact: string | null;
+    joined_at: string;
+    status: OnboardingStatus;
+    dealbreakers: number;
+    group: string | null;
+    chats: number;
+    strong_ties: number;
+  }[];
+  keywords: UniverseKeyword[];
+};
+
+export type UniverseKeyword = { name: string; description: string | null; high: number; dealbreakers: number };
+
+export type UniverseGroups = UniverseSummary & {
+  groups: (Group & { label: string; weakest_tie: { a: string; b: string; vibe_score: number | null } | null })[];
+  leftovers: { id: string; full_name: string; chats: number; strong_ties: number }[];
+};
+
+export const adminApi = {
+  universes: () => request<UniverseListItem[]>("/admin/api/universes", { headers: adminHeaders() }),
+  createUniverse: (name: string, admin_email: string) =>
+    request<UniverseSummary>("/admin/api/universes", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({ name, admin_email }),
+    }),
+  universe: (id: string) => request<UniverseDetail>(`/admin/api/universes/${id}`, { headers: adminHeaders() }),
+  groups: (id: string) => request<UniverseGroups>(`/admin/api/universes/${id}/groups`, { headers: adminHeaders() }),
+  runMatching: (id: string) =>
+    request<{ status: string }>(`/universes/${id}/matching`, { method: "POST", headers: adminHeaders() }),
+};
+
+// ---- Join page (client/src/app/join). Validation, seats and member creation all happen on the server. ----
+
+export type Invite = {
+  name: string;
+  open: boolean;
+  imessage: boolean;
+  asi_command: string;
+  asi_handle: string;
+  asi_url: string | null;
+};
+
+export type JoinResult = {
+  status: "joined" | "pending" | "invalid" | "imessage_full";
+  message: string | null;
+  first_name: string | null;
+  phone: string | null;
+  line: string | null;
+  sms: string | null;
+};
+
+export const joinApi = {
+  invite: (code: string) => request<Invite>(`/invites/${encodeURIComponent(code)}`),
+  join: (code: string, body: { name: string; phone: string; consent: boolean }) =>
+    request<JoinResult>(`/invites/${encodeURIComponent(code)}/join`, { method: "POST", body: JSON.stringify(body) }),
 };
