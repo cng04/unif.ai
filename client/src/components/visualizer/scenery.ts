@@ -1,18 +1,14 @@
-// Static scenery for one open floor: the 32x32 tilemap (tiles.ts), stone pillars and furniture as Pixi
-// Graphics in the Paper "Warehouse · open floor" style (no walls, zones by tint and furniture, the design-system
-// palette). Tall pieces go into the depth-sorted entity layer so agents walk in front of and behind them.
+// Static scenery for the single-floor World: the 32x32 tilemap (tiles.ts), zone furniture and landscape as Pixi
+// Graphics in the design-system palette (the warehouse-floor look from Paper, now one open campus). Tall pieces
+// go into the depth-sorted entity layer so agents walk in front of and behind them.
 
-import { Container, Graphics } from "pixi.js";
-import { PILLARS, ROOMS, rng, tileToWorld, type FloorId, type Furniture, type Room } from "./layout";
+import { Container, Graphics, Text } from "pixi.js";
+import { depthOf, rng, tileToScreen, type Furniture } from "./world/geometry";
+import type { WorldPlan } from "./world/plan";
 import { buildTileLayer } from "./tiles";
 
 type Pt = { x: number; y: number };
 type Animator = (t: number) => void;
-
-/** Depth key used by both furniture and agents: larger draws later (in front). */
-export function depthOf(x: number, y: number): number {
-  return (x + y) * 10;
-}
 
 // Design-system colours (globals.css / Paper tokens), each with a top and two side shades.
 const INK = { top: 0x34322d, left: 0x1f1d1a, right: 0x292723 };
@@ -21,49 +17,55 @@ const DARK_WOOD = { top: 0x7a5a3e, left: 0x553d29, right: 0x664a33 };
 const PERI = { top: 0xaab7e3, left: 0x6d81b8, right: 0x8197cf };
 const OCHRE = { top: 0xe8c48a, left: 0xb98c47, right: 0xd2a25a };
 const LICHEN = { top: 0x9d9c80, left: 0x6f6e55, right: 0x828166 };
-const STONE = { top: 0x9a958b, left: 0x4f4c47, right: 0x5f5b55 };
+const PALE_STONE = { top: 0xd9d3c7, left: 0xb3ab9c, right: 0xc4bdaf };
 const CHALK = { top: 0xf7f5f0, left: 0xcfc8bb, right: 0xe2ddd3 };
 const PALETTE = [0xe27a50, 0xe2b36c, 0xa8d6e0, 0x8197cf, 0x8f8e70];
 
-const FLAT = new Set(["rug", "discofloor", "mat", "elevator"]);
+const FLAT = new Set(["rug", "discofloor", "mat", "flowers"]);
 
-export type FloorScene = { ground: Container; entities: Container; animators: Animator[] };
+export type Scene = { ground: Container; entities: Container; labels: Container; animators: Animator[] };
 
-export function buildFloor(floor: FloorId): FloorScene {
+export function buildScene(plan: WorldPlan): Scene {
   const ground = new Container();
   const entities = new Container({ sortableChildren: true });
+  const labels = new Container();
   const animators: Animator[] = [];
-  const rooms = ROOMS.filter((r) => r.floor === floor);
+  const themeOf = new Map(plan.zones.map((z) => [z.id, z.structure?.presets[0].id ?? z.kind]));
 
-  ground.addChild(buildTileLayer(floor, rooms));
-  for (const room of rooms)
-    for (const it of room.furniture) {
-      // Graphics can't hold children in Pixi v8, so animated parts sit beside the static drawing.
-      const piece = new Container();
-      const pg = new Graphics();
-      piece.addChild(pg);
-      drawFurniture(pg, piece, floor, it, room, animators);
-      if (FLAT.has(it.kind)) ground.addChild(piece);
-      else {
-        piece.zIndex = depthOf(it.x + it.w - 1, it.y + it.h - 1) + 4;
-        entities.addChild(piece);
-      }
+  ground.addChild(buildTileLayer(plan));
+  for (const it of plan.furniture) {
+    // Graphics can't hold children in Pixi v8, so animated parts sit beside the static drawing.
+    const piece = new Container();
+    const pg = new Graphics();
+    piece.addChild(pg);
+    drawFurniture(pg, piece, it, it.zone ? (themeOf.get(it.zone) ?? "") : "", animators);
+    if (FLAT.has(it.kind)) ground.addChild(piece);
+    else {
+      piece.zIndex = depthOf(it.x + it.w - 1, it.y + it.h - 1) + 4;
+      entities.addChild(piece);
     }
-
-  for (const p of PILLARS[floor]) {
-    const g = new Graphics();
-    isoBox(g, floor, p.x, p.y, 1, 1, 64, STONE, 0, 0.22);
-    isoBox(g, floor, p.x, p.y, 1, 1, 4, { top: 0xb5b0a6, left: 0x6e6a61, right: 0x8c887e }, 64, 0.14);
-    g.zIndex = depthOf(p.x, p.y) + 4;
-    entities.addChild(g);
   }
-  return { ground, entities, animators };
+
+  // Zone names float above the back corner of each zone, like the Paper floor captions.
+  for (const z of plan.zones) {
+    const label = new Text({
+      text: z.name.toUpperCase(),
+      style: { fontFamily: "monospace", fontSize: 8, fill: 0x26241f, letterSpacing: 1.6, fontWeight: "700" },
+      resolution: 4,
+    });
+    const p = tileToScreen(z.x + z.w / 2 - 0.5, z.y - 0.5);
+    label.anchor.set(0.5, 1);
+    label.position.set(p.x, p.y - 4);
+    label.alpha = 0.55;
+    labels.addChild(label);
+  }
+  return { ground, entities, labels, animators };
 }
 
 // ---- geometry ----
 
-function corner(floor: FloorId, gx: number, gy: number): Pt {
-  return tileToWorld(floor, gx, gy);
+function corner(gx: number, gy: number): Pt {
+  return tileToScreen(gx, gy);
 }
 
 function up(p: Pt, z: number): Pt {
@@ -78,64 +80,64 @@ type BoxColors = { top: number; left: number; right: number };
 
 /** A box over tiles [x, x+w) x [y, y+h), inset by `inset` tiles, `z` px tall, floating `lift` px up. */
 export function isoBox(
-  g: Graphics, floor: FloorId, x: number, y: number, w: number, h: number, z: number, c: BoxColors, lift = 0, inset = 0,
+  g: Graphics, x: number, y: number, w: number, h: number, z: number, c: BoxColors, lift = 0, inset = 0,
 ) {
-  const T = up(corner(floor, x - 0.5 + inset, y - 0.5 + inset), lift);
-  const R = up(corner(floor, x + w - 0.5 - inset, y - 0.5 + inset), lift);
-  const B = up(corner(floor, x + w - 0.5 - inset, y + h - 0.5 - inset), lift);
-  const L = up(corner(floor, x - 0.5 + inset, y + h - 0.5 - inset), lift);
+  const T = up(corner(x - 0.5 + inset, y - 0.5 + inset), lift);
+  const R = up(corner(x + w - 0.5 - inset, y - 0.5 + inset), lift);
+  const B = up(corner(x + w - 0.5 - inset, y + h - 0.5 - inset), lift);
+  const L = up(corner(x - 0.5 + inset, y + h - 0.5 - inset), lift);
   g.poly(flat(L, B, up(B, z), up(L, z))).fill(c.left);
   g.poly(flat(B, R, up(R, z), up(B, z))).fill(c.right);
   g.poly(flat(up(T, z), up(R, z), up(B, z), up(L, z))).fill(c.top);
   return { T: up(T, z), R: up(R, z), B: up(B, z), L: up(L, z) };
 }
 
-function tilePoly(floor: FloorId, x: number, y: number, w = 1, h = 1, inset = 0): number[] {
+function tilePoly(x: number, y: number, w = 1, h = 1, inset = 0): number[] {
   const i = inset;
   return flat(
-    corner(floor, x - 0.5 + i, y - 0.5 + i),
-    corner(floor, x + w - 0.5 - i, y - 0.5 + i),
-    corner(floor, x + w - 0.5 - i, y + h - 0.5 - i),
-    corner(floor, x - 0.5 + i, y + h - 0.5 - i),
+    corner(x - 0.5 + i, y - 0.5 + i),
+    corner(x + w - 0.5 - i, y - 0.5 + i),
+    corner(x + w - 0.5 - i, y + h - 0.5 - i),
+    corner(x - 0.5 + i, y + h - 0.5 - i),
   );
 }
 
 /** A point on the front-left (+y) face of a footprint: `t` along the face (0-1), `z` px up from the floor. */
-function onFace(floor: FloorId, it: Furniture, t: number, z: number): Pt {
-  const a = corner(floor, it.x - 0.5, it.y + it.h - 0.5);
-  const b = corner(floor, it.x + it.w - 0.5, it.y + it.h - 0.5);
+function onFace(it: Furniture, t: number, z: number): Pt {
+  const a = corner(it.x - 0.5, it.y + it.h - 0.5);
+  const b = corner(it.x + it.w - 0.5, it.y + it.h - 0.5);
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t - z };
 }
 
-function faceStrip(g: Graphics, floor: FloorId, it: Furniture, t0: number, t1: number, z0: number, z1: number, color: number) {
-  g.poly(flat(onFace(floor, it, t0, z0), onFace(floor, it, t1, z0), onFace(floor, it, t1, z1), onFace(floor, it, t0, z1))).fill(color);
+function faceStrip(g: Graphics, it: Furniture, t0: number, t1: number, z0: number, z1: number, color: number) {
+  g.poly(flat(onFace(it, t0, z0), onFace(it, t1, z0), onFace(it, t1, z1), onFace(it, t0, z1))).fill(color);
 }
 
 // ---- furniture ----
 
-function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furniture, room: Room, animators: Animator[]) {
+function drawFurniture(g: Graphics, layer: Container, it: Furniture, theme: string, animators: Animator[]) {
   const { x, y, w, h } = it;
   const box = (z: number, c: BoxColors, lift = 0, dx = 0, dy = 0, dw = w, dh = h) =>
-    isoBox(g, floor, x + dx, y + dy, dw, dh, z, c, lift);
-  const center = (ox = (w - 1) / 2, oy = (h - 1) / 2, z = 0) => up(tileToWorld(floor, x + ox, y + oy), z);
+    isoBox(g, x + dx, y + dy, dw, dh, z, c, lift);
+  const center = (ox = (w - 1) / 2, oy = (h - 1) / 2, z = 0) => up(tileToScreen(x + ox, y + oy), z);
 
   switch (it.kind) {
     case "rug": {
-      const fill = room.id === "music" ? 0xe2b36c : 0x8f8e70;
-      g.poly(tilePoly(floor, x, y, w, h, 0.04)).fill(fill);
-      g.poly(tilePoly(floor, x, y, w, h, 0.2)).stroke({ color: 0xf3f1ed, width: 1, alpha: 0.7 });
+      const fill = theme === "music" ? 0xe2b36c : 0x8f8e70;
+      g.poly(tilePoly(x, y, w, h, 0.04)).fill(fill);
+      g.poly(tilePoly(x, y, w, h, 0.2)).stroke({ color: 0xf3f1ed, width: 1, alpha: 0.7 });
       break;
     }
     case "discofloor": {
-      g.poly(tilePoly(floor, x, y, w, h, 0)).fill(0x8197cf);
-      g.poly(tilePoly(floor, x, y, w, h, 0.12)).fill(0xdfe3f1);
+      g.poly(tilePoly(x, y, w, h, 0)).fill(0x8197cf);
+      g.poly(tilePoly(x, y, w, h, 0.12)).fill(0xdfe3f1);
       const tiles = new Graphics();
       const draw = (t: number) => {
         tiles.clear();
         for (let ty = y; ty < y + h; ty++)
           for (let tx = x; tx < x + w; tx++) {
             const k = (tx * 7 + ty * 13 + Math.floor(t * 1.2)) % 4;
-            tiles.poly(tilePoly(floor, tx, ty, 1, 1, 0.14)).fill(PALETTE[k]);
+            tiles.poly(tilePoly(tx, ty, 1, 1, 0.14)).fill(PALETTE[k]);
           }
       };
       draw(0);
@@ -144,17 +146,17 @@ function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furnit
       break;
     }
     case "mat":
-      if (room.id === "boulder")
+      if (theme === "climbing")
         for (let ty = y; ty < y + h; ty++)
-          for (let tx = x; tx < x + w; tx++) g.poly(tilePoly(floor, tx, ty, 1, 1, 0.03)).fill((tx + ty) % 2 ? 0x6f7088 : 0x66677e);
+          for (let tx = x; tx < x + w; tx++) g.poly(tilePoly(tx, ty, 1, 1, 0.03)).fill((tx + ty) % 2 ? 0x6f7088 : 0x66677e);
       else {
-        g.poly(tilePoly(floor, x, y, w, h, 0.05)).fill(0x3b3f46);
-        g.poly(tilePoly(floor, x, y, w, h, 0.3)).fill(0x4a4f57);
+        g.poly(tilePoly(x, y, w, h, 0.05)).fill(0x3b3f46);
+        g.poly(tilePoly(x, y, w, h, 0.3)).fill(0x4a4f57);
       }
       break;
     case "elevator":
-      g.poly(tilePoly(floor, x, y, 1, 1, 0.1)).fill({ color: 0xa8d6e0, alpha: 0.8 });
-      g.poly(tilePoly(floor, x, y, 1, 1, 0.3)).stroke({ color: 0xffffff, width: 1, alpha: 0.8 });
+      g.poly(tilePoly(x, y, 1, 1, 0.1)).fill({ color: 0xa8d6e0, alpha: 0.8 });
+      g.poly(tilePoly(x, y, 1, 1, 0.3)).stroke({ color: 0xffffff, width: 1, alpha: 0.8 });
       break;
     case "bench":
       for (let i = 0; i < Math.max(w, h); i++) box(7, OCHRE, 0, w > 1 ? i + 0.08 : 0.08, h > 1 ? i + 0.08 : 0.08, 0.84, 0.84);
@@ -167,7 +169,7 @@ function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furnit
         for (let i = 0; i < books; i++) {
           if (r() < 0.15) continue;
           const t = 0.06 + (0.88 * i) / books;
-          faceStrip(g, floor, it, t, t + 0.88 / books - 0.02, 4 + row * 8, 9 + row * 8 - r() * 2, PALETTE[Math.floor(r() * PALETTE.length)]);
+          faceStrip(g, it, t, t + 0.88 / books - 0.02, 4 + row * 8, 9 + row * 8 - r() * 2, PALETTE[Math.floor(r() * PALETTE.length)]);
         }
       break;
     }
@@ -207,7 +209,7 @@ function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furnit
     case "stove": {
       box(18, INK);
       for (let i = 0; i < w; i++) {
-        const c = up(tileToWorld(floor, x + i, y), 18);
+        const c = up(tileToScreen(x + i, y), 18);
         g.ellipse(c.x - 4, c.y, 3, 1.5).fill(0x6e6a61);
         g.ellipse(c.x + 4, c.y, 3, 1.5).fill(0x6e6a61);
       }
@@ -215,13 +217,13 @@ function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furnit
     }
     case "fridge":
       box(38, CHALK);
-      faceStrip(g, floor, it, 0.1, 0.9, 22, 23, 0xb9b3a7);
+      faceStrip(g, it, 0.1, 0.9, 22, 23, 0xb9b3a7);
       break;
     case "bar":
       box(16, WOOD);
       box(2, DARK_WOOD, 16);
       for (let i = 0; i < w; i += 2) {
-        const c = up(tileToWorld(floor, x + i, y), 18);
+        const c = up(tileToScreen(x + i, y), 18);
         g.rect(c.x - 1, c.y - 7, 2, 7).fill(0x8f8e70);
         g.rect(c.x + 3, c.y - 5, 2, 5).fill(0xe27a50);
       }
@@ -253,7 +255,7 @@ function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furnit
     case "desk":
       box(14, WOOD);
       for (let i = 0; i < w; i++) {
-        const c = up(tileToWorld(floor, x + i, y), 14);
+        const c = up(tileToScreen(x + i, y), 14);
         g.poly([c.x - 5, c.y + 1, c.x + 3, c.y - 3, c.x + 3, c.y - 11, c.x - 5, c.y - 7]).fill(0x26241f);
         g.poly([c.x - 4, c.y - 0.5, c.x + 2, c.y - 3.5, c.x + 2, c.y - 10, c.x - 4, c.y - 7]).fill(0xa8d6e0);
       }
@@ -266,13 +268,13 @@ function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furnit
       break;
     }
     case "table": {
-      const arcade = room.id === "arcade";
+      const arcade = theme === "arcade";
       box(12, arcade ? INK : WOOD);
       const c = center(0.5, 0.5, 12);
       if (arcade) {
         g.rect(c.x - 6, c.y - 3, 12, 6).fill(0x8f8e70);
         for (const [dx, dy, col] of [[-3, -1, 0xe2b36c], [2, 0, 0xe27a50], [0, 1, 0x8197cf]] as const) g.rect(c.x + dx, c.y + dy, 2, 2).fill(col);
-      } else if (room.id === "kitchen") {
+      } else if (theme === "cafe") {
         g.ellipse(c.x - 4, c.y, 3, 1.6).fill(0xf7f5f0);
         g.ellipse(c.x + 4, c.y, 3, 1.6).fill(0xf7f5f0);
         g.rect(c.x - 1, c.y - 6, 2, 6).fill(0xe27a50);
@@ -333,7 +335,7 @@ function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furnit
     case "rack":
       box(3, DARK_WOOD);
       for (let i = 0; i < w; i++) {
-        const c = tileToWorld(floor, x + i, y);
+        const c = tileToScreen(x + i, y);
         for (const dy of [8, 16, 24]) {
           g.rect(c.x - 8, c.y - dy, 16, 1.5).fill(0x9a958b);
           g.circle(c.x - 7, c.y - dy, 3).fill(0x26241f);
@@ -346,7 +348,7 @@ function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furnit
       const r = rng(x * 17 + 3);
       const face = { ...it, y: it.y, h: it.h };
       for (let i = 0; i < w * 9; i++) {
-        const p = onFace(floor, face, 0.04 + r() * 0.92, 4 + r() * 38);
+        const p = onFace(face, 0.04 + r() * 0.92, 4 + r() * 38);
         g.circle(p.x, p.y, 1.4 + r()).fill(i % 6 === 5 ? 0xf7f5f0 : PALETTE[i % 4]);
       }
       break;
@@ -355,9 +357,132 @@ function drawFurniture(g: Graphics, layer: Container, floor: FloorId, it: Furnit
       box(26, LICHEN, 0, 0.1, 0.1, 1.8, 1.8);
       const r = rng(x * 13 + y);
       for (let i = 0; i < 14; i++) {
-        const c = tileToWorld(floor, x + r() * 1.6 - 0.1, y + 1.6);
+        const c = tileToScreen(x + r() * 1.6 - 0.1, y + 1.6);
         g.circle(c.x, c.y - 4 - r() * 18, 1.5).fill(PALETTE[i % 4]);
       }
+      break;
+    }
+    case "workbench": {
+      box(14, WOOD);
+      for (let i = 0; i < w; i++) {
+        const c = up(tileToScreen(x + i, y), 14);
+        if (theme === "science") {
+          g.rect(c.x - 5, c.y - 7, 3, 7).fill(0xa8d6e0);
+          g.rect(c.x + 1, c.y - 5, 3, 5).fill(0xe27a50);
+          g.circle(c.x - 3.5, c.y - 8, 1.5).fill(0xf7f5f0);
+        } else {
+          g.rect(c.x - 6, c.y - 2, 7, 2).fill(0x6e6a61);
+          g.rect(c.x + 2, c.y - 6, 2, 6).fill(0xe2b36c);
+        }
+      }
+      break;
+    }
+    case "easel": {
+      const c = center(0, 0, 0);
+      g.poly([c.x - 6, c.y, c.x - 1, c.y - 26, c.x, c.y - 26, c.x - 4, c.y]).fill(0x9a7552);
+      g.poly([c.x + 6, c.y, c.x + 1, c.y - 26, c.x, c.y - 26, c.x + 4, c.y]).fill(0x9a7552);
+      g.rect(c.x - 7, c.y - 26, 14, 12).fill(0xf7f5f0);
+      g.rect(c.x - 5, c.y - 24, 6, 5).fill(PALETTE[(x + y) % PALETTE.length]);
+      g.rect(c.x + 1, c.y - 20, 4, 4).fill(PALETTE[(x + y + 2) % PALETTE.length]);
+      break;
+    }
+    case "planter": {
+      box(8, DARK_WOOD, 0, 0.08, 0.08, w - 0.16, h - 0.16);
+      for (let i = 0; i < w * 3; i++) {
+        const c = up(tileToScreen(x + (i + 0.5) / 3 - 0.5, y + (h - 1) / 2), 8);
+        g.circle(c.x, c.y - 3, 3.2).fill(i % 2 ? 0x8f8e70 : 0x9fae78);
+      }
+      break;
+    }
+    case "pen": {
+      const corners = [corner(x - 0.5, y - 0.5), corner(x + w - 0.5, y - 0.5), corner(x + w - 0.5, y + h - 0.5), corner(x - 0.5, y + h - 0.5)];
+      g.poly(flat(...corners)).fill({ color: 0x9fae78, alpha: 0.6 });
+      for (let i = 0; i < 4; i++) {
+        const a = corners[i];
+        const b = corners[(i + 1) % 4];
+        g.poly(flat(up(a, 7), up(b, 7), up(b, 8.5), up(a, 8.5))).fill(0x9a7552);
+        g.poly(flat(up(a, 3), up(b, 3), up(b, 4.5), up(a, 4.5))).fill(0x9a7552);
+        g.rect(a.x - 1, a.y - 10, 2, 10).fill(0x7a5a3e);
+      }
+      const a1 = up(tileToScreen(x + 0.6, y + 0.6), 0);
+      const a2 = up(tileToScreen(x + w - 1.2, y + h - 1), 0);
+      g.ellipse(a1.x, a1.y - 4, 5, 3.5).fill(0xf7f5f0);
+      g.circle(a1.x + 4, a1.y - 7, 2.5).fill(0xf7f5f0);
+      g.ellipse(a2.x, a2.y - 3, 4, 3).fill(0xe2b36c);
+      g.circle(a2.x - 3, a2.y - 6, 2).fill(0xe2b36c);
+      break;
+    }
+    case "tent": {
+      const L = corner(x - 0.5, y + h - 0.5);
+      const B = corner(x + w - 0.5, y + h - 0.5);
+      const R = corner(x + w - 0.5, y - 0.5);
+      const T = corner(x - 0.5, y - 0.5);
+      const ridgeA = up({ x: (L.x + T.x) / 2, y: (L.y + T.y) / 2 }, 26);
+      const ridgeB = up({ x: (B.x + R.x) / 2, y: (B.y + R.y) / 2 }, 26);
+      g.poly(flat(L, B, ridgeB, ridgeA)).fill(0xe27a50);
+      g.poly(flat(B, R, ridgeB)).fill(0xc2582f);
+      g.poly(flat(T, R, ridgeB, ridgeA)).fill(0xd06a42);
+      const door = { x: (L.x + B.x) / 2, y: (L.y + B.y) / 2 };
+      g.poly([door.x - 4, door.y, door.x + 4, door.y, door.x, door.y - 14]).fill(0x26241f);
+      break;
+    }
+    case "telescope": {
+      const c = center(0, 0, 0);
+      g.poly([c.x - 6, c.y, c.x - 1, c.y - 16, c.x, c.y - 16, c.x - 4, c.y]).fill(0x4f4c47);
+      g.poly([c.x + 6, c.y, c.x + 1, c.y - 16, c.x, c.y - 16, c.x + 4, c.y]).fill(0x4f4c47);
+      g.poly([c.x - 8, c.y - 14, c.x + 8, c.y - 24, c.x + 9, c.y - 21, c.x - 7, c.y - 11]).fill(0x8197cf);
+      break;
+    }
+    case "tree": {
+      const c = center(0, 0, 0);
+      g.ellipse(c.x, c.y, 9, 4).fill({ color: 0x000000, alpha: 0.08 });
+      g.rect(c.x - 1.5, c.y - 14, 3, 14).fill(0x7a5a3e);
+      const shade = (x * 31 + y * 17) % 3;
+      const greens = [[0x7f8f5c, 0x93a26c], [0x8f8e70, 0xa5a488], [0x6f8a63, 0x86a079]][shade];
+      g.circle(c.x, c.y - 22, 10).fill(greens[0]);
+      g.circle(c.x - 5, c.y - 18, 7).fill(greens[0]);
+      g.circle(c.x + 4, c.y - 27, 6).fill(greens[1]);
+      g.circle(c.x - 3, c.y - 25, 4).fill(greens[1]);
+      break;
+    }
+    case "bush": {
+      const c = center(0, 0, 0);
+      g.circle(c.x - 4, c.y - 5, 5).fill(0x7f8f5c);
+      g.circle(c.x + 3, c.y - 6, 6).fill(0x8f9e68);
+      g.circle(c.x, c.y - 9, 4).fill(0x9fae78);
+      break;
+    }
+    case "flowers": {
+      const r = rng(x * 13 + y * 7);
+      for (let i = 0; i < 6; i++) {
+        const c = tileToScreen(x + r() * 0.8 - 0.4, y + r() * 0.8 - 0.4);
+        g.circle(c.x, c.y - 1, 1.6).fill(PALETTE[Math.floor(r() * 4)]);
+      }
+      break;
+    }
+    case "fountain": {
+      const basin = box(8, PALE_STONE);
+      g.poly(flat(up(basin.T, -1), up(basin.R, -1), up(basin.B, -1), up(basin.L, -1))).fill(0xa8d6e0);
+      const c = center(0.5, 0.5, 8);
+      g.rect(c.x - 2, c.y - 14, 4, 14).fill(0xd9d3c7);
+      g.ellipse(c.x, c.y - 14, 5, 2).fill(0xe2ddd3);
+      const water = new Graphics();
+      const draw = (t: number) => {
+        water.clear();
+        const k = (t * 0.8) % 1;
+        water.ellipse(c.x, c.y + 1, 6 + k * 10, 3 + k * 5).stroke({ color: 0xffffff, width: 1, alpha: 0.8 * (1 - k) });
+        water.circle(c.x, c.y - 17 + Math.sin(t * 6) * 0.8, 1.6).fill(0xa8d6e0);
+      };
+      draw(0);
+      animators.push(draw);
+      layer.addChild(water);
+      break;
+    }
+    case "signpost": {
+      const c = center(0, 0, 0);
+      g.rect(c.x - 1, c.y - 22, 2, 22).fill(0x7a5a3e);
+      g.poly([c.x - 10, c.y - 22, c.x + 8, c.y - 26, c.x + 10, c.y - 20, c.x - 8, c.y - 16]).fill(0xe2b36c);
+      g.poly([c.x - 8, c.y - 13, c.x + 7, c.y - 9, c.x + 6, c.y - 5, c.x - 9, c.y - 9]).fill(0xa8d6e0);
       break;
     }
     default:
