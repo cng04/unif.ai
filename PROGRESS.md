@@ -204,6 +204,10 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-18: The matched text greets the recipient ("You've been matched, Ada!") instead of listing the others.
+  `photon.send_message` now only texts a space whose human participant has the recipient's phone, so a
+  non-matching `participantHandle` filter can't route one member's text into another person's chat.
+
 - 2026-10-18: Larger text on desktop: sizes below 24px scale 1.1x at `md` and up via `--type-scale` in
   `globals.css`; hard-coded `text-[Npx]` / `leading-[Npx]` became `fs-N` / `lh-N`. Mobile unchanged.
 - 2026-10-18: A rate-limited chat turn tries the next OpenRouter model immediately instead of sleeping until
