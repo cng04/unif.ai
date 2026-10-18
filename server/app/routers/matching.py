@@ -55,7 +55,7 @@ async def get_graph(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)
 
 @router.get("/universes/{universe_id}/pairs", response_model=list[Pair])
 async def list_pairs(universe_id: UUID, conn: AsyncConnection = Depends(get_conn)):
-    cur = await conn.execute("SELECT * FROM pairs WHERE universe_id = %s ORDER BY vibe_score DESC", (universe_id,))
+    cur = await conn.execute("SELECT * FROM pairs WHERE universe_id = %s AND status = 'complete' ORDER BY vibe_score DESC", (universe_id,))
     return await cur.fetchall()
 
 

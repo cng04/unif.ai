@@ -73,6 +73,7 @@ async def run_matching(universe_id: UUID) -> None:
 
             # Stage 3: Extract keywords
             stage_start = time.time()
+            await repo.set_matching_stage(conn, universe_id, "keywords")
             keywords = await asyncio.to_thread(extract_keywords, llm, documents, settings.keyword_count)
             if not keywords:
                 log.error("No keywords extracted, cannot continue matching")
@@ -82,6 +83,7 @@ async def run_matching(universe_id: UUID) -> None:
 
             # Stage 4: Score each person
             stage_start = time.time()
+            await repo.set_matching_stage(conn, universe_id, "scoring")
             scored = await asyncio.gather(
                 *(limited(score_person, jevs[n % len(jevs)], d, keywords) for n, d in enumerate(documents)),
                 return_exceptions=True,
@@ -111,21 +113,38 @@ async def run_matching(universe_id: UUID) -> None:
                 time.time() - stage_start,
             )
 
-            # Stage 6: Agent conversations and judge
+            # Stage 6: Agent conversations and judge. Each pair is written as 'running' when its chat actually
+            # starts (it has a concurrency slot) and completed as soon as it's judged, so the World sees real
+            # progress. The chats share this connection; the lock keeps their transactions from interleaving.
             stage_start = time.time()
+            await repo.set_matching_stage(conn, universe_id, "chats")
+            write_lock = asyncio.Lock()
+
+            async def chat(n: int, i: int, j: int) -> Verdict:
+                key = pair_key(ids[i], ids[j])
+                async with semaphore:
+                    async with write_lock:
+                        await start_pair(conn, universe_id, key)
+                    try:
+                        transcript, verdict = await asyncio.get_running_loop().run_in_executor(
+                            executor,
+                            simulate_pair,
+                            chat_llms[n % len(chat_llms)],
+                            judges[n % len(judges)],
+                            profiles[i],
+                            profiles[j],
+                            settings.max_conversation_turns,
+                        )
+                    except Exception:
+                        async with write_lock:
+                            await drop_running_pair(conn, universe_id, key)
+                        raise
+                async with write_lock:
+                    await save_pair(conn, universe_id, key, transcript, verdict)
+                return verdict
+
             results = await asyncio.gather(
-                *(
-                    limited(
-                        simulate_pair,
-                        chat_llms[n % len(chat_llms)],
-                        judges[n % len(judges)],
-                        profiles[i],
-                        profiles[j],
-                        settings.max_conversation_turns,
-                    )
-                    for n, (i, j) in enumerate(candidates)
-                ),
-                return_exceptions=True,
+                *(chat(n, i, j) for n, (i, j) in enumerate(candidates)), return_exceptions=True
             )
 
             verdicts: dict[PairKey, Verdict] = {}
@@ -135,16 +154,14 @@ async def run_matching(universe_id: UUID) -> None:
                     log.exception("pair %s/%s failed", ids[i], ids[j], exc_info=result)
                     failed_conversations.append((ids[i], ids[j]))
                     continue
-                transcript, verdict = result
-                key = pair_key(ids[i], ids[j])
-                await save_pair(conn, universe_id, key, transcript, verdict)
-                verdicts[key] = verdict
+                verdicts[pair_key(ids[i], ids[j])] = result
             if failed_conversations:
                 log.warning("Conversations failed for %d pairs", len(failed_conversations))
             log.info("Completed %d agent conversations (took %.2fs)", len(verdicts), time.time() - stage_start)
 
             # Stage 7: Group formation
             stage_start = time.time()
+            await repo.set_matching_stage(conn, universe_id, "groups")
             forbidden = {pair_key(ids[i], ids[j]) for i, j in zip(*np.nonzero(np.triu(blocked)))}
             forbidden |= {k for k, v in verdicts.items() if v.has_conflict}
             groups = await asyncio.to_thread(
@@ -182,6 +199,8 @@ async def run_matching(universe_id: UUID) -> None:
         except Exception:
             log.exception("matching failed for universe %s", universe_id)
             await conn.rollback()
+            # A chat that was mid-flight will never complete; don't leave it looking live.
+            await conn.execute("DELETE FROM pairs WHERE universe_id = %s AND status = 'running'", (universe_id,))
             await repo.set_universe_status(conn, universe_id, "onboarding")
         finally:
             executor.shutdown(wait=False, cancel_futures=True)
@@ -230,6 +249,27 @@ async def save_signals(
     await conn.commit()
 
 
+async def start_pair(conn: AsyncConnection, universe_id: UUID, key: PairKey) -> None:
+    """A chat has begun: the pair exists, with no verdict or transcript yet."""
+    await conn.execute(
+        """
+        INSERT INTO pairs (universe_id, user_a, user_b, status) VALUES (%s, %s, %s, 'running')
+        ON CONFLICT (universe_id, user_a, user_b) DO NOTHING
+        """,
+        (universe_id, *key),
+    )
+    await conn.commit()
+
+
+async def drop_running_pair(conn: AsyncConnection, universe_id: UUID, key: PairKey) -> None:
+    """The chat failed, so there will be no verdict; remove the placeholder."""
+    await conn.execute(
+        "DELETE FROM pairs WHERE universe_id = %s AND user_a = %s AND user_b = %s AND status = 'running'",
+        (universe_id, *key),
+    )
+    await conn.commit()
+
+
 async def save_pair(
     conn: AsyncConnection, universe_id: UUID, key: PairKey, transcript: Transcript, verdict: Verdict
 ) -> None:
@@ -237,12 +277,12 @@ async def save_pair(
         await conn.execute(
             """
             INSERT INTO pairs (universe_id, user_a, user_b, vibe_score, dealbreaker_flags,
-                               logistics_fit, judge_rationale, end_reason)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                               logistics_fit, judge_rationale, end_reason, status, completed_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'complete', now())
             ON CONFLICT (universe_id, user_a, user_b) DO UPDATE SET
                 vibe_score = EXCLUDED.vibe_score, dealbreaker_flags = EXCLUDED.dealbreaker_flags,
                 logistics_fit = EXCLUDED.logistics_fit, judge_rationale = EXCLUDED.judge_rationale,
-                end_reason = EXCLUDED.end_reason
+                end_reason = EXCLUDED.end_reason, status = 'complete', completed_at = now()
             RETURNING id
             """,
             (

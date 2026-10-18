@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import pool
-from app.routers import admin_api, invites, matching, me, onboarding, universes, web
+from app.routers import admin_api, invites, matching, me, onboarding, universes, web, world
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%H:%M:%S")
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -34,6 +34,8 @@ app.include_router(matching.router)
 app.include_router(me.router)
 app.include_router(admin_api.router)
 app.include_router(invites.router)
+app.include_router(world.admin)
+app.include_router(world.public)
 app.include_router(web.admin)
 app.include_router(web.public)
 

@@ -66,7 +66,8 @@ def seed(conn: psycopg.Connection) -> dict[str, str]:
     conn.execute("DELETE FROM universes WHERE invite_code = %s", (INVITE,))
     universe = uuid5(NAMESPACE_URL, "unif.ai/ui-demo")
     conn.execute(
-        "INSERT INTO universes (id, name, admin_email, invite_code, status) VALUES (%s, 'UI Demo', 'demo@unif.ai', %s, 'matched')",
+        "INSERT INTO universes (id, name, admin_email, invite_code, status, is_demo)"
+        " VALUES (%s, 'UI Demo', 'demo@unif.ai', %s, 'matched', true)",
         (universe, INVITE),
     )
 

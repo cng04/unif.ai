@@ -1,5 +1,5 @@
-INSERT INTO universes (id, name, admin_email, invite_code)
-VALUES ('00000000-0000-0000-0000-000000000001', '30-person Demo', 'admin@unif.ai', 'lahacks');
+INSERT INTO universes (id, name, admin_email, invite_code, is_demo)
+VALUES ('00000000-0000-0000-0000-000000000001', '30-person Demo', 'admin@unif.ai', 'lahacks', true);
 
 -- 40 famous people (athletes, actors, musicians, politicians, scientists, historical figures) in 8 rough
 -- clusters of 5: outdoors, games, arts, music, food, sports, books and science, nightlife. Ids are ordered by

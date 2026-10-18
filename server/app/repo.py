@@ -21,7 +21,29 @@ async def get_universe(conn: AsyncConnection, universe_id: UUID) -> dict:
 
 
 async def set_universe_status(conn: AsyncConnection, universe_id: UUID, status: str) -> None:
-    await conn.execute("UPDATE universes SET status = %s WHERE id = %s", (status, universe_id))
+    # Leaving 'matching' ends the run, so the live stage goes with it.
+    await conn.execute(
+        """
+        UPDATE universes SET status = %(s)s,
+            matching_stage = CASE WHEN %(s)s = 'matching' THEN matching_stage END,
+            matching_stage_at = CASE WHEN %(s)s = 'matching' THEN matching_stage_at END
+        WHERE id = %(u)s
+        """,
+        {"s": status, "u": universe_id},
+    )
+    await conn.commit()
+
+
+MATCHING_STAGES = ("keywords", "scoring", "chats", "groups")
+
+
+async def set_matching_stage(conn: AsyncConnection, universe_id: UUID, stage: str) -> None:
+    """Record the stage a run is in, for the World's live progress."""
+    if stage not in MATCHING_STAGES:
+        raise ValueError(f"unknown matching stage {stage!r}")
+    await conn.execute(
+        "UPDATE universes SET matching_stage = %s, matching_stage_at = now() WHERE id = %s", (stage, universe_id)
+    )
     await conn.commit()
 
 
@@ -38,7 +60,9 @@ async def claim_matching(conn: AsyncConnection, universe_id: UUID) -> bool:
 async def release_matching(conn: AsyncConnection, universe_id: UUID) -> bool:
     """Move a universe from 'matching' back to 'onboarding'. False if it wasn't matching."""
     cur = await conn.execute(
-        "UPDATE universes SET status = 'onboarding' WHERE id = %s AND status = 'matching' RETURNING id", (universe_id,)
+        "UPDATE universes SET status = 'onboarding', matching_stage = NULL, matching_stage_at = NULL"
+        " WHERE id = %s AND status = 'matching' RETURNING id",
+        (universe_id,),
     )
     released = await cur.fetchone() is not None
     await conn.commit()
