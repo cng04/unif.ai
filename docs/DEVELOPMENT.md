@@ -451,15 +451,10 @@ Not production-ready. What exists:
 Missing: a client Dockerfile (so Docker deployments use the server's HTML admin and join pages), CI, a real
 migration tool, authentication and authorization beyond `/admin`, rate
 limiting, secrets management, a job queue (runs die with the process), progress reporting, structured
-logging and metrics, and a deployed environment. The shared database is intended to be Tiger Data. Three
-scripts in `db/` work on it, reading `TIGER_DATABASE_URL` from the environment or `db/.env` and running `psql`
-inside the local DB container (so the local DB must be up):
-
-- `db/migrate-tiger.sh [file ...]`: applies `db/migrations/*.sql` (or the named files), one transaction each.
-- `db/tiger-sql.sh`: opens a `psql` shell on Tiger; with `-c "SQL"` or a `.sql` file it shows a rolled-back dry
-  run, then applies the SQL in one transaction once you type `commit`.
-- `db/push-to-tiger.sh`: replaces all app tables on Tiger with a copy of your local Docker database (asks for
-  confirmation; one transaction). Only for demo data: it deletes whatever real users are there.
+logging and metrics, and a documented production deployment. The shared database is Tiger Data (hosted
+Postgres with pgvector); to update it, apply the idempotent patches in `db/migrations/` with `psql "$DATABASE_URL" -f
+db/migrations/<file>.sql`, one at a time, and dry-run any hand-written SQL inside a transaction you roll back first.
+Never load the demo seed into a database that holds real people.
 
 ## Current development status
 

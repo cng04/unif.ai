@@ -232,8 +232,8 @@ from stored rows; there is no stored progress or approval state. The older serve
 
 - Local DB: `db/docker-compose.yml` runs the SQL files only on first boot. After changing the schema,
   run `docker compose down -v` to reset the volume. A shared Tiger Data instance needs the schema
-  re-applied by hand, or the `db/migrations/` patches applied (`db/migrate-tiger.sh`). Edit its data with
- `db/tiger-sql.sh` (dry run first), not `db/push-to-tiger.sh`, which wipes it.
+  re-applied by hand, or the `db/migrations/` patches applied with `psql` (they are idempotent). Dry-run any SQL
+  that edits its data inside a transaction you roll back first, and never load demo seeds into it.
 - `server/` requires Python below 3.15, because OR-Tools has no 3.15 wheels yet.
 - The schema needs only the `vector` and `pgcrypto` extensions. No TimescaleDB-specific features are used.
 - `client/` runs a new Next.js version. Read `client/AGENTS.md` before writing frontend code.
