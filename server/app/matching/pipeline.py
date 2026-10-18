@@ -219,7 +219,7 @@ async def save_signals(
     if score_rows:
         await conn.execute(
             "INSERT INTO keyword_scores (user_id, keyword_id, score, dealbreaker) "
-            "SELECT unnest(%s::uuid[]), unnest(%s::uuid[]), unnest(%s::double precision[]), unnest(%s::boolean[])",
+            "SELECT unnest(%s::uuid[]), unnest(%s::int[]), unnest(%s::double precision[]), unnest(%s::boolean[])",
             (
                 [r[0] for r in score_rows],
                 [r[1] for r in score_rows],

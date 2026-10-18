@@ -1,12 +1,25 @@
+import logging
 from functools import lru_cache
 
 from unifai_agent import LLM, GeminiLLM, Interviewer, Jev, Judge, OpenRouterJev, OpenRouterLLM, jev_client
 
 from app.config import get_settings
 
+log = logging.getLogger(__name__)
+DEFAULT_OPENROUTER_JEV_MODEL = "~typesafe/jev-latest"
+
 
 def _models(csv: str) -> list[str]:
     return [m.strip() for m in csv.split(",") if m.strip()]
+
+
+def _jev_models(csv: str) -> list[str]:
+    configured = _models(csv)
+    models = [m for m in configured if m.lstrip("~").startswith("typesafe/jev-")]
+    ignored = [m for m in configured if m not in models]
+    if ignored:
+        log.warning("Ignoring non-Jev OPENROUTER_JEV_MODEL entries: %s", ", ".join(ignored))
+    return models or [DEFAULT_OPENROUTER_JEV_MODEL]
 
 
 @lru_cache
@@ -41,7 +54,7 @@ def get_jevs() -> list[Jev]:
     settings = get_settings()
     if not settings.openrouter_api_key:
         return [jev_client(settings.typesafe_api_key, settings.jev_model)]
-    models = _models(settings.openrouter_jev_model) or ["~typesafe/jev-latest"]
+    models = _jev_models(settings.openrouter_jev_model)
     return [
         OpenRouterJev(
             settings.openrouter_api_key,

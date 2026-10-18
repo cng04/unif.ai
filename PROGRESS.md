@@ -204,6 +204,10 @@ Decide these in the first hour.
 
 Add a line here for each change merged to `main`.
 
+- 2026-10-17: Fixed batched `keyword_scores` persistence to cast serial keyword IDs as `int[]` rather than
+  `uuid[]`; the earlier cast failed immediately after successful parallel scoring.
+- 2026-10-17: OpenRouter Jev configuration now ignores stale chat-model entries (such as Claude or Gemini)
+  and falls back to native `~typesafe/jev-latest`, preventing System One 400s after an env-only deployment.
 - 2026-10-17: #52 OpenRouter now uses native Jev (`~typesafe/jev-latest`) through the System One endpoint for calibrated scoring and pair judging.
 - 2026-10-17: Faster matching defaults (`top_m=4`, `max_conversation_turns=6`, `max_concurrent_conversations=50`), 512-token cap and multi-model Flash rotation defaults for OpenRouter chat, and batched/streamed DB writes (`save_signals`, `save_pair`, `save_group`).
 - 2026-10-17: Tiger Data scripts: `db/migrate-tiger.sh` applies `db/migrations/` to the shared DB and `db/tiger-sql.sh`

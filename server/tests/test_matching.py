@@ -1,9 +1,11 @@
 from types import SimpleNamespace
+from uuid import uuid4
 
 import numpy as np
 
 from app.matching.groups import build_groups
 from app.matching.keywords import Keyword
+from app.matching.pipeline import save_signals
 from app.matching.projection import project_3d
 from app.matching.scoring import (
     KeywordScore,
@@ -97,6 +99,42 @@ def signals(scores, dealbreakers=None, availability=None) -> Signals:
         dealbreakers=np.array(dealbreakers if dealbreakers is not None else np.zeros_like(scores), dtype=bool),
         availability=availability or [set() for _ in scores],
     )
+
+
+async def test_save_signals_casts_serial_keyword_ids_as_integers():
+    class Result:
+        async def fetchall(self):
+            return [{"id": 1}, {"id": 2}]
+
+    class Cursor:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def executemany(self, *_):
+            return None
+
+    class Connection:
+        def __init__(self):
+            self.queries = []
+
+        async def execute(self, query, params):
+            self.queries.append(query)
+            return Result()
+
+        def cursor(self):
+            return Cursor()
+
+        async def commit(self):
+            return None
+
+    conn = Connection()
+    await save_signals(conn, uuid4(), [str(uuid4())], KEYWORDS, signals([[0.9, 0.1]]))
+
+    insert = next(q for q in conn.queries if "INSERT INTO keyword_scores" in q)
+    assert "unnest(%s::uuid[]), unnest(%s::int[])" in insert
 
 
 def test_hard_conflicts_from_dealbreaker_keywords():
@@ -222,4 +260,24 @@ def test_chat_llms_use_bounded_max_tokens_and_rotate_models(monkeypatch):
 
     assert [m.model for m in llms] == ["google/gemini-3.8-flash", "google/gemini-3.7-flash"]
     assert all(m.max_tokens == 512 for m in llms)
+
+
+def test_openrouter_jev_ignores_chat_models_and_falls_back(monkeypatch, caplog):
+    from app import deps
+    from app.config import Settings
+
+    deps.get_jevs.cache_clear()
+    monkeypatch.setattr(
+        deps,
+        "get_settings",
+        lambda: Settings(
+            openrouter_api_key="key",
+            openrouter_jev_model="google/gemini-3.8-flash,anthropic/claude-haiku-5.5",
+        ),
+    )
+    jevs = deps.get_jevs()
+    deps.get_jevs.cache_clear()
+
+    assert [m.model for m in jevs] == ["~typesafe/jev-latest"]
+    assert "Ignoring non-Jev OPENROUTER_JEV_MODEL entries" in caplog.text
 
