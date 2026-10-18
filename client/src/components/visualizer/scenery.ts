@@ -32,7 +32,10 @@ export function buildScene(plan: WorldPlan): Scene {
   const animators: Animator[] = [];
   const themeOf = new Map(plan.zones.map((z) => [z.id, z.structure?.presets[0].id ?? z.kind]));
 
-  ground.addChild(buildTileLayer(plan));
+  // ~4,000 static tile sprites: draw them once into a texture instead of every frame.
+  const tiles = buildTileLayer(plan);
+  ground.addChild(tiles);
+  tiles.cacheAsTexture({ resolution: 1, antialias: false });
   for (const it of plan.furniture) {
     // Graphics can't hold children in Pixi v8, so animated parts sit beside the static drawing.
     const piece = new Container();
